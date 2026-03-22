@@ -10,10 +10,18 @@ createServer((page) =>
         page,
         render: ReactDOMServer.renderToString,
         resolve: (name) => {
-            const pages = import.meta.glob('./pages/**/*.tsx', {
+            const pages = import.meta.glob('./pages/**/*.{tsx,jsx}', {
                 eager: true,
             });
-            return pages[`./pages/${name}.tsx`];
+            const tsxPath = `./pages/${name}.tsx`;
+            const jsxPath = `./pages/${name}.jsx`;
+            const pageModule = pages[tsxPath] ?? pages[jsxPath];
+
+            if (!pageModule) {
+                throw new Error(`Page not found: ${tsxPath} or ${jsxPath}`);
+            }
+
+            return pageModule;
         },
         // prettier-ignore
         setup: ({ App, props }) => <App {...props} />,
