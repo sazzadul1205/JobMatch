@@ -21,6 +21,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'role',
     ];
 
     /**
@@ -44,5 +45,61 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * Check if user is an admin
+     */
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
+    }
+
+    /**
+     * Check if user is an employer
+     */
+    public function isEmployer(): bool
+    {
+        return $this->role === 'employer';
+    }
+
+    /**
+     * Check if user is a job seeker
+     */
+    public function isJobSeeker(): bool
+    {
+        return $this->role === 'job_seeker';
+    }
+
+    /**
+     * Check if user has a specific role
+     */
+    public function hasRole(string $role): bool
+    {
+        return $this->role === $role;
+    }
+
+    /**
+     * Check if user has any of the given roles
+     */
+    public function hasAnyRole(array $roles): bool
+    {
+        return in_array($this->role, $roles);
+    }
+
+    /**
+     * Get the job listings created by this user (for employers)
+     */
+    public function jobListings()
+    {
+        return $this->hasMany(JobListing::class);
+    }
+
+    /**
+     * Get the applications submitted by this user (for job seekers)
+     */
+    public function applications()
+    {
+        return $this->hasMany(Application::class);
     }
 }

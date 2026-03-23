@@ -1,4 +1,5 @@
 <?php
+// database/migrations/0001_01_01_000000_create_users_table.php
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
@@ -17,8 +18,12 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
+            $table->enum('role', ['admin', 'employer', 'job_seeker'])->default('job_seeker');
             $table->rememberToken();
             $table->timestamps();
+
+            // Add index for role
+            $table->index('role');
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {

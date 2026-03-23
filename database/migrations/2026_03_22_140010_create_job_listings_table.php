@@ -1,5 +1,5 @@
 <?php
-// database/migrations/2026_03_22_140010_create_jobs_table.php
+// database/migrations/2026_03_22_140010_create_job_listings_table.php
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
@@ -9,7 +9,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('jobs', function (Blueprint $table) {
+        Schema::create('job_listings', function (Blueprint $table) {
             $table->id();
             $table->string('title');
             $table->text('description');
@@ -24,11 +24,16 @@ return new class extends Migration
             $table->boolean('is_active')->default(true);
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->timestamps();
+
+            // Add indexes for better performance
+            $table->index(['is_active', 'application_deadline']);
+            $table->index('category');
+            $table->index('job_type');
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('jobs');
+        Schema::dropIfExists('job_listings');
     }
 };

@@ -11,7 +11,7 @@ return new class extends Migration
     {
         Schema::create('applications', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('job_id')->constrained()->onDelete('cascade');
+            $table->foreignId('job_listing_id')->constrained()->onDelete('cascade');
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->string('name');
             $table->string('email');
@@ -23,6 +23,11 @@ return new class extends Migration
             $table->enum('status', ['pending', 'reviewed', 'shortlisted', 'rejected', 'hired'])->default('pending');
             $table->text('employer_notes')->nullable();
             $table->timestamps();
+
+            // Add indexes
+            $table->index('status');
+            $table->index(['job_listing_id', 'status']);
+            $table->unique(['job_listing_id', 'user_id']); // Prevent duplicate applications
         });
     }
 
