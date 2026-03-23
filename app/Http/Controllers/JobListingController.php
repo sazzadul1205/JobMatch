@@ -91,6 +91,7 @@ class JobListingController extends Controller
             'jobTypes' => $this->getJobTypes(),
             'categories' => $this->getCategories(),
             'experienceLevels' => $this->getExperienceLevels(),
+            'storeUrl' => route('backend.listing.store'), 
         ]);
     }
 
