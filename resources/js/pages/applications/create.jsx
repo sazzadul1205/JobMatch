@@ -16,8 +16,7 @@ import {
   FiMapPin,
   FiDollarSign,
   FiClock,
-  FiAward,
-  FiTag
+  FiAward
 } from 'react-icons/fi';
 
 const ApplicationForm = ({ job, hasApplied }) => {
