@@ -1,9 +1,11 @@
 <?php
+// app/Models/Application.php
 
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Services\ATSService;
 
 class Application extends Model
 {
@@ -110,6 +112,28 @@ class Application extends Model
         }
 
         return $this->ats_score['total'] ?? null;
+    }
+
+    /**
+     * Calculate ATS score for this application
+     */
+    public function calculateATSScore(): void
+    {
+        $atsService = new ATSService();
+        $scoreData = $atsService->calculateScore($this, $this->jobListing);
+
+        $this->update([
+            'ats_score' => [
+                'total' => $scoreData['total'],
+                'percentage' => $scoreData['percentage'],
+                'extracted_skills' => $scoreData['extracted_skills'],
+                'extracted_experience_years' => $scoreData['extracted_experience_years'],
+                'extracted_education' => $scoreData['extracted_education'],
+                'analysis_details' => $scoreData['analysis_details']
+            ],
+            'matched_keywords' => $scoreData['matched_keywords'],
+            'missing_keywords' => $scoreData['missing_keywords'],
+        ]);
     }
 
     /**

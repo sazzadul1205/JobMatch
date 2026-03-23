@@ -117,4 +117,27 @@ class JobListing extends Model
     {
         return $query->where('location', 'LIKE', "%{$location}%");
     }
+
+    /**
+     * Get keywords as array
+     */
+    public function getKeywordsAttribute($value)
+    {
+        if (is_string($value)) {
+            return json_decode($value, true) ?? [];
+        }
+        return $value ?? [];
+    }
+
+    /**
+     * Set keywords as JSON
+     */
+    public function setKeywordsAttribute($value)
+    {
+        if (is_array($value)) {
+            $this->attributes['keywords'] = json_encode($value);
+        } else {
+            $this->attributes['keywords'] = $value;
+        }
+    }
 }
