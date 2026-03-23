@@ -1,10 +1,12 @@
 <?php
+// app/Http/Controllers/JobListingController.php
 
 namespace App\Http\Controllers;
 
 use App\Models\JobListing;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Inertia\Inertia;
 
 class JobListingController extends Controller
 {
@@ -15,14 +17,6 @@ class JobListingController extends Controller
     {
         /** @var \App\Models\User $user */
         $user = Auth::user();
-
-        // Add authentication check
-        if (!$user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthenticated.'
-            ], 401);
-        }
 
         $query = JobListing::query();
 
@@ -51,21 +45,52 @@ class JobListingController extends Controller
             $query->inLocation($request->location);
         }
 
-        // For employers, show their own jobs
+        if ($request->filled('status')) {
+            if ($request->status === 'active') {
+                $query->active();
+            } elseif ($request->status === 'inactive') {
+                $query->where('is_active', false);
+            }
+        }
+
+        // Role-based filtering
         if ($user->isEmployer()) {
             $query->where('user_id', Auth::id());
-        }
-        // For job seekers, show only active jobs
-        elseif ($user->isJobSeeker()) {
+        } elseif ($user->isJobSeeker()) {
             $query->active();
         }
-        // Admin sees all jobs (no additional filters needed)
+        // Admin sees all jobs
 
-        $jobListings = $query->latest()->paginate(10);
+        $jobListings = $query->with('employer')
+            ->latest()
+            ->paginate(10)
+            ->withQueryString();
 
-        return response()->json([
-            'success' => true,
-            'data' => $jobListings
+        return Inertia::render('jobs/index', [
+            'jobs' => $jobListings,
+            'filters' => $request->only(['search', 'job_type', 'category', 'experience_level', 'location', 'status']),
+            'userRole' => $user->role,
+        ]);
+    }
+
+    /**
+     * Show the form for creating a new job listing.
+     */
+    public function create()
+    {
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+
+        // Only employers and admins can create jobs
+        if (!$user->isEmployer() && !$user->isAdmin()) {
+            return redirect()->route('backend.listing.index')
+                ->with('error', 'Unauthorized to create job listings.');
+        }
+
+        return Inertia::render('jobs/create', [
+            'jobTypes' => $this->getJobTypes(),
+            'categories' => $this->getCategories(),
+            'experienceLevels' => $this->getExperienceLevels(),
         ]);
     }
 
@@ -76,12 +101,11 @@ class JobListingController extends Controller
     {
         /** @var \App\Models\User $user */
         $user = Auth::user();
+
         // Only employers and admins can create jobs
         if (!$user->isEmployer() && !$user->isAdmin()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized. Only employers can create job listings.'
-            ], 403);
+            return redirect()->route('backend.listing.index')
+                ->with('error', 'Unauthorized to create job listings.');
         }
 
         $validated = $request->validate([
@@ -101,16 +125,13 @@ class JobListingController extends Controller
         $validated['user_id'] = Auth::id();
 
         if (isset($validated['keywords'])) {
-            $validated['keywords'] = json_encode($validated['keywords']);
+            $validated['keywords'] = $validated['keywords'];
         }
 
         $jobListing = JobListing::create($validated);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Job listing created successfully.',
-            'data' => $jobListing
-        ], 201);
+        return redirect()->route('backend.listing.show', $jobListing)
+            ->with('success', 'Job listing created successfully.');
     }
 
     /**
@@ -121,48 +142,65 @@ class JobListingController extends Controller
         /** @var \App\Models\User $user */
         $user = Auth::user();
 
-        // If user is a job seeker
+        // Load relationships
+        $jobListing->load(['employer', 'applications' => function ($query) use ($user) {
+            if ($user->isEmployer()) {
+                $query->with('applicant')->latest();
+            } elseif ($user->isJobSeeker()) {
+                $query->where('user_id', $user->id);
+            }
+        }]);
+
+        // Authorization checks for view
         if ($user->isJobSeeker()) {
-            // Check if job is accepting applications
             if (!$jobListing->isAcceptingApplications()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'This job is no longer accepting applications.'
-                ], 403);
+                return redirect()->route('backend.listing.index')
+                    ->with('error', 'This job is no longer accepting applications.');
             }
-            return response()->json([
-                'success' => true,
-                'data' => $jobListing->load('employer')
-            ]);
         }
 
-        // If user is an employer
-        if ($user->isEmployer()) {
-            // Check if employer owns this job
-            if ($jobListing->user_id !== Auth::id()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Unauthorized to view this job listing.'
-                ], 403);
-            }
-            return response()->json([
-                'success' => true,
-                'data' => $jobListing->load('employer')
-            ]);
+        if ($user->isEmployer() && $jobListing->user_id !== $user->id && !$user->isAdmin()) {
+            return redirect()->route('backend.listing.index')
+                ->with('error', 'Unauthorized to view this job listing.');
         }
 
-        // If user is admin
-        if ($user->isAdmin()) {
-            return response()->json([
-                'success' => true,
-                'data' => $jobListing->load('employer')
-            ]);
+        // Check if user has already applied
+        $hasApplied = false;
+        if ($user->isJobSeeker()) {
+            $hasApplied = $jobListing->applications()
+                ->where('user_id', $user->id)
+                ->exists();
         }
 
-        return response()->json([
-            'success' => false,
-            'message' => 'Unauthorized to view this job listing.'
-        ], 403);
+        return Inertia::render('jobs/show', [
+            'job' => $jobListing,
+            'hasApplied' => $hasApplied,
+            'userRole' => $user->role,
+            'canApply' => $jobListing->isAcceptingApplications() && !$hasApplied,
+            'applications' => $user->isEmployer() ? $jobListing->applications : null,
+        ]);
+    }
+
+    /**
+     * Show the form for editing the specified job listing.
+     */
+    public function edit(JobListing $jobListing)
+    {
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+
+        // Check authorization
+        if (!$user->isAdmin() && $jobListing->user_id !== Auth::id()) {
+            return redirect()->route('backend.listing.index')
+                ->with('error', 'Unauthorized to edit this job listing.');
+        }
+
+        return Inertia::render('jobs/edit', [
+            'job' => $jobListing,
+            'jobTypes' => $this->getJobTypes(),
+            'categories' => $this->getCategories(),
+            'experienceLevels' => $this->getExperienceLevels(),
+        ]);
     }
 
     /**
@@ -172,12 +210,11 @@ class JobListingController extends Controller
     {
         /** @var \App\Models\User $user */
         $user = Auth::user();
+
         // Check authorization
         if (!$user->isAdmin() && $jobListing->user_id !== Auth::id()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized to update this job listing.'
-            ], 403);
+            return redirect()->route('backend.listing.index')
+                ->with('error', 'Unauthorized to update this job listing.');
         }
 
         $validated = $request->validate([
@@ -195,16 +232,13 @@ class JobListingController extends Controller
         ]);
 
         if (isset($validated['keywords'])) {
-            $validated['keywords'] = json_encode($validated['keywords']);
+            $validated['keywords'] = $validated['keywords'];
         }
 
         $jobListing->update($validated);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Job listing updated successfully.',
-            'data' => $jobListing
-        ]);
+        return redirect()->route('backend.listing.show', $jobListing)
+            ->with('success', 'Job listing updated successfully.');
     }
 
     /**
@@ -214,45 +248,155 @@ class JobListingController extends Controller
     {
         /** @var \App\Models\User $user */
         $user = Auth::user();
+
         // Check authorization
         if (!$user->isAdmin() && $jobListing->user_id !== Auth::id()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized to delete this job listing.'
-            ], 403);
+            return redirect()->route('backend.listing.index')
+                ->with('error', 'Unauthorized to delete this job listing.');
+        }
+
+        // Check if there are applications before deleting
+        $applicationsCount = $jobListing->applications()->count();
+
+        if ($applicationsCount > 0 && !$user->isAdmin()) {
+            return redirect()->route('backend.listing.show', $jobListing)
+                ->with('error', 'Cannot delete job with existing applications. Consider deactivating it instead.');
         }
 
         $jobListing->delete();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Job listing deleted successfully.'
-        ]);
+        return redirect()->route('backend.listing.index')
+            ->with('success', 'Job listing deleted successfully.');
     }
 
     /**
      * Get applications for a specific job listing.
      */
-    public function applications(JobListing $jobListing)
+    public function applications(JobListing $jobListing, Request $request)
     {
         /** @var \App\Models\User $user */
         $user = Auth::user();
+
         // Only employer who owns the job or admin can view applications
+        if (!$user->isAdmin() && $jobListing->user_id !== Auth::id()) {
+            return redirect()->route('backend.listing.index')
+                ->with('error', 'Unauthorized to view applications for this job.');
+        }
+
+        $query = $jobListing->applications()->with('applicant');
+
+        // Filter by status
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        // Filter by ATS score
+        if ($request->filled('min_score')) {
+            $query->whereRaw('JSON_EXTRACT(ats_score, "$.total") >= ?', [$request->min_score]);
+        }
+
+        $applications = $query->latest()->paginate(15)->withQueryString();
+
+        // Get statistics
+        $stats = [
+            'total' => $jobListing->applications()->count(),
+            'pending' => $jobListing->applications()->where('status', 'pending')->count(),
+            'reviewed' => $jobListing->applications()->where('status', 'reviewed')->count(),
+            'shortlisted' => $jobListing->applications()->where('status', 'shortlisted')->count(),
+            'rejected' => $jobListing->applications()->where('status', 'rejected')->count(),
+            'hired' => $jobListing->applications()->where('status', 'hired')->count(),
+            'average_score' => $jobListing->applications()
+                ->whereNotNull('ats_score')
+                ->get()
+                ->avg(function ($app) {
+                    return $app->getAtsScorePercentage() ?? 0;
+                }),
+        ];
+
+        return Inertia::render('jobs/applications', [
+            'job' => $jobListing,
+            'applications' => $applications,
+            'stats' => $stats,
+            'filters' => $request->only(['status', 'min_score']),
+        ]);
+    }
+
+    /**
+     * Toggle job listing active status.
+     */
+    public function toggleActive(JobListing $jobListing)
+    {
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+
+        // Check authorization
         if (!$user->isAdmin() && $jobListing->user_id !== Auth::id()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Unauthorized to view applications for this job.'
+                'message' => 'Unauthorized.'
             ], 403);
         }
 
-        $applications = $jobListing->applications()
-            ->with('applicant')
-            ->latest()
-            ->paginate(15);
-
-        return response()->json([
-            'success' => true,
-            'data' => $applications
+        $jobListing->update([
+            'is_active' => !$jobListing->is_active
         ]);
+
+        if (request()->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'is_active' => $jobListing->is_active
+            ]);
+        }
+
+        return redirect()->back()->with(
+            'success',
+            $jobListing->is_active ? 'Job listing activated.' : 'Job listing deactivated.'
+        );
+    }
+
+    /**
+     * Get job types for dropdown.
+     */
+    private function getJobTypes(): array
+    {
+        return [
+            'full-time' => 'Full Time',
+            'part-time' => 'Part Time',
+            'contract' => 'Contract',
+            'internship' => 'Internship',
+            'remote' => 'Remote',
+        ];
+    }
+
+    /**
+     * Get categories for dropdown.
+     */
+    private function getCategories(): array
+    {
+        return [
+            'technology' => 'Technology',
+            'healthcare' => 'Healthcare',
+            'finance' => 'Finance',
+            'education' => 'Education',
+            'marketing' => 'Marketing',
+            'sales' => 'Sales',
+            'engineering' => 'Engineering',
+            'design' => 'Design',
+            'human_resources' => 'Human Resources',
+            'customer_service' => 'Customer Service',
+        ];
+    }
+
+    /**
+     * Get experience levels for dropdown.
+     */
+    private function getExperienceLevels(): array
+    {
+        return [
+            'entry' => 'Entry Level (0-2 years)',
+            'mid-level' => 'Mid Level (3-5 years)',
+            'senior' => 'Senior Level (6-9 years)',
+            'executive' => 'Executive (10+ years)',
+        ];
     }
 }

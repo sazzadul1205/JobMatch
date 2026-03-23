@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Inertia\Inertia;
 
 class ApplicationController extends Controller
 {
@@ -56,11 +57,13 @@ class ApplicationController extends Controller
 
         $applications = $query->with(['jobListing', 'applicant'])
             ->latest()
-            ->paginate(15);
+            ->paginate(15)
+            ->withQueryString();
 
-        return response()->json([
-            'success' => true,
-            'data' => $applications
+        return Inertia::render('applications/index', [
+            'applications' => $applications,
+            'filters' => $request->only(['status', 'job_listing_id', 'min_score']),
+            'userRole' => $user->role,
         ]);
     }
 
@@ -74,18 +77,12 @@ class ApplicationController extends Controller
 
         // Check if job is accepting applications
         if (!$jobListing->isAcceptingApplications()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'This job is no longer accepting applications.'
-            ], 400);
+            return redirect()->back()->with('error', 'This job is no longer accepting applications.');
         }
 
         // Only job seekers can apply
         if (!$user->isJobSeeker()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Only job seekers can apply for jobs.'
-            ], 403);
+            return redirect()->back()->with('error', 'Only job seekers can apply for jobs.');
         }
 
         // Check if already applied
@@ -94,10 +91,7 @@ class ApplicationController extends Controller
             ->first();
 
         if ($existingApplication) {
-            return response()->json([
-                'success' => false,
-                'message' => 'You have already applied for this job.'
-            ], 400);
+            return redirect()->back()->with('error', 'You have already applied for this job.');
         }
 
         $validated = $request->validate([
@@ -127,11 +121,8 @@ class ApplicationController extends Controller
             Log::error('ATS calculation failed: ' . $e->getMessage());
         }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Application submitted successfully.',
-            'data' => $application->load('jobListing')
-        ], 201);
+        return redirect()->route('backend.application.show', $application)
+            ->with('success', 'Application submitted successfully. Your ATS score is being calculated.');
     }
 
     /**
@@ -144,22 +135,20 @@ class ApplicationController extends Controller
 
         // Check authorization
         if ($user->isJobSeeker() && $application->user_id !== Auth::id()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized to view this application.'
-            ], 403);
+            return redirect()->route('backend.application.index')
+                ->with('error', 'Unauthorized to view this application.');
         }
 
         if ($user->isEmployer() && $application->jobListing->user_id !== Auth::id()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized to view this application.'
-            ], 403);
+            return redirect()->route('backend.application.index')
+                ->with('error', 'Unauthorized to view this application.');
         }
 
-        return response()->json([
-            'success' => true,
-            'data' => $application->load(['jobListing', 'applicant'])
+        $application->load(['jobListing', 'applicant']);
+
+        return Inertia::render('applications/show', [
+            'application' => $application,
+            'userRole' => $user->role,
         ]);
     }
 
@@ -173,10 +162,7 @@ class ApplicationController extends Controller
 
         // Only employer who owns the job or admin can update status
         if (!$user->isAdmin() && $application->jobListing->user_id !== Auth::id()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized to update this application.'
-            ], 403);
+            return redirect()->back()->with('error', 'Unauthorized to update this application.');
         }
 
         $validated = $request->validate([
@@ -189,11 +175,7 @@ class ApplicationController extends Controller
             'employer_notes' => $validated['employer_notes'] ?? $application->employer_notes
         ]);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Application status updated successfully.',
-            'data' => $application
-        ]);
+        return redirect()->back()->with('success', 'Application status updated successfully.');
     }
 
     /**
@@ -206,29 +188,20 @@ class ApplicationController extends Controller
 
         // Check authorization
         if ($user->isJobSeeker() && $application->user_id !== Auth::id()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized to download this resume.'
-            ], 403);
+            return redirect()->back()->with('error', 'Unauthorized to download this resume.');
         }
 
         if ($user->isEmployer() && $application->jobListing->user_id !== Auth::id()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized to download this resume.'
-            ], 403);
+            return redirect()->back()->with('error', 'Unauthorized to download this resume.');
         }
 
         if (!Storage::disk('public')->exists($application->resume_path)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Resume file not found.'
-            ], 404);
+            return redirect()->back()->with('error', 'Resume file not found.');
         }
 
         $resumeAbsolutePath = Storage::disk('public')->path($application->resume_path);
 
-        return response()->download($resumeAbsolutePath);
+        return response()->download($resumeAbsolutePath, $application->name . '_resume.pdf');
     }
 
     /**
@@ -241,10 +214,7 @@ class ApplicationController extends Controller
 
         // Only job seeker can delete their own application
         if (!$user->isAdmin() && $application->user_id !== Auth::id()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized to delete this application.'
-            ], 403);
+            return redirect()->back()->with('error', 'Unauthorized to delete this application.');
         }
 
         // Delete resume file
@@ -252,10 +222,8 @@ class ApplicationController extends Controller
 
         $application->delete();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Application withdrawn successfully.'
-        ]);
+        return redirect()->route('backend.application.index')
+            ->with('success', 'Application withdrawn successfully.');
     }
 
     /**
@@ -268,25 +236,186 @@ class ApplicationController extends Controller
 
         // Only admin can recalculate
         if (!$user->isAdmin()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized.'
-            ], 403);
+            return redirect()->back()->with('error', 'Unauthorized.');
         }
 
         try {
             $application->calculateATSScore();
 
+            return redirect()->back()->with('success', 'ATS score recalculated successfully.');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Failed to recalculate score: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Analytics dashboard for web (Inertia)
+     */
+    public function analyticsDashboard(Request $request)
+    {
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+
+        $stats = $this->getATSStatsData();
+
+        return Inertia::render('analytics/dashboard', [
+            'stats' => $stats,
+            'userRole' => $user->role,
+        ]);
+    }
+
+    /**
+     * Job ATS analysis for web (Inertia)
+     */
+    public function jobATSAnalysis(JobListing $jobListing)
+    {
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+
+        // Check authorization
+        if (!$user->isAdmin() && $jobListing->user_id !== $user->id) {
+            return redirect()->route('backend.analytics.dashboard')
+                ->with('error', 'Unauthorized.');
+        }
+
+        $keywordAnalysis = $this->getKeywordAnalysisData($jobListing);
+        $topCandidates = $this->getTopCandidatesData($jobListing);
+
+        return Inertia::render('analytics/job-analysis', [
+            'job' => $jobListing,
+            'keywordAnalysis' => $keywordAnalysis,
+            'topCandidates' => $topCandidates,
+            'userRole' => $user->role,
+        ]);
+    }
+
+    /**
+     * Get ATS statistics for employer (API endpoint)
+     */
+    public function getATSStats()
+    {
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+
+        $applications = Application::whereHas('jobListing', function ($query) use ($user) {
+            $query->where('user_id', $user->id);
+        })->get();
+
+        $stats = [
+            'total_applications' => $applications->count(),
+            'average_ats_score' => $applications->avg(function ($app) {
+                return $app->getAtsScorePercentage() ?? 0;
+            }),
+            'score_distribution' => [
+                'excellent' => $applications->filter(function ($app) {
+                    return $app->getAtsScorePercentage() >= 80;
+                })->count(),
+                'good' => $applications->filter(function ($app) {
+                    $score = $app->getAtsScorePercentage();
+                    return $score >= 60 && $score < 80;
+                })->count(),
+                'fair' => $applications->filter(function ($app) {
+                    $score = $app->getAtsScorePercentage();
+                    return $score >= 40 && $score < 60;
+                })->count(),
+                'poor' => $applications->filter(function ($app) {
+                    return $app->getAtsScorePercentage() < 40;
+                })->count(),
+            ],
+            'top_skills' => $this->getTopSkillsFromApplications($applications),
+            'applications_by_status' => [
+                'pending' => $applications->where('status', 'pending')->count(),
+                'reviewed' => $applications->where('status', 'reviewed')->count(),
+                'shortlisted' => $applications->where('status', 'shortlisted')->count(),
+                'rejected' => $applications->where('status', 'rejected')->count(),
+                'hired' => $applications->where('status', 'hired')->count(),
+            ]
+        ];
+
+        if (request()->expectsJson()) {
             return response()->json([
                 'success' => true,
-                'message' => 'ATS score recalculated successfully.',
-                'data' => $application->ats_score
+                'data' => $stats
             ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to recalculate score: ' . $e->getMessage()
-            ], 500);
         }
+
+        return $stats;
+    }
+
+    /**
+     * Helper method to get top skills from applications
+     */
+    private function getTopSkillsFromApplications($applications)
+    {
+        $allSkills = [];
+
+        foreach ($applications as $application) {
+            $atsScore = $application->ats_score ?? [];
+            if (isset($atsScore['extracted_skills'])) {
+                $allSkills = array_merge($allSkills, $atsScore['extracted_skills']);
+            }
+        }
+
+        $skillCounts = array_count_values($allSkills);
+        arsort($skillCounts);
+
+        return array_slice($skillCounts, 0, 10, true);
+    }
+
+    /**
+     * Get keyword analysis data
+     */
+    private function getKeywordAnalysisData(JobListing $jobListing)
+    {
+        $applications = $jobListing->applications()->get();
+
+        $keywordStats = [];
+        $jobKeywords = $jobListing->keywords ?? [];
+
+        foreach ($jobKeywords as $keyword) {
+            $matchCount = $applications->filter(function ($app) use ($keyword) {
+                return in_array($keyword, $app->matched_keywords ?? []);
+            })->count();
+
+            $keywordStats[] = [
+                'keyword' => $keyword,
+                'match_count' => $matchCount,
+                'match_percentage' => $applications->count() > 0
+                    ? round(($matchCount / $applications->count()) * 100, 2)
+                    : 0
+            ];
+        }
+
+        return [
+            'total_applications' => $applications->count(),
+            'keyword_analysis' => $keywordStats,
+            'most_common_missing' => collect($keywordStats)
+                ->filter(function ($stat) {
+                    return $stat['match_percentage'] < 30;
+                })
+                ->sortBy('match_percentage')
+                ->take(5)
+                ->values()
+        ];
+    }
+
+    /**
+     * Get top candidates data
+     */
+    private function getTopCandidatesData(JobListing $jobListing)
+    {
+        return $jobListing->applications()
+            ->whereNotNull('ats_score')
+            ->orderByRaw('JSON_EXTRACT(ats_score, "$.total") DESC')
+            ->limit(10)
+            ->get();
+    }
+
+    /**
+     * Get ATS statistics data
+     */
+    private function getATSStatsData()
+    {
+        return $this->getATSStats();
     }
 }
