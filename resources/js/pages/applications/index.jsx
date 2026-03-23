@@ -1,27 +1,20 @@
 // pages/applications/index.jsx
 
-import React, { useState, useEffect } from 'react';
-import { Head, Link, useForm, usePage } from '@inertiajs/react';
+import { useState, useEffect } from 'react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import AuthenticatedLayout from '../../layouts/AuthenticatedLayout';
 import {
-  FiArrowLeft,
-  FiSearch,
-  FiFilter,
   FiX,
   FiDownload,
   FiEye,
   FiStar,
   FiCheckCircle,
   FiClock,
-  FiAlertCircle,
   FiUser,
   FiBriefcase,
   FiMapPin,
   FiMail,
   FiPhone,
-  FiBarChart2,
-  FiChevronDown,
-  FiChevronUp,
   FiRefreshCw,
   FiInbox,
   FiUserCheck,
@@ -30,14 +23,13 @@ import {
 } from 'react-icons/fi';
 
 const ApplicationsIndex = ({ applications, filters, userRole }) => {
-  const [showFilters, setShowFilters] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState(null);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [activeStatusFilter, setActiveStatusFilter] = useState(filters.status || 'all');
 
-  const { get, processing } = useForm();
-  const { post: statusPost, processing: statusProcessing } = useForm();
+  const { get } = useForm();
+  const { patch: statusPatch } = useForm();
   const { delete: destroy, processing: deleteProcessing } = useForm();
 
   // Update active filter when URL changes
@@ -85,8 +77,8 @@ const ApplicationsIndex = ({ applications, filters, userRole }) => {
 
     if (status === 'all') {
       return `${baseClass} ${isActive
-          ? 'bg-gray-900 text-white shadow-md'
-          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+        ? 'bg-gray-900 text-white shadow-md'
+        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
         }`;
     }
 
@@ -136,15 +128,17 @@ const ApplicationsIndex = ({ applications, filters, userRole }) => {
 
   // Get ATS score badge
   const getScoreBadge = (score) => {
-    if (!score && score !== 0) return null;
+    if (!score && score !== 0) {
+      return <span className="text-xs text-gray-400">Not scored yet</span>;
+    }
     return (
       <div className="flex items-center gap-2">
         <div className="flex-1 min-w-[80px]">
           <div className="bg-gray-200 rounded-full h-2">
             <div
               className={`rounded-full h-2 ${score >= 80 ? 'bg-green-600' :
-                  score >= 60 ? 'bg-blue-600' :
-                    score >= 40 ? 'bg-yellow-600' : 'bg-red-600'
+                score >= 60 ? 'bg-blue-600' :
+                  score >= 40 ? 'bg-yellow-600' : 'bg-red-600'
                 }`}
               style={{ width: `${Math.min(score, 100)}%` }}
             />
@@ -205,14 +199,16 @@ const ApplicationsIndex = ({ applications, filters, userRole }) => {
 
   // Handle update status
   const handleUpdateStatus = (applicationId, newStatus) => {
-    statusPost(route('backend.application.update-status', applicationId), {
+    statusPatch(route('backend.application.update-status', applicationId), {
       data: { status: newStatus },
       preserveScroll: true,
       onSuccess: () => {
         setShowStatusModal(false);
         setSelectedApplication(null);
-        // Refresh the page to show updated status
-        window.location.reload();
+        router.reload({ only: ['applications'] });
+      },
+      onError: () => {
+        // Keep modal open so user can retry
       }
     });
   };
@@ -347,8 +343,8 @@ const ApplicationsIndex = ({ applications, filters, userRole }) => {
             key={option.value}
             onClick={() => handleMinScoreFilter(option.value)}
             className={`px-3 py-1.5 rounded-lg text-sm transition ${(filters.min_score === option.value) || (!filters.min_score && !option.value)
-                ? `bg-${option.color}-600 text-black shadow-md`
-                : `bg-${option.color}-100 text-${option.color}-700 hover:bg-${option.color}-200`
+              ? `bg-${option.color}-600 text-black shadow-md`
+              : `bg-${option.color}-100 text-${option.color}-700 hover:bg-${option.color}-200`
               }`}
           >
             {option.label}
@@ -363,7 +359,7 @@ const ApplicationsIndex = ({ applications, filters, userRole }) => {
     if (!showStatusModal || !selectedApplication) return null;
 
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 text-black">
         <div className="bg-white rounded-lg max-w-md w-full p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-2">
             Update Application Status
@@ -378,8 +374,8 @@ const ApplicationsIndex = ({ applications, filters, userRole }) => {
                 key={option.value}
                 onClick={() => handleUpdateStatus(selectedApplication.id, option.value)}
                 className={`w-full text-left px-4 py-3 rounded-lg transition ${selectedApplication.status === option.value
-                    ? `bg-${option.color}-100 border-2 border-${option.color}-500`
-                    : 'hover:bg-gray-50 border-2 border-transparent'
+                  ? `bg-${option.color}-100 border-2 border-${option.color}-500`
+                  : 'hover:bg-gray-50 border-2 border-transparent'
                   }`}
               >
                 <div className="flex items-center justify-between">
@@ -713,8 +709,8 @@ const ApplicationsIndex = ({ applications, filters, userRole }) => {
                           key={index}
                           href={link.url}
                           className={`px-3 py-1 border rounded transition ${link.active
-                              ? 'bg-indigo-600 text-white border-indigo-600'
-                              : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                            ? 'bg-indigo-600 text-white border-indigo-600'
+                            : 'border-gray-300 text-gray-700 hover:bg-gray-50'
                             }`}
                           dangerouslySetInnerHTML={{ __html: link.label }}
                         />

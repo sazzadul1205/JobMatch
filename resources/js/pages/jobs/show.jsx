@@ -41,7 +41,7 @@ const JobShow = ({ job, hasApplied, canApply, userRole, applications }) => {
   const [activeTab, setActiveTab] = useState('details'); // details, applications, analytics
 
   const { post, patch, delete: destroy, processing } = useForm();
-  const { post: statusPost, processing: statusProcessing } = useForm();
+  const { patch: statusPatch, processing: statusProcessing } = useForm();
 
   // Format date
   const formatDate = (date) => {
@@ -123,7 +123,7 @@ const JobShow = ({ job, hasApplied, canApply, userRole, applications }) => {
 
   // Handle update application status
   const updateApplicationStatus = (applicationId, status) => {
-    statusPost(route('backend.application.update-status', applicationId), {
+    statusPatch(route('backend.application.update-status', applicationId), {
       data: { status },
       preserveScroll: true,
       onSuccess: () => {

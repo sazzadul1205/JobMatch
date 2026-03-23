@@ -212,7 +212,7 @@ class ATSService
     $skillPatterns = [
       '/\b(?:php|python|java|javascript|react|vue|angular|node\.?js|laravel|symfony|django|flask|ruby on rails|mysql|postgresql|mongodb|aws|azure|docker|kubernetes)\b/i',
       '/\b(?:frontend|backend|fullstack|full-stack|devops|machine learning|artificial intelligence|data science|cloud computing)\b/i',
-      '/\b(?:agile|scrum|kanban|jira|git|github|gitlab|ci/cd)\b/i',
+      '/\b(?:agile|scrum|kanban|jira|git|github|gitlab|ci\/cd)\b/i',
       '/\b(?:leadership|project management|team management|communication|problem solving)\b/i'
     ];
 

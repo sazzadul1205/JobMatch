@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { useState, useEffect } from 'react';
+import { Head, Link, router } from '@inertiajs/react';
 import AuthenticatedLayout from '../../layouts/AuthenticatedLayout';
 import {
   FiSearch,
@@ -17,7 +17,8 @@ import {
   FiBriefcase,
   FiTag,
   FiCheckCircle,
-  FiXCircle
+  FiXCircle,
+  FiUserPlus
 } from 'react-icons/fi';
 
 const JobListingsIndex = ({ jobs, filters, userRole }) => {
@@ -491,6 +492,8 @@ const JobListingsIndex = ({ jobs, filters, userRole }) => {
                     const statusBadge = getStatusBadge(job.is_active, job.application_deadline);
                     const StatusIcon = statusBadge.icon;
                     const jobTypeBadge = getJobTypeBadge(job.job_type);
+                    const isAccepting = job.is_active && new Date(job.application_deadline) > new Date();
+                    const canApply = userRole === 'job_seeker' && isAccepting;
 
                     return (
                       <tr key={job.id} className="hover:bg-gray-50 transition duration-150">
@@ -534,22 +537,42 @@ const JobListingsIndex = ({ jobs, filters, userRole }) => {
                             {statusBadge.text}
                           </span>
                         </td>
+
+                        {/* Actions Column */}
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex justify-end gap-2">
-                            {/* View Details Button */}
+                            {/* View Details Button - Available for all */}
                             <Link
                               href={route('backend.listing.show', job.id)}
-                              className="text-blue-600 hover:text-blue-900 p-1"
+                              className="text-blue-600 hover:text-blue-900 p-1.5 rounded-lg hover:bg-blue-50 transition"
                               title="View Details"
                             >
                               <FiEye size={18} />
                             </Link>
 
+                            {/* Apply Column - Only for job seekers */}
+                            {userRole === 'job_seeker' && (
+                              < >
+                                {canApply ? (
+                                  <Link
+                                    href={route('applications.create', job.id)}
+                                    className="text-green-600 hover:text-green-900 p-1.5 rounded-lg hover:bg-purple-50 transition"
+                                  >
+                                    <FiUserPlus size={16} />
+                                  </Link>
+                                ) : (
+                                  <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-200 text-gray-500 text-sm font-medium rounded-lg cursor-not-allowed">
+                                    <FiX size={14} />
+                                  </span>
+                                )}
+                              </>
+                            )}
+
                             {/* View Applicants Button (for employer/admin) */}
                             {(userRole === 'employer' || userRole === 'admin') && (
                               <Link
                                 href={route('backend.listing.applications', job.id)}
-                                className="text-purple-600 hover:text-purple-900 p-1"
+                                className="text-purple-600 hover:text-purple-900 p-1.5 rounded-lg hover:bg-purple-50 transition"
                                 title="View Applicants"
                               >
                                 <FiUsers size={18} />
@@ -560,7 +583,7 @@ const JobListingsIndex = ({ jobs, filters, userRole }) => {
                             {(userRole === 'employer' || userRole === 'admin') && (
                               <Link
                                 href={route('backend.listing.edit', job.id)}
-                                className="text-yellow-600 hover:text-yellow-900 p-1"
+                                className="text-yellow-600 hover:text-yellow-900 p-1.5 rounded-lg hover:bg-yellow-50 transition"
                                 title="Edit Job"
                               >
                                 <FiEdit2 size={18} />
@@ -571,7 +594,7 @@ const JobListingsIndex = ({ jobs, filters, userRole }) => {
                             {(userRole === 'employer' || userRole === 'admin') && (
                               <button
                                 onClick={() => handleDelete(job)}
-                                className="text-red-600 hover:text-red-900 p-1"
+                                className="text-red-600 hover:text-red-900 p-1.5 rounded-lg hover:bg-red-50 transition"
                                 title="Delete Job"
                               >
                                 <FiTrash2 size={18} />
@@ -584,7 +607,7 @@ const JobListingsIndex = ({ jobs, filters, userRole }) => {
                   })
                 ) : (
                   <tr>
-                    <td colSpan="6" className="px-6 py-12 text-center">
+                    <td colSpan={userRole === 'job_seeker' ? 7 : 6} className="px-6 py-12 text-center">
                       <div className="text-gray-500">
                         <FiSearch className="mx-auto mb-2" size={48} />
                         <p className="text-lg">No jobs found</p>

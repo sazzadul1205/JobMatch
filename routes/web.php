@@ -49,7 +49,7 @@ Route::middleware(['auth'])->group(function () {
 
         // Application routes (backend.application.*)
         Route::prefix('application')->name('application.')->group(function () {
-            Route::get('/', [ApplicationController::class, 'index'])->name('index');
+            Route::match(['get', 'post'], '/', [ApplicationController::class, 'index'])->name('index');
             Route::get('{application}', [ApplicationController::class, 'show'])->name('show');
             Route::patch('{application}/status', [ApplicationController::class, 'updateStatus'])->name('update-status');
             Route::get('{application}/resume', [ApplicationController::class, 'downloadResume'])->name('download-resume');
@@ -64,6 +64,12 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/stats', [ApplicationController::class, 'getATSStats'])->name('stats');
         });
     });
+
+    // Application routes (job seekers)
+    Route::get('applications/{jobListing}/create', [ApplicationController::class, 'create'])
+        ->name('applications.create');
+    Route::post('applications/{jobListing}', [ApplicationController::class, 'store'])
+        ->name('applications.store');
 
     // Profile and Settings routes
     Route::prefix('settings')->name('settings.')->group(function () {

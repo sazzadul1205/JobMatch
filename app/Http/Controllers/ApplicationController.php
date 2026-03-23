@@ -68,6 +68,30 @@ class ApplicationController extends Controller
     }
 
     /**
+     * Show the application form for a job listing.
+     */
+    public function create(JobListing $jobListing)
+    {
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+
+        // Only job seekers can apply
+        if (!$user->isJobSeeker()) {
+            return redirect()->route('backend.listing.show', $jobListing)
+                ->with('error', 'Only job seekers can apply for jobs.');
+        }
+
+        $hasApplied = $jobListing->applications()
+            ->where('user_id', $user->id)
+            ->exists();
+
+        return Inertia::render('applications/create', [
+            'job' => $jobListing,
+            'hasApplied' => $hasApplied,
+        ]);
+    }
+
+    /**
      * Store a newly created application.
      */
     public function store(Request $request, JobListing $jobListing)
@@ -234,8 +258,11 @@ class ApplicationController extends Controller
         /** @var \App\Models\User $user */
         $user = Auth::user();
 
-        // Only admin can recalculate
-        if (!$user->isAdmin()) {
+        // Admin can always recalculate, employers can recalc their own job applications
+        if (
+            !$user->isAdmin()
+            && !($user->isEmployer() && $application->jobListing->user_id === $user->id)
+        ) {
             return redirect()->back()->with('error', 'Unauthorized.');
         }
 
