@@ -6,11 +6,14 @@ namespace App\Http\Controllers;
 use App\Models\Application;
 use App\Models\JobListing;
 use App\Services\ATSService;
+use App\Jobs\CalculateAtsScore;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
+use Illuminate\Support\Str;
+use setasign\Fpdi\Fpdi;
 
 class ApplicationController extends Controller
 {
@@ -138,11 +141,20 @@ class ApplicationController extends Controller
             'status' => 'pending'
         ]);
 
-        // Calculate ATS score
+        // Queue ATS score calculation (runs immediately if queue connection is sync)
         try {
-            $application->calculateATSScore();
-        } catch (\Exception $e) {
-            Log::error('ATS calculation failed: ' . $e->getMessage());
+            CalculateAtsScore::dispatch($application->id);
+        } catch (\Throwable $e) {
+            Log::error('ATS dispatch failed, running inline: ' . $e->getMessage(), [
+                'application_id' => $application->id
+            ]);
+            try {
+                $application->calculateATSScore();
+            } catch (\Throwable $inner) {
+                Log::error('ATS calculation failed: ' . $inner->getMessage(), [
+                    'application_id' => $application->id
+                ]);
+            }
         }
 
         return redirect()->route('backend.application.show', $application)
@@ -200,6 +212,106 @@ class ApplicationController extends Controller
         ]);
 
         return redirect()->back()->with('success', 'Application status updated successfully.');
+    }
+
+    /**
+     * Bulk update application status (employer/admin only).
+     */
+    public function bulkUpdateStatus(Request $request)
+    {
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+
+        if (!$user->isAdmin() && !$user->isEmployer()) {
+            return redirect()->back()->with('error', 'Unauthorized.');
+        }
+
+        $validated = $request->validate([
+            'application_ids' => 'required|array|min:1',
+            'application_ids.*' => 'integer|exists:applications,id',
+            'status' => 'required|in:pending,reviewed,shortlisted,rejected,hired',
+        ]);
+
+        $query = Application::whereIn('id', $validated['application_ids']);
+
+        if ($user->isEmployer()) {
+            $query->whereHas('jobListing', function ($q) use ($user) {
+                $q->where('user_id', $user->id);
+            });
+        }
+
+        $updated = $query->update(['status' => $validated['status']]);
+
+        return redirect()->back()->with('success', "Updated {$updated} application(s).");
+    }
+
+    /**
+     * Merge selected resumes into a single PDF (employer/admin only).
+     */
+    public function mergeResumes(Request $request)
+    {
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+
+        if (!$user->isAdmin() && !$user->isEmployer()) {
+            return redirect()->back()->with('error', 'Unauthorized.');
+        }
+
+        $ids = collect(explode(',', (string) $request->query('ids')))
+            ->filter(fn ($id) => is_numeric($id))
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        if ($ids->isEmpty()) {
+            return redirect()->back()->with('error', 'No applications selected.');
+        }
+
+        $query = Application::whereIn('id', $ids)->with('jobListing');
+
+        if ($user->isEmployer()) {
+            $query->whereHas('jobListing', function ($q) use ($user) {
+                $q->where('user_id', $user->id);
+            });
+        }
+
+        $applications = $query->get();
+
+        if ($applications->isEmpty()) {
+            return redirect()->back()->with('error', 'No authorized applications found.');
+        }
+
+        $pdfPaths = [];
+        foreach ($applications as $application) {
+            $path = Storage::disk('public')->path($application->resume_path);
+            if (!file_exists($path)) {
+                return redirect()->back()->with('error', 'One or more resume files not found.');
+            }
+
+            $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+            if ($extension !== 'pdf') {
+                return redirect()->back()->with('error', 'All selected resumes must be PDF files to merge.');
+            }
+
+            $pdfPaths[] = $path;
+        }
+
+        $merged = new Fpdi();
+        foreach ($pdfPaths as $path) {
+            $pageCount = $merged->setSourceFile($path);
+            for ($page = 1; $page <= $pageCount; $page++) {
+                $tpl = $merged->importPage($page);
+                $size = $merged->getTemplateSize($tpl);
+                $merged->AddPage($size['orientation'], [$size['width'], $size['height']]);
+                $merged->useTemplate($tpl);
+            }
+        }
+
+        $fileName = 'resumes_' . Str::random(8) . '.pdf';
+        $tempPath = storage_path('app/' . $fileName);
+        $merged->Output($tempPath, 'F');
+
+        return response()->download($tempPath, 'resumes_merged.pdf')->deleteFileAfterSend(true);
     }
 
     /**

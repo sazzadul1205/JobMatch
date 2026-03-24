@@ -75,7 +75,7 @@ const CreateJob = ({ jobTypes, categories, experienceLevels, storeUrl }) => {
     <AuthenticatedLayout>
       <Head title="Create New Job - Step by Step" />
 
-      <div className="py-6 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="py-6 mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-6">
           <Link

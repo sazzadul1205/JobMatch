@@ -24,12 +24,13 @@ import {
 
 const ApplicationsIndex = ({ applications, filters, userRole }) => {
   const [selectedApplication, setSelectedApplication] = useState(null);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [bulkStatus, setBulkStatus] = useState('pending');
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [activeStatusFilter, setActiveStatusFilter] = useState(filters.status || 'all');
 
   const { get } = useForm();
-  const { patch: statusPatch } = useForm();
   const { delete: destroy, processing: deleteProcessing } = useForm();
 
   // Update active filter when URL changes
@@ -118,6 +119,41 @@ const ApplicationsIndex = ({ applications, filters, userRole }) => {
     return applications.data.filter(app => app.status === status).length;
   };
 
+  const toggleSelectAll = () => {
+    if (!applications.data) return;
+    if (selectedIds.length === applications.data.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(applications.data.map((app) => app.id));
+    }
+  };
+
+  const toggleSelectOne = (id) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const applyBulkStatus = () => {
+    if (selectedIds.length === 0) return;
+    router.patch(route('backend.application.bulk-status'), {
+      application_ids: selectedIds,
+      status: bulkStatus,
+    }, {
+      preserveScroll: true,
+      onSuccess: () => {
+        setSelectedIds([]);
+        router.reload({ only: ['applications'] });
+      },
+    });
+  };
+
+  const mergeSelectedResumes = () => {
+    if (selectedIds.length === 0) return;
+    const url = route('backend.application.merge-resumes') + `?ids=${selectedIds.join(',')}`;
+    window.open(url, '_blank');
+  };
+
   // Get ATS score color
   const getScoreColor = (score) => {
     if (score >= 80) return 'text-green-600';
@@ -199,8 +235,7 @@ const ApplicationsIndex = ({ applications, filters, userRole }) => {
 
   // Handle update status
   const handleUpdateStatus = (applicationId, newStatus) => {
-    statusPatch(route('backend.application.update-status', applicationId), {
-      data: { status: newStatus },
+    router.patch(route('backend.application.update-status', applicationId), { status: newStatus }, {
       preserveScroll: true,
       onSuccess: () => {
         setShowStatusModal(false);
@@ -478,7 +513,7 @@ const ApplicationsIndex = ({ applications, filters, userRole }) => {
           </p>
           {userRole === 'job_seeker' && (
             <Link
-              href={route('jobs.public')}
+              href={route('backend.listing.index')}
               className="inline-block mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
             >
               Browse Jobs
@@ -493,7 +528,7 @@ const ApplicationsIndex = ({ applications, filters, userRole }) => {
     <AuthenticatedLayout>
       <Head title="Applications" />
 
-      <div className="py-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="py-6 mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -553,6 +588,43 @@ const ApplicationsIndex = ({ applications, filters, userRole }) => {
           </div>
         )}
 
+        {/* Bulk Actions (Employers/Admins) */}
+        {(userRole === 'employer' || userRole === 'admin') && (
+          <div className="mb-4 flex flex-wrap items-center gap-3 text-black">
+            <button
+              onClick={toggleSelectAll}
+              className="px-3 py-1.5 rounded-lg border border-gray-300 text-sm hover:bg-gray-50"
+            >
+              {selectedIds.length === (applications.data?.length || 0) ? 'Clear Selection' : 'Select All'}
+            </button>
+            <select
+              value={bulkStatus}
+              onChange={(e) => setBulkStatus(e.target.value)}
+              className="px-3 py-1.5 rounded-lg border border-gray-300 text-sm"
+            >
+              <option value="pending">Pending</option>
+              <option value="reviewed">Reviewed</option>
+              <option value="shortlisted">Shortlisted</option>
+              <option value="rejected">Rejected</option>
+              <option value="hired">Hired</option>
+            </select>
+            <button
+              onClick={applyBulkStatus}
+              disabled={selectedIds.length === 0}
+              className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm disabled:opacity-50"
+            >
+              Update Status ({selectedIds.length})
+            </button>
+            <button
+              onClick={mergeSelectedResumes}
+              disabled={selectedIds.length === 0}
+              className="px-3 py-1.5 rounded-lg bg-gray-900 text-white text-sm disabled:opacity-50"
+            >
+              Merge Resumes ({selectedIds.length})
+            </button>
+          </div>
+        )}
+
         {/* Applications Table */}
         {applications.data && applications.data.length > 0 ? (
           <div className="bg-white rounded-lg shadow-sm overflow-hidden">
@@ -560,6 +632,15 @@ const ApplicationsIndex = ({ applications, filters, userRole }) => {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
+                    {(userRole === 'employer' || userRole === 'admin') && (
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <input
+                          type="checkbox"
+                          checked={applications.data && selectedIds.length === applications.data.length}
+                          onChange={toggleSelectAll}
+                        />
+                      </th>
+                    )}
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Applicant
                     </th>
@@ -585,6 +666,15 @@ const ApplicationsIndex = ({ applications, filters, userRole }) => {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {applications.data.map((application) => (
                     <tr key={application.id} className="hover:bg-gray-50 transition">
+                      {(userRole === 'employer' || userRole === 'admin') && (
+                        <td className="px-4 py-4">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.includes(application.id)}
+                            onChange={() => toggleSelectOne(application.id)}
+                          />
+                        </td>
+                      )}
                       <td className="px-6 py-4">
                         <div className="flex items-center">
                           <div className="flex-shrink-0 h-10 w-10 bg-indigo-100 rounded-full flex items-center justify-center">

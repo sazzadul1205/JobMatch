@@ -155,7 +155,7 @@ const ApplicationForm = ({ job, hasApplied }) => {
     <AuthenticatedLayout>
       <Head title={`Apply for ${job.title}`} />
 
-      <div className="py-8 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-black">
+      <div className="py-8 mx-auto px-4 sm:px-6 lg:px-8 text-black">
         {/* Back Button */}
         <div className="mb-6">
           <Link

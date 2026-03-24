@@ -4,6 +4,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Application;
+use App\Jobs\CalculateAtsScore;
 use Illuminate\Console\Command;
 
 class RecalculateATSScores extends Command
@@ -21,8 +22,8 @@ class RecalculateATSScores extends Command
       }
 
       $this->info("Recalculating score for application #{$application->id}...");
-      $application->calculateATSScore();
-      $this->info("New score: {$application->ats_score['total']}%");
+      CalculateAtsScore::dispatch($application->id);
+      $this->info("Queued ATS recalculation for application #{$application->id}");
       return 0;
     }
 
@@ -36,7 +37,7 @@ class RecalculateATSScores extends Command
     $bar = $this->output->createProgressBar($applications->count());
 
     foreach ($applications as $application) {
-      $application->calculateATSScore();
+      CalculateAtsScore::dispatch($application->id);
       $bar->advance();
     }
 

@@ -284,7 +284,7 @@ class JobListingController extends Controller
                 ->with('error', 'Unauthorized to view applications for this job.');
         }
 
-        $query = $jobListing->applications()->with('applicant');
+        $query = $jobListing->applications()->with(['applicant', 'jobListing']);
 
         // Filter by status
         if ($request->filled('status')) {

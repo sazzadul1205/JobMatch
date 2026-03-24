@@ -1,7 +1,7 @@
 // pages/jobs/show.jsx
 
 import React, { useState } from 'react';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import AuthenticatedLayout from '../../layouts/AuthenticatedLayout';
 import {
   FiArrowLeft,
@@ -41,7 +41,7 @@ const JobShow = ({ job, hasApplied, canApply, userRole, applications }) => {
   const [activeTab, setActiveTab] = useState('details'); // details, applications, analytics
 
   const { post, patch, delete: destroy, processing } = useForm();
-  const { patch: statusPatch, processing: statusProcessing } = useForm();
+  const { processing: statusProcessing } = useForm();
 
   // Format date
   const formatDate = (date) => {
@@ -123,8 +123,7 @@ const JobShow = ({ job, hasApplied, canApply, userRole, applications }) => {
 
   // Handle update application status
   const updateApplicationStatus = (applicationId, status) => {
-    statusPatch(route('backend.application.update-status', applicationId), {
-      data: { status },
+    router.patch(route('backend.application.update-status', applicationId), { status }, {
       preserveScroll: true,
       onSuccess: () => {
         setSelectedApplication(null);
@@ -176,8 +175,8 @@ const JobShow = ({ job, hasApplied, canApply, userRole, applications }) => {
                 <button
                   onClick={() => setShowStatusModal(true)}
                   className={`px-4 py-2 rounded-lg transition duration-150 flex items-center gap-2 ${isActive
-                      ? 'border border-yellow-300 text-yellow-700 hover:bg-yellow-50'
-                      : 'border border-green-300 text-green-700 hover:bg-green-50'
+                    ? 'border border-yellow-300 text-yellow-700 hover:bg-yellow-50'
+                    : 'border border-green-300 text-green-700 hover:bg-green-50'
                     }`}
                 >
                   {isActive ? <FiEyeOff size={16} /> : <FiEye size={16} />}
@@ -349,153 +348,6 @@ const JobShow = ({ job, hasApplied, canApply, userRole, applications }) => {
     </div>
   );
 
-  // Render applications tab (for employers/admins)
-  const renderApplicationsTab = () => (
-    <div className="space-y-6">
-      {/* Statistics Cards */}
-      {applications && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white rounded-lg shadow-sm p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Total Applications</p>
-                <p className="text-2xl font-bold text-gray-900">{applications.total || 0}</p>
-              </div>
-              <FiUsers className="text-indigo-600" size={24} />
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Pending Review</p>
-                <p className="text-2xl font-bold text-yellow-600">{applications.pending || 0}</p>
-              </div>
-              <FiClock className="text-yellow-600" size={24} />
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Shortlisted</p>
-                <p className="text-2xl font-bold text-purple-600">{applications.shortlisted || 0}</p>
-              </div>
-              <FiStar className="text-purple-600" size={24} />
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Hired</p>
-                <p className="text-2xl font-bold text-green-600">{applications.hired || 0}</p>
-              </div>
-              <FiCheckCircle className="text-green-600" size={24} />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Applications List */}
-      <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Applications</h2>
-        </div>
-
-        {applications && applications.data && applications.data.length > 0 ? (
-          <div className="divide-y divide-gray-200">
-            {applications.data.map((application) => (
-              <div key={application.id} className="p-6 hover:bg-gray-50 transition">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
-                        <FiUser className="text-indigo-600" size={20} />
-                      </div>
-                      <div>
-                        <h3 className="font-medium text-gray-900">
-                          {application.applicant?.name || 'Anonymous'}
-                        </h3>
-                        <p className="text-sm text-gray-500">
-                          Applied on {formatDate(application.created_at)}
-                        </p>
-                      </div>
-                    </div>
-
-                    {application.ats_score && (
-                      <div className="mt-2">
-                        <div className="flex items-center gap-2">
-                          <FiBarChart2 className="text-gray-400" size={14} />
-                          <span className="text-sm text-gray-600">ATS Score:</span>
-                          <div className="flex-1 max-w-xs">
-                            <div className="bg-gray-200 rounded-full h-2">
-                              <div
-                                className="bg-indigo-600 rounded-full h-2"
-                                style={{ width: `${application.ats_score.total || 0}%` }}
-                              />
-                            </div>
-                          </div>
-                          <span className="text-sm font-medium text-gray-900">
-                            {Math.round(application.ats_score.total || 0)}%
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex flex-col items-end gap-2">
-                    {getApplicationStatusBadge(application.status)}
-                    <div className="flex gap-2">
-                      <Link
-                        href={route('backend.application.show', application.id)}
-                        className="text-indigo-600 hover:text-indigo-700 text-sm"
-                      >
-                        View Details
-                      </Link>
-                      {application.resume_path && (
-                        <a
-                          href={route('backend.application.download-resume', application.id)}
-                          className="text-gray-600 hover:text-gray-700 text-sm flex items-center gap-1"
-                        >
-                          <FiDownload size={14} />
-                          Resume
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="p-12 text-center">
-            <FiUsers className="mx-auto text-gray-400" size={48} />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No applications yet</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              Applications will appear here once candidates start applying.
-            </p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
-  // Render analytics tab
-  const renderAnalyticsTab = () => (
-    <div className="space-y-6">
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">ATS Analytics</h2>
-        <div className="text-center py-12">
-          <FiBarChart2 className="mx-auto text-gray-400" size={48} />
-          <h3 className="mt-2 text-sm font-medium text-gray-900">Analytics Dashboard</h3>
-          <p className="mt-1 text-sm text-gray-500">
-            Detailed analytics and ATS insights will be available soon.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
 
   // Delete confirmation modal
   const renderDeleteModal = () => {
@@ -574,7 +426,7 @@ const JobShow = ({ job, hasApplied, canApply, userRole, applications }) => {
     <AuthenticatedLayout>
       <Head title={`${job.title} - Job Details`} />
 
-      <div className="py-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="py-6  mx-auto px-4 sm:px-6 lg:px-8">
         {/* Back Button */}
         <div className="mb-6">
           <Link
@@ -586,50 +438,8 @@ const JobShow = ({ job, hasApplied, canApply, userRole, applications }) => {
           </Link>
         </div>
 
-        {/* Tabs Navigation */}
-        {(userRole === 'employer' || userRole === 'admin') && (
-          <div className="mb-6 border-b border-gray-200">
-            <nav className="flex space-x-8">
-              <button
-                onClick={() => setActiveTab('details')}
-                className={`pb-4 px-1 text-sm font-medium border-b-2 transition ${activeTab === 'details'
-                    ? 'border-indigo-500 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-              >
-                Job Details
-              </button>
-              <button
-                onClick={() => setActiveTab('applications')}
-                className={`pb-4 px-1 text-sm font-medium border-b-2 transition ${activeTab === 'applications'
-                    ? 'border-indigo-500 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-              >
-                Applications
-                {applications && applications.total > 0 && (
-                  <span className="ml-2 px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs">
-                    {applications.total}
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={() => setActiveTab('analytics')}
-                className={`pb-4 px-1 text-sm font-medium border-b-2 transition ${activeTab === 'analytics'
-                    ? 'border-indigo-500 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-              >
-                Analytics
-              </button>
-            </nav>
-          </div>
-        )}
-
         {/* Tab Content */}
-        {activeTab === 'details' && renderDetailsTab()}
-        {(userRole === 'employer' || userRole === 'admin') && activeTab === 'applications' && renderApplicationsTab()}
-        {(userRole === 'employer' || userRole === 'admin') && activeTab === 'analytics' && renderAnalyticsTab()}
+        {renderDetailsTab()}
 
         {/* For job seekers, always show details */}
         {userRole === 'job_seeker' && renderDetailsTab()}

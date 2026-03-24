@@ -1,7 +1,7 @@
 // pages/applications/show.jsx
 
 import React, { useState } from 'react';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import AuthenticatedLayout from '../../layouts/AuthenticatedLayout';
 import {
   FiArrowLeft,
@@ -34,7 +34,7 @@ const ApplicationShow = ({ application, userRole }) => {
   const [notes, setNotes] = useState(application.employer_notes || '');
 
   const { post, processing } = useForm();
-  const { patch: statusPatch, processing: statusProcessing } = useForm();
+  const { processing: statusProcessing } = useForm();
 
   // Format date
   const formatDate = (date) => {
@@ -106,8 +106,7 @@ const ApplicationShow = ({ application, userRole }) => {
 
   // Handle status update
   const handleStatusUpdate = (newStatus) => {
-    statusPatch(route('backend.application.update-status', application.id), {
-      data: { status: newStatus, employer_notes: notes },
+    router.patch(route('backend.application.update-status', application.id), { status: newStatus, employer_notes: notes }, {
       preserveScroll: true,
       onSuccess: () => {
         // Optionally show success message
@@ -117,8 +116,7 @@ const ApplicationShow = ({ application, userRole }) => {
 
   // Handle save notes
   const handleSaveNotes = () => {
-    statusPatch(route('backend.application.update-status', application.id), {
-      data: { status: application.status, employer_notes: notes },
+    router.patch(route('backend.application.update-status', application.id), { status: application.status, employer_notes: notes }, {
       preserveScroll: true,
       onSuccess: () => {
         setIsEditingNotes(false);
@@ -156,7 +154,7 @@ const ApplicationShow = ({ application, userRole }) => {
     <AuthenticatedLayout>
       <Head title={`Application - ${application.name}`} />
 
-      <div className="py-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="py-6 mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-6">
           <Link

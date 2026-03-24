@@ -50,6 +50,8 @@ Route::middleware(['auth'])->group(function () {
         // Application routes (backend.application.*)
         Route::prefix('application')->name('application.')->group(function () {
             Route::match(['get', 'post'], '/', [ApplicationController::class, 'index'])->name('index');
+            Route::patch('bulk-status', [ApplicationController::class, 'bulkUpdateStatus'])->name('bulk-status');
+            Route::get('merge-resumes', [ApplicationController::class, 'mergeResumes'])->name('merge-resumes');
             Route::get('{application}', [ApplicationController::class, 'show'])->name('show');
             Route::patch('{application}/status', [ApplicationController::class, 'updateStatus'])->name('update-status');
             Route::get('{application}/resume', [ApplicationController::class, 'downloadResume'])->name('download-resume');

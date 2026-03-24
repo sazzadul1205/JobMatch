@@ -98,6 +98,42 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                 </div>
             </form>
 
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
+                {/* Employer Card */}
+                <div className="rounded-xl border p-4 text-sm shadow-sm">
+                    <div className="font-semibold mb-2">Employer Demo</div>
+                    <div>Email: employer@gmail.com</div>
+                    <div>Password: Employer1205</div>
+                    <Button
+                        type="button"
+                        className="mt-3 w-full"
+                        onClick={() => {
+                            setData('email', 'employer@gmail.com');
+                            setData('password', 'Employer1205');
+                        }}
+                    >
+                        Use Employer Account
+                    </Button>
+                </div>
+                    
+                {/* Seeker Card */}
+                <div className="rounded-xl border p-4 text-sm shadow-sm">
+                    <div className="font-semibold mb-2">Seeker Demo</div>
+                    <div>Email: seeker@gmail.com</div>
+                    <div>Password: Seeker1205</div>
+                    <Button
+                        type="button"
+                        className="mt-3 w-full"
+                        onClick={() => {
+                            setData('email', 'seeker@gmail.com');
+                            setData('password', 'Seeker1205');
+                        }}
+                    >
+                        Use Seeker Account
+                    </Button>
+                </div>
+            </div>
+
             {status && <div className="mb-4 text-center text-sm font-medium text-green-600">{status}</div>}
         </AuthLayout>
     );
