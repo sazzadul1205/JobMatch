@@ -147,8 +147,8 @@ const CreateJob = ({ jobTypes, categories, experienceLevels, storeUrl }) => {
               type="button"
               onClick={handlePrevStep}
               className={`px-6 py-2 border rounded-lg transition duration-150 flex items-center gap-2 ${currentStep === 1
-                  ? 'border-gray-200 text-gray-400 cursor-not-allowed'
-                  : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                ? 'border-gray-200 text-gray-400 cursor-not-allowed'
+                : 'border-gray-300 text-gray-700 hover:bg-gray-50'
                 }`}
               disabled={currentStep === 1}
             >
