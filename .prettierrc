@@ -1,17 +1,111 @@
 {
     "semi": true,
     "singleQuote": true,
-    "singleAttributePerLine": false,
-    "htmlWhitespaceSensitivity": "css",
-    "printWidth": 150,
-    "plugins": ["prettier-plugin-organize-imports", "prettier-plugin-tailwindcss"],
-    "tailwindFunctions": ["clsx", "cn"],
+    "jsxSingleQuote": false,
+    "trailingComma": "es5",
+    "bracketSpacing": true,
+    "bracketSameLine": false,
+    "arrowParens": "always",
+    "printWidth": 100,
     "tabWidth": 4,
+    "useTabs": false,
+    "endOfLine": "lf",
+    "htmlWhitespaceSensitivity": "css",
+    "singleAttributePerLine": false,
+    "quoteProps": "as-needed",
+    "jsxBracketSameLine": false,
+    "vueIndentScriptAndStyle": false,
+    "embeddedLanguageFormatting": "auto",
+    "insertPragma": false,
+    "requirePragma": false,
+    "proseWrap": "preserve",
+    
+    "plugins": [
+        "prettier-plugin-organize-imports",
+        "prettier-plugin-tailwindcss",
+        "@trivago/prettier-plugin-sort-imports"
+    ],
+    
+    "tailwindFunctions": ["clsx", "cn", "cva", "twMerge"],
+    
+    "importOrder": [
+        "^(react/(.*)$)|^(react$)",
+        "^(next/(.*)$)|^(next$)",
+        "<THIRD_PARTY_MODULES>",
+        "^@/(.*)$",
+        "^[./]"
+    ],
+    
+    "importOrderSeparation": true,
+    "importOrderSortSpecifiers": true,
+    "importOrderGroupNamespaceSpecifiers": true,
+    "importOrderCaseInsensitive": true,
+    
     "overrides": [
         {
-            "files": "**/*.yml",
+            "files": ["*.json", "*.jsonc", "*.json5"],
             "options": {
+                "tabWidth": 2,
+                "printWidth": 80
+            }
+        },
+        {
+            "files": ["*.yml", "*.yaml"],
+            "options": {
+                "tabWidth": 2,
+                "printWidth": 80,
+                "singleQuote": false
+            }
+        },
+        {
+            "files": ["*.md", "*.mdx"],
+            "options": {
+                "printWidth": 80,
+                "proseWrap": "always",
                 "tabWidth": 2
+            }
+        },
+        {
+            "files": ["*.css", "*.scss", "*.sass"],
+            "options": {
+                "singleQuote": false,
+                "printWidth": 80
+            }
+        },
+        {
+            "files": ["*.xml", "*.svg"],
+            "options": {
+                "printWidth": 120,
+                "tabWidth": 2
+            }
+        },
+        {
+            "files": ["*.graphql", "*.gql"],
+            "options": {
+                "printWidth": 80,
+                "tabWidth": 2
+            }
+        },
+        {
+            "files": ["*.php", "*.blade.php"],
+            "options": {
+                "tabWidth": 4,
+                "printWidth": 120,
+                "phpVersion": "8.1"
+            }
+        },
+        {
+            "files": ["*.ts", "*.tsx", "*.js", "*.jsx"],
+            "options": {
+                "tabWidth": 2,
+                "printWidth": 100
+            }
+        },
+        {
+            "files": ["tailwind.config.*", "postcss.config.*", "vite.config.*"],
+            "options": {
+                "tabWidth": 2,
+                "printWidth": 80
             }
         }
     ]
