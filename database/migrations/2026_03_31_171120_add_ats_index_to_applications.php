@@ -1,14 +1,17 @@
 <?php
-// database/migrations/2024_01_01_000000_add_ats_index_to_applications.php
+// database/migrations/2024_03_22_140200_add_ats_index_to_applications.php
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-class AddAtsIndexToApplications extends Migration
+return new class extends Migration
 {
-    public function up()
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
     {
         // Add index for better query performance
         Schema::table('applications', function (Blueprint $table) {
@@ -24,7 +27,10 @@ class AddAtsIndexToApplications extends Migration
         });
     }
 
-    public function down()
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
     {
         Schema::table('applications', function (Blueprint $table) {
             if ($this->indexExists('applications', 'applications_status_ats_index')) {
@@ -39,6 +45,9 @@ class AddAtsIndexToApplications extends Migration
         });
     }
 
+    /**
+     * Check if a column has an index.
+     */
     private function columnIndexed(string $table, string $column): bool
     {
         $result = DB::select(
@@ -49,6 +58,9 @@ class AddAtsIndexToApplications extends Migration
         return !empty($result);
     }
 
+    /**
+     * Check if an index exists.
+     */
     private function indexExists(string $table, string $indexName): bool
     {
         $result = DB::select(
@@ -58,4 +70,4 @@ class AddAtsIndexToApplications extends Migration
 
         return !empty($result);
     }
-}
+};
