@@ -113,11 +113,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
 |--------------------------------------------------------------------------
 */
 
+Route::get('/email-verified', function () {
+    return Inertia::render('auth/EmailVerified');
+})->name('verification.verified');
+
 // When user clicks email verification link
 Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
     $request->fulfill();
-
-    return redirect('http://localhost:3000/email-verified');
+    return redirect()->route('verification.verified');
 })->middleware(['auth', 'signed'])->name('verification.verify');
 
 

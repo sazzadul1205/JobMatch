@@ -126,6 +126,23 @@ export default function Register() {
                         {processing && <LoaderCircle className="h-4 w-4 animate-spin" />}
                         Create account
                     </Button>
+
+                    <div className="bg-muted rounded-md p-4 text-center text-sm">
+                        <p className="text-muted-foreground">
+                            By creating an account, you agree to our{' '}
+                            <TextLink href="/terms" className="font-medium">
+                                Terms of Service
+                            </TextLink>{' '}
+                            and{' '}
+                            <TextLink href="/privacy" className="font-medium">
+                                Privacy Policy
+                            </TextLink>
+                            .
+                        </p>
+                        <p className="text-muted-foreground mt-2 text-xs">
+                            We'll send you a verification email to confirm your account.
+                        </p>
+                    </div>
                 </div>
 
                 <div className="text-muted-foreground text-center text-sm">
