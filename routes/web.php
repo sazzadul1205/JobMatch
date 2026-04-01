@@ -94,6 +94,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::prefix('listing')->name('listing.')->group(function () {
             // Custom routes first
             Route::patch('{jobListing}/toggle-active', [JobListingController::class, 'toggleActive'])->name('toggle-active');
+            Route::patch('{jobListing}/restore', [JobListingController::class, 'restore'])->name('restore');
+            Route::delete('{jobListing}/force-delete', [JobListingController::class, 'forceDelete'])->name('force-delete');
             Route::get('{jobListing}/applications', [JobListingController::class, 'applications'])->name('applications');
 
             // Resource routes

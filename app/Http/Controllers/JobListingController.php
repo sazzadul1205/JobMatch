@@ -10,8 +10,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 
@@ -25,7 +23,9 @@ class JobListingController extends Controller
         // Update statuses before displaying
         $this->updateJobStatuses();
 
-        $jobListings = JobListing::with(['category', 'location', 'user'])
+        // This will include soft-deleted records
+        $jobListings = JobListing::withTrashed()
+            ->with(['category', 'location', 'user'])
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -282,5 +282,42 @@ class JobListingController extends Controller
 
         // Default to active
         return true;
+    }
+
+    /**
+     * Restore a soft-deleted job listing
+     */
+    public function restore($id)
+    {
+        $jobListing = JobListing::withTrashed()->findOrFail($id);
+
+        // Check if it's actually soft-deleted
+        if (!$jobListing->trashed()) {
+            return redirect()->route('backend.listing.index')
+                ->with('error', 'This job listing is not in trash.');
+        }
+
+        $jobListing->restore();
+
+        return redirect()->route('backend.listing.index')
+            ->with('success', 'Job listing restored successfully.');
+    }
+
+    /**
+     * Permanently delete a soft-deleted job listing
+     */
+    public function forceDelete($id)
+    {
+        $jobListing = JobListing::withTrashed()->findOrFail($id);
+
+        if (!$jobListing->trashed()) {
+            return redirect()->route('backend.listing.index')
+                ->with('error', 'Only trashed job listings can be permanently deleted.');
+        }
+
+        $jobListing->forceDelete();
+
+        return redirect()->route('backend.listing.index')
+            ->with('success', 'Job listing permanently deleted.');
     }
 }

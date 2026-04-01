@@ -2,7 +2,7 @@
 
 import { FaInfoCircle } from 'react-icons/fa';
 
-export default function BasicInfoStep({ formData, setFormData, errors }) {
+export default function BasicInfoStep({ formData, setFormData, errors, categories, locations }) {
   const formatNumber = (value) => {
     if (!value) return '';
     const num = value.toString().replace(/,/g, '').replace(/\D/g, '');
@@ -61,7 +61,7 @@ export default function BasicInfoStep({ formData, setFormData, errors }) {
               }`}
           >
             <option value="">Select Category</option>
-            {window.categories?.map(cat => (
+            {categories?.map(cat => (
               <option key={cat.id} value={cat.id}>{cat.name}</option>
             ))}
           </select>
@@ -82,7 +82,7 @@ export default function BasicInfoStep({ formData, setFormData, errors }) {
               }`}
           >
             <option value="">Select Location</option>
-            {window.locations?.map(loc => (
+            {locations?.map(loc => (
               <option key={loc.id} value={loc.id}>{loc.name}</option>
             ))}
           </select>
@@ -118,6 +118,7 @@ export default function BasicInfoStep({ formData, setFormData, errors }) {
           )}
         </div>
 
+        {/* Experience Level */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Experience Level <span className="text-red-500">*</span>
@@ -130,44 +131,52 @@ export default function BasicInfoStep({ formData, setFormData, errors }) {
               }`}
           >
             <option value="">Select Experience Level</option>
-            <option value="entry">Entry Level</option>
-            <option value="junior">Junior</option>
-            <option value="mid">Mid Level</option>
-            <option value="senior">Senior</option>
-            <option value="lead">Lead</option>
-            <option value="executive">Executive</option>
-            <option value="intern">Intern</option>
+            <option value="intern">Intern (0-6 months)</option>
+            <option value="entry">Entry Level (0-1 years)</option>
+            <option value="junior">Junior (1-3 years)</option>
+            <option value="mid">Mid Level (3-5 years)</option>
+            <option value="senior">Senior (5-8 years)</option>
+            <option value="lead">Lead (8-10 years)</option>
+            <option value="executive">Executive (10+ years)</option>
           </select>
           {errors.experience_level && (
             <p className="mt-1 text-sm text-red-500">{errors.experience_level}</p>
           )}
+          <p className="mt-1 text-xs text-gray-500">
+            Select the minimum years of experience required for this position.
+          </p>
         </div>
       </div>
 
       {/* Salary */}
+      {/* Salary */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Salary
-        </label>
-        <div className="flex gap-4 mb-3">
-          <label className="flex items-center gap-2">
-            <input
-              type="radio"
-              value="single"
-              checked={formData.salaryMode === 'single'}
-              onChange={() => setFormData({ ...formData, salaryMode: 'single' })}
-            />
-            Single Amount
+        <div className="flex justify-between items-center mb-2">
+          <label className="block text-sm font-medium text-gray-700">
+            Salary
           </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="radio"
-              value="range"
-              checked={formData.salaryMode === 'range'}
-              onChange={() => setFormData({ ...formData, salaryMode: 'range' })}
-            />
-            Salary Range
-          </label>
+          <div className="flex gap-4">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="radio"
+                value="single"
+                checked={formData.salaryMode === 'single'}
+                onChange={() => setFormData({ ...formData, salaryMode: 'single' })}
+                className="w-4 h-4"
+              />
+              Single Amount
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="radio"
+                value="range"
+                checked={formData.salaryMode === 'range'}
+                onChange={() => setFormData({ ...formData, salaryMode: 'range' })}
+                className="w-4 h-4"
+              />
+              Salary Range
+            </label>
+          </div>
         </div>
 
         {formData.salaryMode === 'single' && (
@@ -217,7 +226,6 @@ export default function BasicInfoStep({ formData, setFormData, errors }) {
           Optional - Add salary information to attract more candidates
         </p>
       </div>
-
       {/* Info Box */}
       <div className="bg-blue-50 rounded-lg p-4 flex items-start gap-3">
         <FaInfoCircle className="text-blue-500 mt-0.5" size={18} />

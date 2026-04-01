@@ -467,7 +467,7 @@ export default function JobCategoriesIndex({ categories, flash }) {
         </div>
       )}
 
-      <style jsx>{`
+       <style>{`
         @keyframes fade-in {
           from {
             opacity: 0;

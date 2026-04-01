@@ -8,7 +8,6 @@ import {
   FaArrowLeft,
   FaSave,
   FaSpinner,
-  FaBriefcase,
   FaCheckCircle,
   FaExclamationTriangle,
 } from 'react-icons/fa';

@@ -35,13 +35,20 @@ export default function JobDetailsStep({ formData, setFormData, errors }) {
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
         >
           <option value="">Select Education Level (Optional)</option>
-          <option value="high-school">High School</option>
-          <option value="associate">Associate Degree</option>
-          <option value="bachelor">Bachelor's Degree</option>
-          <option value="master">Master's Degree</option>
-          <option value="phd">PhD</option>
+          <option value="ssc">SSC / Equivalent</option>
+          <option value="hsc">HSC / Equivalent</option>
+          <option value="diploma">Diploma in Engineering / Equivalent</option>
+          <option value="bachelor">Bachelor's Degree (Honors / Pass)</option>
+          <option value="masters">Master's Degree (MA / MSc / MBA)</option>
+          <option value="masters-engineering">Master's in Engineering (MEng / MSc Eng)</option>
+          <option value="phd">PhD / Doctorate</option>
+          <option value="professional">Professional Certification (CA / ACCA / CIMA / ICSB)</option>
+          <option value="vocational">Vocational Training / Technical Education</option>
           <option value="none">No Formal Education Required</option>
         </select>
+        <p className="mt-1 text-xs text-gray-500">
+          Select the minimum educational qualification required for this position.
+        </p>
       </div>
 
       {/* Application Deadline */}
@@ -81,7 +88,7 @@ export default function JobDetailsStep({ formData, setFormData, errors }) {
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
         />
         <p className="mt-1 text-xs text-gray-500">
-          Optional - When should the candidate start? (e.g., Immediate, 2 weeks notice)
+          Optional - When should the candidate start? (e.g., Immediate, 15 days notice, 30 days notice)
         </p>
       </div>
 
@@ -92,8 +99,9 @@ export default function JobDetailsStep({ formData, setFormData, errors }) {
           <p className="font-medium mb-1">Tips for Job Details:</p>
           <ul className="list-disc list-inside space-y-1 text-xs">
             <li>Set a reasonable application deadline (at least 2-4 weeks from now)</li>
-            <li>Be clear about education requirements to avoid unqualified applications</li>
-            <li>Specify if the start date is flexible</li>
+            <li>Be clear about education requirements (SSC, HSC, Bachelor's, etc.) to avoid unqualified applications</li>
+            <li>Specify if the start date is flexible (e.g., Immediate, 2 weeks notice)</li>
+            <li>For professional roles, mention if professional certifications (CA, ACCA, etc.) are preferred</li>
           </ul>
         </div>
       </div>
