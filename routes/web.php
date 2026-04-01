@@ -8,6 +8,7 @@ use App\Http\Controllers\JobListingController;
 use App\Http\Controllers\ApplicationController;
 use App\Http\Controllers\JobCategoryController;
 use App\Http\Controllers\LocationController;
+use App\Http\Controllers\PublicJobListingController;
 use Illuminate\Http\Request;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 
@@ -48,7 +49,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Inside your authenticated and verified routes group
     Route::prefix('backend')->name('backend.')->group(function () {
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Locations Management
     |--------------------------------------------------------------------------
@@ -67,7 +68,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::delete('{location}', [LocationController::class, 'destroy'])->name('destroy');
         });
 
-    /*
+
+        /*
     |--------------------------------------------------------------------------
     | Job Categories Management
     |--------------------------------------------------------------------------
@@ -86,7 +88,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::delete('{category}', [JobCategoryController::class, 'destroy'])->name('destroy');
         });
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Job Listings Management
     |--------------------------------------------------------------------------
@@ -107,6 +109,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::put('{jobListing}', [JobListingController::class, 'update'])->name('update');
             Route::delete('{jobListing}', [JobListingController::class, 'destroy'])->name('destroy');
         });
+
+        /*
+    |--------------------------------------------------------------------------
+    | Public Job Listings Management
+    |--------------------------------------------------------------------------
+    */
+        Route::prefix('public-jobs')->name('public-jobs.')->group(function () {
+            Route::get('/', [PublicJobListingController::class, 'index'])->name('index');
+            Route::get('{slug}', [PublicJobListingController::class, 'show'])->name('show');
+        });
+
 
         /*
     |--------------------------------------------------------------------------

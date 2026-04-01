@@ -1,5 +1,5 @@
 // resources/js/Components/Sidebar.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, usePage } from '@inertiajs/react';
 import {
   FiHome,
@@ -30,6 +30,23 @@ const Sidebar = () => {
     applications: false,
   });
 
+  // Auto-expand menus based on current URL
+  useEffect(() => {
+    const newOpenMenus = { ...openMenus };
+
+    // Check if current URL is in jobs management section
+    if (url.includes('/job-listings') || url.includes('/locations') || url.includes('/categories')) {
+      newOpenMenus.jobs = true;
+    }
+
+    // Check if current URL is in applications section
+    if (url.includes('/applications')) {
+      newOpenMenus.applications = true;
+    }
+
+    setOpenMenus(newOpenMenus);
+  }, [url]);
+
   const toggleMenu = (menu) => {
     setOpenMenus((prev) => ({
       ...prev,
@@ -39,7 +56,17 @@ const Sidebar = () => {
 
   const isActive = (path) => {
     if (!path) return false;
-    return url.startsWith(path);
+    // Exact match for dashboard or root
+    if (path === route('dashboard') && (url === '/' || url === '/dashboard')) {
+      return true;
+    }
+    // For other routes, check if URL starts with the path
+    return url.startsWith(path) && path !== '#';
+  };
+
+  const isSubItemActive = (href) => {
+    if (!href || href === '#') return false;
+    return url === href || url.startsWith(href);
   };
 
   const route = (name, params = {}) => {
@@ -62,7 +89,7 @@ const Sidebar = () => {
     },
     {
       name: 'Browse Jobs',
-      href: route('backend.listing.index'),
+      href: route('backend.public-jobs.index'),
       icon: FiSearch,
     },
     {
@@ -108,14 +135,74 @@ const Sidebar = () => {
       icon: FiHome,
     },
     {
-      name: 'Job Location',
-      href: route('backend.locations.index'),
-      icon: FaSearchLocation,
+      name: 'Job Management',
+      icon: FiBriefcase,
+      isDropdown: true,
+      dropdownKey: 'jobs',
+      subItems: [
+        {
+          name: 'All Jobs',
+          href: route('backend.listing.index'),
+          icon: FiBriefcase,
+        },
+        {
+          name: 'Create New Job',
+          href: route('backend.listing.create'),
+          icon: FiPlusCircle,
+        },
+        {
+          name: 'Job Locations',
+          href: route('backend.locations.index'),
+          icon: FaSearchLocation,
+        },
+        {
+          name: 'Job Categories',
+          href: route('backend.categories.index'),
+          icon: MdCategory,
+        },
+      ],
     },
     {
-      name: 'Job Category',
-      href: route('backend.categories.index'),
-      icon: MdCategory,
+      name: 'Applications',
+      icon: FiFileText,
+      isDropdown: true,
+      dropdownKey: 'applications',
+      subItems: [
+        {
+          name: 'All Applications',
+          href: route('backend.application.index'),
+        },
+        {
+          name: 'Pending',
+          href: route('backend.application.index', { status: 'pending' }),
+        },
+        {
+          name: 'Reviewed',
+          href: route('backend.application.index', { status: 'reviewed' }),
+        },
+        {
+          name: 'Shortlisted',
+          href: route('backend.application.index', { status: 'shortlisted' }),
+        },
+        {
+          name: 'Rejected',
+          href: route('backend.application.index', { status: 'rejected' }),
+        },
+      ],
+    },
+    {
+      name: 'Profile',
+      href: route('settings.profile'),
+      icon: FiUser,
+    },
+  ];
+
+  // Admin Menu Items
+  const adminItems = [
+    {
+      name: 'Dashboard',
+      href: route('dashboard'),
+      icon: FiHome,
     },
     {
       name: 'Jobs Management',
@@ -133,11 +220,21 @@ const Sidebar = () => {
           href: route('backend.listing.create'),
           icon: FiPlusCircle,
         },
+        {
+          name: 'Job Locations',
+          href: route('backend.locations.index'),
+          icon: FaSearchLocation,
+        },
+        {
+          name: 'Job Categories',
+          href: route('backend.categories.index'),
+          icon: MdCategory,
+        },
       ],
     },
     {
       name: 'Applications',
-      icon: FiUsers,
+      icon: FiFileText,
       isDropdown: true,
       dropdownKey: 'applications',
       subItems: [
@@ -146,51 +243,22 @@ const Sidebar = () => {
           href: route('backend.application.index'),
         },
         {
-          name: 'Pending Review',
+          name: 'Pending',
           href: route('backend.application.index', { status: 'pending' }),
+        },
+        {
+          name: 'Reviewed',
+          href: route('backend.application.index', { status: 'reviewed' }),
         },
         {
           name: 'Shortlisted',
           href: route('backend.application.index', { status: 'shortlisted' }),
         },
         {
-          name: 'Hired',
-          href: route('backend.application.index', { status: 'hired' }),
-        },
-        {
           name: 'Rejected',
           href: route('backend.application.index', { status: 'rejected' }),
         },
       ],
-    },
-    {
-      name: 'Analytics',
-      href: route('backend.analytics.dashboard'),
-      icon: FiTrendingUp,
-    },
-    {
-      name: 'Company Profile',
-      href: route('settings.profile'),
-      icon: FaBuilding,
-    },
-  ];
-
-  // Admin Menu Items
-  const adminItems = [
-    {
-      name: 'Dashboard',
-      href: route('dashboard'),
-      icon: FiHome,
-    },
-    {
-      name: 'Manage Jobs',
-      href: route('backend.listing.index'),
-      icon: FiBriefcase,
-    },
-    {
-      name: 'All Applications',
-      href: route('backend.application.index'),
-      icon: FiFileText,
     },
     {
       name: 'Users',
@@ -217,6 +285,7 @@ const Sidebar = () => {
   const renderMenuItem = (item) => {
     if (item.isDropdown) {
       const isOpen = openMenus[item.dropdownKey];
+      const hasActiveSubItem = item.subItems?.some(subItem => isSubItemActive(subItem.href));
 
       return (
         <div key={item.name} className="mb-1">
@@ -224,64 +293,76 @@ const Sidebar = () => {
             onClick={() => toggleMenu(item.dropdownKey)}
             className={`
               w-full flex items-center justify-between px-4 py-2.5 text-sm rounded-lg transition-all duration-200
-              text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800
+              ${hasActiveSubItem
+                ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
+                : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'
+              }
             `}
           >
             <div className="flex items-center gap-3">
-              <item.icon className="w-5 h-5" />
+              <item.icon className={`w-5 h-5 ${hasActiveSubItem ? 'text-blue-600 dark:text-blue-400' : ''}`} />
               <span className="font-medium">{item.name}</span>
             </div>
             {isOpen ? (
-              <FiChevronDown className="w-4 h-4" />
+              <FiChevronDown className={`w-4 h-4 transition-transform duration-200 ${hasActiveSubItem ? 'text-blue-600' : ''}`} />
             ) : (
-              <FiChevronRight className="w-4 h-4" />
+              <FiChevronRight className={`w-4 h-4 transition-transform duration-200 ${hasActiveSubItem ? 'text-blue-600' : ''}`} />
             )}
           </button>
 
           {isOpen && (
             <div className="ml-8 mt-1 space-y-1">
-              {item.subItems.map((subItem) => (
-                <Link
-                  key={subItem.name}
-                  href={subItem.href}
-                  className={`
-                    flex items-center gap-3 px-4 py-2 text-sm rounded-lg transition-all duration-200
-                    ${isSubItemActive(subItem.href)
-                      ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
-                      : 'text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800'
-                    }
-                  `}
-                >
-                  {subItem.icon && <subItem.icon className="w-4 h-4" />}
-                  <span>{subItem.name}</span>
-                </Link>
-              ))}
+              {item.subItems.map((subItem) => {
+                const isActiveSub = isSubItemActive(subItem.href);
+                return (
+                  <Link
+                    key={subItem.name}
+                    href={subItem.href}
+                    className={`
+                      flex items-center gap-3 px-4 py-2 text-sm rounded-lg transition-all duration-200
+                      ${isActiveSub
+                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-800/30 dark:text-blue-400 border-l-3 border-blue-500'
+                        : 'text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800'
+                      }
+                    `}
+                  >
+                    {subItem.icon && <subItem.icon className={`w-4 h-4 ${isActiveSub ? 'text-blue-600' : ''}`} />}
+                    <span className={isActiveSub ? 'font-medium' : ''}>{subItem.name}</span>
+                    {isActiveSub && (
+                      <span className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                    )}
+                  </Link>
+                );
+              })}
             </div>
           )}
         </div>
       );
     }
 
+    const isMenuItemActive = isActive(item.href);
+
     return (
       <Link
         key={item.name}
         href={item.href}
         className={`
-          flex items-center gap-3 px-4 py-2.5 text-sm rounded-lg transition-all duration-200 mb-1
-          ${isActive(item.href)
+          flex items-center gap-3 px-4 py-2.5 text-sm rounded-lg transition-all duration-200 mb-1 relative
+          ${isMenuItemActive
             ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
             : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'
           }
         `}
       >
-        <item.icon className="w-5 h-5" />
-        <span className="font-medium">{item.name}</span>
+        <item.icon className={`w-5 h-5 ${isMenuItemActive ? 'text-blue-600 dark:text-blue-400' : ''}`} />
+        <span className={`font-medium ${isMenuItemActive ? 'text-blue-700 dark:text-blue-400' : ''}`}>
+          {item.name}
+        </span>
+        {isMenuItemActive && (
+          <span className="absolute left-0 w-1 h-8 bg-blue-600 rounded-r-full"></span>
+        )}
       </Link>
     );
-  };
-
-  const isSubItemActive = (href) => {
-    return url === href;
   };
 
   return (

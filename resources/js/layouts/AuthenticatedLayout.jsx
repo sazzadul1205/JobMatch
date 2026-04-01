@@ -1,5 +1,4 @@
 // resources/js/Layouts/AuthenticatedLayout.jsx
-import React from 'react';
 import Sidebar from '@/Components/Sidebar';
 import { usePage } from '@inertiajs/react';
 
@@ -12,7 +11,7 @@ const AuthenticatedLayout = ({ children }) => {
       <Sidebar userRole={userRole} />
 
       {/* Main Content */}
-      <main className="ml-64 p-2 mx-auto">
+      <main className="ml-64 p-2 mx-auto text-black">
           {children}
       </main>
     </div>
