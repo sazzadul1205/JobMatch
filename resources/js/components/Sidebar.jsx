@@ -15,6 +15,7 @@ import {
   FiUsers,
   FiTrendingUp
 } from 'react-icons/fi';
+import { MdCategory } from "react-icons/md";
 import { FaBuilding, FaSearchLocation } from "react-icons/fa";
 
 const Sidebar = () => {
@@ -110,6 +111,11 @@ const Sidebar = () => {
       name: 'Job Location',
       href: route('backend.locations.index'),
       icon: FaSearchLocation,
+    },
+    {
+      name: 'Job Category',
+      href: route('backend.categories.index'),
+      icon: MdCategory,
     },
     {
       name: 'Job Listings',

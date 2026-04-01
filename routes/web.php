@@ -45,20 +45,52 @@ Route::middleware(['auth', 'verified'])->group(function () {
     /*
     | Backend (Admin/Employer Panel)
     */
+    // Inside your authenticated and verified routes group
     Route::prefix('backend')->name('backend.')->group(function () {
 
-        // Inside your authenticated and verified routes group
-        Route::resource('locations', LocationController::class)->only(['index', 'store', 'update', 'destroy']);
-        Route::resource('categories', JobCategoryController::class)->only(['index', 'store', 'update', 'destroy']);
+        /*
+    |--------------------------------------------------------------------------
+    | Locations Management
+    |--------------------------------------------------------------------------
+    */
+        Route::prefix('locations')->name('locations.')->group(function () {
+            // Custom routes first
+            Route::patch('{location}/toggle', [LocationController::class, 'toggleActive'])->name('toggle');
+            Route::patch('{location}/restore', [LocationController::class, 'restore'])->name('restore');
+            Route::delete('{location}/force-delete', [LocationController::class, 'forceDelete'])->name('force-delete');
+            Route::get('active', [LocationController::class, 'getActiveLocations'])->name('active');
 
-        // Or with additional actions
-        Route::patch('locations/{location}/toggle', [LocationController::class, 'toggleActive'])->name('locations.toggle');
-        Route::patch('locations/{location}/restore', [LocationController::class, 'restore'])
-            ->name('locations.restore');
-        Route::patch('categories/{category}/toggle', [JobCategoryController::class, 'toggleActive'])->name('categories.toggle');
+            // Resource routes
+            Route::get('/', [LocationController::class, 'index'])->name('index');
+            Route::post('/', [LocationController::class, 'store'])->name('store');
+            Route::put('{location}', [LocationController::class, 'update'])->name('update');
+            Route::delete('{location}', [LocationController::class, 'destroy'])->name('destroy');
+        });
 
+        /*
+    |--------------------------------------------------------------------------
+    | Job Categories Management
+    |--------------------------------------------------------------------------
+    */
+        Route::prefix('categories')->name('categories.')->group(function () {
+            // Custom routes first
+            Route::patch('{category}/toggle', [JobCategoryController::class, 'toggleActive'])->name('toggle');
+            Route::patch('{category}/restore', [JobCategoryController::class, 'restore'])->name('restore');
+            Route::delete('{category}/force-delete', [JobCategoryController::class, 'forceDelete'])->name('force-delete');
+            Route::get('active', [JobCategoryController::class, 'getActiveCategories'])->name('active');
 
-        // Job Listings CRUD
+            // Resource routes
+            Route::get('/', [JobCategoryController::class, 'index'])->name('index');
+            Route::post('/', [JobCategoryController::class, 'store'])->name('store');
+            Route::put('{category}', [JobCategoryController::class, 'update'])->name('update');
+            Route::delete('{category}', [JobCategoryController::class, 'destroy'])->name('destroy');
+        });
+
+        /*
+    |--------------------------------------------------------------------------
+    | Job Listings Management
+    |--------------------------------------------------------------------------
+    */
         Route::resource('listing', JobListingController::class)
             ->parameters(['listing' => 'jobListing'])
             ->names([
@@ -81,8 +113,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         });
 
         /*
-        | Applications
-        */
+    |--------------------------------------------------------------------------
+    | Applications Management
+    |--------------------------------------------------------------------------
+    */
         Route::prefix('application')->name('application.')->group(function () {
             Route::match(['get', 'post'], '/', [ApplicationController::class, 'index'])->name('index');
             Route::patch('bulk-status', [ApplicationController::class, 'bulkUpdateStatus'])->name('bulk-status');
