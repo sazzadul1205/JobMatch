@@ -6,6 +6,8 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\JobListingController;
 use App\Http\Controllers\ApplicationController;
+use App\Http\Controllers\JobCategoryController;
+use App\Http\Controllers\LocationController;
 use Illuminate\Http\Request;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 
@@ -44,6 +46,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
     | Backend (Admin/Employer Panel)
     */
     Route::prefix('backend')->name('backend.')->group(function () {
+
+        // Inside your authenticated and verified routes group
+        Route::resource('locations', LocationController::class)->only(['index', 'store', 'update', 'destroy']);
+        Route::resource('categories', JobCategoryController::class)->only(['index', 'store', 'update', 'destroy']);
+
+        // Or with additional actions
+        Route::patch('locations/{location}/toggle', [LocationController::class, 'toggleActive'])->name('locations.toggle');
+        Route::patch('locations/{location}/restore', [LocationController::class, 'restore'])
+            ->name('locations.restore');
+        Route::patch('categories/{category}/toggle', [JobCategoryController::class, 'toggleActive'])->name('categories.toggle');
+
 
         // Job Listings CRUD
         Route::resource('listing', JobListingController::class)

@@ -15,7 +15,7 @@ import {
   FiUsers,
   FiTrendingUp
 } from 'react-icons/fi';
-import { FaBuilding } from "react-icons/fa";
+import { FaBuilding, FaSearchLocation } from "react-icons/fa";
 
 const Sidebar = () => {
   const { url, props } = usePage();
@@ -105,6 +105,11 @@ const Sidebar = () => {
       name: 'Dashboard',
       href: route('dashboard'),
       icon: FiHome,
+    },
+    {
+      name: 'Job Location',
+      href: route('backend.locations.index'),
+      icon: FaSearchLocation,
     },
     {
       name: 'Job Listings',
