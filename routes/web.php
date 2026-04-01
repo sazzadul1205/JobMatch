@@ -48,7 +48,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Inside your authenticated and verified routes group
     Route::prefix('backend')->name('backend.')->group(function () {
 
-        /*
+    /*
     |--------------------------------------------------------------------------
     | Locations Management
     |--------------------------------------------------------------------------
@@ -67,7 +67,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::delete('{location}', [LocationController::class, 'destroy'])->name('destroy');
         });
 
-        /*
+    /*
     |--------------------------------------------------------------------------
     | Job Categories Management
     |--------------------------------------------------------------------------
@@ -86,30 +86,24 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::delete('{category}', [JobCategoryController::class, 'destroy'])->name('destroy');
         });
 
-        /*
+    /*
     |--------------------------------------------------------------------------
     | Job Listings Management
     |--------------------------------------------------------------------------
     */
-        Route::resource('listing', JobListingController::class)
-            ->parameters(['listing' => 'jobListing'])
-            ->names([
-                'index' => 'listing.index',
-                'create' => 'listing.create',
-                'store' => 'listing.store',
-                'show' => 'listing.show',
-                'edit' => 'listing.edit',
-                'update' => 'listing.update',
-                'destroy' => 'listing.destroy',
-            ]);
-
-        // Extra listing actions
         Route::prefix('listing')->name('listing.')->group(function () {
-            Route::get('{jobListing}/applications', [JobListingController::class, 'applications'])
-                ->name('applications');
+            // Custom routes first
+            Route::patch('{jobListing}/toggle-active', [JobListingController::class, 'toggleActive'])->name('toggle-active');
+            Route::get('{jobListing}/applications', [JobListingController::class, 'applications'])->name('applications');
 
-            Route::patch('{jobListing}/toggle-active', [JobListingController::class, 'toggleActive'])
-                ->name('toggle-active');
+            // Resource routes
+            Route::get('/', [JobListingController::class, 'index'])->name('index');
+            Route::get('/create', [JobListingController::class, 'create'])->name('create');
+            Route::post('/', [JobListingController::class, 'store'])->name('store');
+            Route::get('{jobListing}', [JobListingController::class, 'show'])->name('show');
+            Route::get('{jobListing}/edit', [JobListingController::class, 'edit'])->name('edit');
+            Route::put('{jobListing}', [JobListingController::class, 'update'])->name('update');
+            Route::delete('{jobListing}', [JobListingController::class, 'destroy'])->name('destroy');
         });
 
         /*

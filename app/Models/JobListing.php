@@ -1,143 +1,112 @@
 <?php
+// app/Models/JobListing.php
 
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 
 class JobListing extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
-     */
     protected $fillable = [
         'title',
+        'slug',
         'description',
         'requirements',
-        'location',
-        'salary_range',
+        'location_id',
+        'salary',
         'job_type',
-        'category',
+        'category_id',
         'experience_level',
+        'education_requirement',
+        'benefits',
+        'skills',
+        'responsibilities',
         'keywords',
         'application_deadline',
+        'schedule_start_date',
         'is_active',
         'user_id',
+        'show_linkedin',
+        'show_facebook',
+    ];
+
+    protected $casts = [
+        'benefits' => 'array',
+        'skills' => 'array',
+        'responsibilities' => 'array',
+        'keywords' => 'array',
+        'application_deadline' => 'date',
+        'schedule_start_date' => 'date',
+        'is_active' => 'boolean',
+        'show_linkedin' => 'boolean',
+        'show_facebook' => 'boolean',
     ];
 
     /**
-     * The attributes that should be cast.
-     *
-     * @var array<string, string>
+     * Boot the model
      */
-    protected function casts(): array
+    protected static function boot()
     {
-        return [
-            'keywords' => 'array',
-            'application_deadline' => 'date',
-            'is_active' => 'boolean',
-            'created_at' => 'datetime',
-            'updated_at' => 'datetime',
-        ];
+        parent::boot();
+
+        static::creating(function ($jobListing) {
+            if (empty($jobListing->slug)) {
+                $jobListing->slug = Str::slug($jobListing->title);
+            }
+        });
+
+        static::updating(function ($jobListing) {
+            if ($jobListing->isDirty('title')) {
+                $jobListing->slug = Str::slug($jobListing->title);
+            }
+        });
     }
 
-    /**
-     * Get the employer who posted this job
-     */
-    public function employer()
+    // Relationships
+    public function location()
     {
-        return $this->belongsTo(User::class, 'user_id');
+        return $this->belongsTo(Location::class);
     }
 
-    /**
-     * Get all applications for this job
-     */
+    public function category()
+    {
+        return $this->belongsTo(JobCategory::class, 'category_id');
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
     public function applications()
     {
         return $this->hasMany(Application::class);
     }
 
-    /**
-     * Get active applications (pending and reviewed)
-     */
-    public function activeApplications()
-    {
-        return $this->hasMany(Application::class)->whereIn('status', ['pending', 'reviewed', 'shortlisted']);
-    }
-
-    /**
-     * Check if job is still accepting applications
-     */
-    public function isAcceptingApplications(): bool
-    {
-        return $this->is_active && $this->application_deadline->isFuture();
-    }
-
-    /**
-     * Scope a query to only include active jobs
-     */
+    // Scopes
     public function scopeActive($query)
     {
         return $query->where('is_active', true)
             ->where('application_deadline', '>=', now());
     }
 
-    /**
-     * Scope a query to filter by job type
-     */
-    public function scopeOfType($query, $jobType)
+    public function scopeByType($query, $type)
     {
-        return $query->where('job_type', $jobType);
+        return $query->where('job_type', $type);
     }
 
-    /**
-     * Scope a query to filter by category
-     */
-    public function scopeInCategory($query, $category)
+    public function scopeByCategory($query, $categoryId)
     {
-        return $query->where('category', $category);
+        return $query->where('category_id', $categoryId);
     }
 
-    /**
-     * Scope a query to filter by experience level
-     */
-    public function scopeWithExperience($query, $experienceLevel)
+    public function scopeByLocation($query, $locationId)
     {
-        return $query->where('experience_level', $experienceLevel);
-    }
-
-    /**
-     * Scope a query to filter by location
-     */
-    public function scopeInLocation($query, $location)
-    {
-        return $query->where('location', 'LIKE', "%{$location}%");
-    }
-
-    /**
-     * Get keywords as array
-     */
-    public function getKeywordsAttribute($value)
-    {
-        if (is_string($value)) {
-            return json_decode($value, true) ?? [];
-        }
-        return $value ?? [];
-    }
-
-    /**
-     * Set keywords as JSON
-     */
-    public function setKeywordsAttribute($value)
-    {
-        if (is_array($value)) {
-            $this->attributes['keywords'] = json_encode($value);
-        } else {
-            $this->attributes['keywords'] = $value;
-        }
+        return $query->where('location_id', $locationId);
     }
 }

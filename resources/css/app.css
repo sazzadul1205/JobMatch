@@ -67,6 +67,7 @@
   color utility to any element that depends on these defaults.
 */
 @layer base {
+
     *,
     ::after,
     ::before,
@@ -159,4 +160,16 @@
 
 button {
     cursor: pointer;
+}
+
+.prose ul {
+    @apply list-disc pl-6;
+}
+
+.prose ol {
+    @apply list-decimal pl-6;
+}
+
+.prose li {
+    @apply my-1;
 }

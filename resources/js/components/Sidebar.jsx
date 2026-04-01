@@ -118,7 +118,7 @@ const Sidebar = () => {
       icon: MdCategory,
     },
     {
-      name: 'Job Listings',
+      name: 'Jobs Management',
       icon: FiBriefcase,
       isDropdown: true,
       dropdownKey: 'jobs',
@@ -126,14 +126,7 @@ const Sidebar = () => {
         {
           name: 'All Jobs',
           href: route('backend.listing.index'),
-        },
-        {
-          name: 'Active Jobs',
-          href: route('backend.listing.index', { status: 'active' }),
-        },
-        {
-          name: 'Inactive Jobs',
-          href: route('backend.listing.index', { status: 'inactive' }),
+          icon: FiBriefcase,
         },
         {
           name: 'Create New Job',
