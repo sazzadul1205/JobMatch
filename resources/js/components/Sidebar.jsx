@@ -13,10 +13,9 @@ import {
   FiSearch,
   FiPlusCircle,
   FiUsers,
-  FiTrendingUp
 } from 'react-icons/fi';
 import { MdCategory } from "react-icons/md";
-import { FaBuilding, FaSearchLocation } from "react-icons/fa";
+import {  FaSearchLocation } from "react-icons/fa";
 
 const Sidebar = () => {
   const { url, props } = usePage();
@@ -91,6 +90,11 @@ const Sidebar = () => {
       name: 'Browse Jobs',
       href: route('backend.public-jobs.index'),
       icon: FiSearch,
+    },
+    {
+      name: 'Applicant Profile',
+      href: route('backend.applicant.profile.show', user?.id),
+      icon: FiUser,
     },
     {
       name: 'My Applications',

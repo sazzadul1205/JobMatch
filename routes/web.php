@@ -2,6 +2,7 @@
 
 // routes/web.php
 
+use App\Http\Controllers\ApplicantProfileController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\JobListingController;
@@ -88,7 +89,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::delete('{category}', [JobCategoryController::class, 'destroy'])->name('destroy');
         });
 
-        /*
+    /*
     |--------------------------------------------------------------------------
     | Job Listings Management
     |--------------------------------------------------------------------------
@@ -110,7 +111,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::delete('{jobListing}', [JobListingController::class, 'destroy'])->name('destroy');
         });
 
-        /*
+    /*
     |--------------------------------------------------------------------------
     | Public Job Listings Management
     |--------------------------------------------------------------------------
@@ -120,8 +121,25 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('{slug}', [PublicJobListingController::class, 'show'])->name('show');
         });
 
+    /*
+    |--------------------------------------------------------------------------
+    | Applicant Profile Routes
+    |--------------------------------------------------------------------------
+    */
+        Route::prefix('applicant')->name('applicant.')->group(function () {
 
-        /*
+            Route::get('/profile/create', [ApplicantProfileController::class, 'create'])->name('profile.create');
+            Route::post('/profile', [ApplicantProfileController::class, 'store'])->name('profile.store');
+            Route::get('/profile/{applicantProfile}/edit', [ApplicantProfileController::class, 'edit'])->name('profile.edit');
+            Route::put('/profile/{applicantProfile}', [ApplicantProfileController::class, 'update'])->name('profile.update');
+            Route::delete('/profile/{applicantProfile}', [ApplicantProfileController::class, 'destroy'])->name('profile.destroy');
+            Route::get('/profile/{applicantProfile}/download-cv', [ApplicantProfileController::class, 'downloadCV'])->name('profile.download-cv');
+            Route::post('/profile/{id}/restore', [ApplicantProfileController::class, 'restore'])->name('profile.restore');
+            Route::get('/profile/{id?}', [ApplicantProfileController::class, 'show'])->name('profile.show');
+        });
+        
+        
+    /*
     |--------------------------------------------------------------------------
     | Applications Management
     |--------------------------------------------------------------------------
