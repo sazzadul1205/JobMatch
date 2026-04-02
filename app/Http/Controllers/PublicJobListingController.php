@@ -7,6 +7,7 @@ use App\Models\JobListing;
 use App\Models\JobCategory;
 use App\Models\Location;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
 class PublicJobListingController extends Controller
@@ -138,7 +139,8 @@ class PublicJobListingController extends Controller
             ->firstOrFail();
 
         return Inertia::render('Backend/PublicJobListing/Show', [
-            'jobListing' => $jobListing
+            'jobListing' => $jobListing,
+            'userData' => Auth::user(),
         ]);
     }
 }

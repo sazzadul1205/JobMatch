@@ -15,7 +15,8 @@ import {
   FaSpinner,
   FaBirthdayCake,
   FaIdCard,
-  FaExclamationTriangle
+  FaExclamationTriangle,
+  FaFileAlt
 } from 'react-icons/fa';
 import Swal from 'sweetalert2';
 import AuthenticatedLayout from '../../../layouts/AuthenticatedLayout';
@@ -183,6 +184,17 @@ export default function Show({ profile }) {
                     <FaEdit size={16} />
                     Edit Profile
                   </Link>
+
+                  {/* My Applications */}
+                  <Link
+                    href={route('backend.applications.my-applications')}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200"
+                  >
+                    <FaFileAlt size={16} />
+                    My Applications
+                  </Link>
+
+
                   <button
                     onClick={handleDelete}
                     disabled={deleting}
@@ -191,6 +203,7 @@ export default function Show({ profile }) {
                     {deleting ? <FaSpinner className="animate-spin" size={16} /> : <FaTrash size={16} />}
                     Delete
                   </button>
+
                 </>
               )}
             </div>
@@ -221,9 +234,9 @@ export default function Show({ profile }) {
             <div className="px-6 pb-6">
               {/* Profile Photo */}
               <div className="flex justify-center -mt-16 mb-4">
-                {profile.photo_path && !isDeleted ? (
+                {profile.photo_url && !isDeleted ? (
                   <img
-                    src={`/storage/${profile.photo_path}`}
+                    src={profile.photo_url}
                     alt={profile.full_name}
                     className="w-32 h-32 rounded-full object-cover border-4 border-white shadow-lg"
                   />
@@ -286,61 +299,31 @@ export default function Show({ profile }) {
               {/* CV Section */}
               <div className="border-t pt-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-3">Resume / CV</h3>
-                {profile.cv_path && !isDeleted ? (
-                  <a
-                    href={route('backend.applicant.profile.download-cv', profile.id)}
-                    className="inline-flex items-center gap-3 px-4 py-3 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition-all duration-200"
-                  >
-                    <FaFilePdf size={20} />
-                    <span>Download CV</span>
-                  </a>
+                {profile.cv_url && !isDeleted ? (
+                  <div className="flex gap-2">
+                    <a
+                      href={profile.cv_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-3 px-4 py-3 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition-all duration-200"
+                    >
+                      <FaFilePdf size={20} />
+                      <span>View CV</span>
+                    </a>
+                    <a
+                      href={route('backend.applicant.profile.download-cv', profile.id)}
+                      className="inline-flex items-center gap-3 px-4 py-3 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-all duration-200"
+                    >
+                      <FaFileAlt size={20} />
+                      <span>Download CV</span>
+                    </a>
+                  </div>
                 ) : (
                   <p className="text-gray-500 text-sm">
                     {isDeleted ? 'CV not available for deleted profile.' : 'No CV uploaded yet. Edit your profile to add one.'}
                   </p>
                 )}
               </div>
-
-              {/* Applications Section */}
-              {profile.applications && profile.applications.length > 0 && !isDeleted && (
-                <div className="border-t pt-6 mt-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">My Applications</h3>
-                  <div className="space-y-3">
-                    {profile.applications.slice(0, 5).map((application) => (
-                      <Link
-                        key={application.id}
-                        href={route('backend.application.show', application.id)}
-                        className="block p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all duration-200"
-                      >
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <p className="font-medium text-gray-900">{application.job_listing?.title}</p>
-                            <p className="text-sm text-gray-500">
-                              Applied: {formatDate(application.created_at)}
-                            </p>
-                          </div>
-                          <span className={`px-2 py-1 text-xs rounded-full ${application.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                            application.status === 'reviewed' ? 'bg-blue-100 text-blue-800' :
-                              application.status === 'shortlisted' ? 'bg-green-100 text-green-800' :
-                                application.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                                  'bg-gray-100 text-gray-800'
-                            }`}>
-                            {application.status}
-                          </span>
-                        </div>
-                      </Link>
-                    ))}
-                    {profile.applications.length > 5 && (
-                      <Link
-                        href={route('backend.application.index')}
-                        className="block text-center text-blue-600 hover:text-blue-700 text-sm mt-2"
-                      >
-                        View all {profile.applications.length} applications →
-                      </Link>
-                    )}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </div>

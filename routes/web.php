@@ -89,7 +89,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::delete('{category}', [JobCategoryController::class, 'destroy'])->name('destroy');
         });
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Job Listings Management
     |--------------------------------------------------------------------------
@@ -111,7 +111,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::delete('{jobListing}', [JobListingController::class, 'destroy'])->name('destroy');
         });
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Public Job Listings Management
     |--------------------------------------------------------------------------
@@ -121,7 +121,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('{slug}', [PublicJobListingController::class, 'show'])->name('show');
         });
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Applicant Profile Routes
     |--------------------------------------------------------------------------
@@ -137,23 +137,43 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/profile/{id}/restore', [ApplicantProfileController::class, 'restore'])->name('profile.restore');
             Route::get('/profile/{id?}', [ApplicantProfileController::class, 'show'])->name('profile.show');
         });
-        
-        
-    /*
+
+
+        /*
     |--------------------------------------------------------------------------
     | Applications Management
     |--------------------------------------------------------------------------
     */
-        Route::prefix('application')->name('application.')->group(function () {
-            Route::match(['get', 'post'], '/', [ApplicationController::class, 'index'])->name('index');
-            Route::patch('bulk-status', [ApplicationController::class, 'bulkUpdateStatus'])->name('bulk-status');
-            Route::get('merge-resumes', [ApplicationController::class, 'mergeResumes'])->name('merge-resumes');
+        Route::prefix('applications')->name('applications.')->group(function () {
+            // Job-specific applications
+            Route::get('/job/{jobListing}', [ApplicationController::class, 'index'])->name('job.index');
 
-            Route::get('{application}', [ApplicationController::class, 'show'])->name('show');
-            Route::patch('{application}/status', [ApplicationController::class, 'updateStatus'])->name('update-status');
-            Route::get('{application}/resume', [ApplicationController::class, 'downloadResume'])->name('download-resume');
-            Route::delete('{application}', [ApplicationController::class, 'destroy'])->name('destroy');
-            Route::post('{application}/recalculate-score', [ApplicationController::class, 'recalculateScore'])->name('recalculate-score');
+            // User-specific applications
+            Route::get('/my-applications', [ApplicationController::class, 'myApplications'])->name('my-applications');
+
+            // Create/Store
+            Route::get('/create/{jobListing}', [ApplicationController::class, 'create'])->name('create');
+            Route::post('/store/{jobListing}', [ApplicationController::class, 'store'])->name('store');
+
+            // Single application CRUD
+            Route::get('/{application}', [ApplicationController::class, 'show'])->name('show');
+            Route::get('/{application}/edit', [ApplicationController::class, 'edit'])->name('edit');
+            Route::put('/{application}', [ApplicationController::class, 'update'])->name('update');
+            Route::delete('/{application}', [ApplicationController::class, 'destroy'])->name('destroy');
+
+            // Status updates
+            Route::patch('/{application}/status', [ApplicationController::class, 'updateStatus'])->name('update-status');
+            Route::post('/batch/status', [ApplicationController::class, 'batchUpdateStatus'])->name('batch-status');
+
+            // Delete operations
+            Route::post('/batch/delete', [ApplicationController::class, 'batchDelete'])->name('batch-delete');
+
+            // Resume downloads
+            Route::get('/{application}/resume', [ApplicationController::class, 'downloadResume'])->name('download-resume');
+            Route::post('/batch/download', [ApplicationController::class, 'batchDownloadResumes'])->name('batch-download');
+
+            // ATS
+            Route::post('/{application}/recalculate-score', [ApplicationController::class, 'recalculateScore'])->name('recalculate-score');
         });
     });
 

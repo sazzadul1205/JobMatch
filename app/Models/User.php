@@ -50,6 +50,14 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
+     * Get the applicant's profile
+     */
+    public function applicantProfile()
+    {
+        return $this->hasOne(ApplicantProfile::class);
+    }
+
+    /**
      * Check if user is an admin
      */
     public function isAdmin(): bool

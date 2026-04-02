@@ -14,7 +14,7 @@ class ApplicantProfileController extends Controller
     /**
      * Display the applicant's profile (show page)
      */
-    public function show($id = null)
+    public function show(?int $id = null)
     {
         // Check if user is a job seeker
         if (Auth::user()->role !== 'job_seeker') {

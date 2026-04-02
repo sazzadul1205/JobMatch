@@ -12,6 +12,18 @@ class ApplicantProfile extends Model
     use HasFactory, SoftDeletes;
 
     /**
+     * Append virtual attributes in JSON/array representation
+     * (so Inertia front-end has cv_url/photo_url/full_name available)
+     *
+     * @var array<int, string>
+     */
+    protected $appends = [
+        'full_name',
+        'cv_url',
+        'photo_url',
+    ];
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var list<string>
@@ -142,4 +154,5 @@ class ApplicantProfile extends Model
             }
         });
     }
+
 }

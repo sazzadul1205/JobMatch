@@ -21,7 +21,7 @@ import {
 import { useState } from 'react';
 import AuthenticatedLayout from '../../../layouts/AuthenticatedLayout';
 
-export default function PublicJobShow({ jobListing }) {
+export default function PublicJobShow({ jobListing, userData }) {
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -316,7 +316,7 @@ export default function PublicJobShow({ jobListing }) {
             {!isExpired ? (
               <div className="mt-8 pt-6 border-t border-gray-200">
                 <Link
-                  href={route('applications.create', jobListing.id)}
+                  href={route('backend.applications.create', { jobListing: jobListing.id }, { profile: userData?.id },)}
                   className="inline-flex items-center justify-center gap-2 w-full md:w-auto px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg font-semibold"
                 >
                   <FaEnvelope size={18} />
