@@ -38,6 +38,9 @@
         }
     </style>
 
+    <!-- CSRF Token for fetch requests -->
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+
     <!-- Favicons -->
     <link rel="icon" href="/Icon.png" sizes="any">
     <link rel="icon" type="image/svg+xml" href="/Icon.png">

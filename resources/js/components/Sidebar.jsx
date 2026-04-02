@@ -15,7 +15,7 @@ import {
   FiUsers,
 } from 'react-icons/fi';
 import { MdCategory } from "react-icons/md";
-import {  FaSearchLocation } from "react-icons/fa";
+import { FaSearchLocation } from "react-icons/fa";
 
 const Sidebar = () => {
   const { url, props } = usePage();
@@ -98,31 +98,8 @@ const Sidebar = () => {
     },
     {
       name: 'My Applications',
+      href: route('backend.application.my-applications'),
       icon: FiFileText,
-      isDropdown: true,
-      dropdownKey: 'applications',
-      subItems: [
-        {
-          name: 'All Applications',
-          href: route('backend.application.index'),
-        },
-        {
-          name: 'Pending',
-          href: route('backend.application.index', { status: 'pending' }),
-        },
-        {
-          name: 'Reviewed',
-          href: route('backend.application.index', { status: 'reviewed' }),
-        },
-        {
-          name: 'Shortlisted',
-          href: route('backend.application.index', { status: 'shortlisted' }),
-        },
-        {
-          name: 'Rejected',
-          href: route('backend.application.index', { status: 'rejected' }),
-        },
-      ],
     },
     {
       name: 'Profile',

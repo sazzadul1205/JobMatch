@@ -26,6 +26,7 @@ class JobListingController extends Controller
         // This will include soft-deleted records
         $jobListings = JobListing::withTrashed()
             ->with(['category', 'location', 'user'])
+            ->withCount('applications') // Add this line to get applications count
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -319,5 +320,56 @@ class JobListingController extends Controller
 
         return redirect()->route('backend.listing.index')
             ->with('success', 'Job listing permanently deleted.');
+    }
+
+    /**
+     * Bulk activate job listings
+     */
+    public function bulkActivate(Request $request)
+    {
+        $validated = $request->validate([
+            'job_ids' => 'required|array',
+            'job_ids.*' => 'exists:job_listings,id'
+        ]);
+
+        $count = JobListing::whereIn('id', $validated['job_ids'])
+            ->whereNull('deleted_at')
+            ->update(['is_active' => true]);
+
+        return redirect()->back()->with('success', "{$count} job listing(s) activated successfully.");
+    }
+
+    /**
+     * Bulk deactivate job listings
+     */
+    public function bulkDeactivate(Request $request)
+    {
+        $validated = $request->validate([
+            'job_ids' => 'required|array',
+            'job_ids.*' => 'exists:job_listings,id'
+        ]);
+
+        $count = JobListing::whereIn('id', $validated['job_ids'])
+            ->whereNull('deleted_at')
+            ->update(['is_active' => false]);
+
+        return redirect()->back()->with('success', "{$count} job listing(s) deactivated successfully.");
+    }
+
+    /**
+     * Bulk delete job listings (soft delete)
+     */
+    public function bulkDelete(Request $request)
+    {
+        $validated = $request->validate([
+            'job_ids' => 'required|array',
+            'job_ids.*' => 'exists:job_listings,id'
+        ]);
+
+        $count = JobListing::whereIn('id', $validated['job_ids'])
+            ->whereNull('deleted_at')
+            ->delete();
+
+        return redirect()->back()->with('success', "{$count} job listing(s) moved to trash.");
     }
 }

@@ -21,7 +21,13 @@ import {
   FaSearch,
   FaTimes,
   FaChevronDown,
-  FaChevronUp
+  FaChevronUp,
+  FaCheckCircle,
+  FaBan,
+  FaUserCheck,
+  FaUserTimes,
+  FaDownload,
+  FaCheckDouble,
 } from 'react-icons/fa';
 
 // Layout
@@ -35,6 +41,8 @@ export default function JobListingsIndex({ jobListings, flash }) {
   const [restoringId, setRestoringId] = useState(null);
   const [togglingId, setTogglingId] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [selectedJobs, setSelectedJobs] = useState([]);
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
 
   // Filter states
   const [filters, setFilters] = useState({
@@ -185,6 +193,167 @@ export default function JobListingsIndex({ jobListings, flash }) {
   const activeCount = jobListings.filter(job => !job.deleted_at && job.is_active).length;
   const inactiveCount = jobListings.filter(job => !job.deleted_at && !job.is_active).length;
   const deletedCount = jobListings.filter(job => job.deleted_at).length;
+
+  // Bulk selection handlers
+  const handleSelectAll = () => {
+    const nonDeletedJobs = sortedJobListings.filter(job => !job.deleted_at);
+    if (selectedJobs.length === nonDeletedJobs.length) {
+      setSelectedJobs([]);
+    } else {
+      setSelectedJobs(nonDeletedJobs.map(job => job.id));
+    }
+  };
+
+  const handleSelectJob = (jobId) => {
+    setSelectedJobs(prev =>
+      prev.includes(jobId)
+        ? prev.filter(id => id !== jobId)
+        : [...prev, jobId]
+    );
+  };
+
+  const handleBulkActivate = () => {
+    if (selectedJobs.length === 0) {
+      Swal.fire('No Selection', 'Please select at least one job listing.', 'warning');
+      return;
+    }
+
+    Swal.fire({
+      title: 'Activate Jobs',
+      text: `Are you sure you want to activate ${selectedJobs.length} job listing(s)?`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#10b981',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Yes, activate',
+      cancelButtonText: 'Cancel'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        setIsBulkProcessing(true);
+
+        router.post(route('backend.listing.bulk-activate'), {
+          job_ids: selectedJobs
+        }, {
+          preserveScroll: true,
+          onSuccess: () => {
+            Swal.fire({
+              icon: 'success',
+              title: 'Activated!',
+              text: `${selectedJobs.length} job listing(s) have been activated.`,
+              timer: 1500,
+              showConfirmButton: false
+            });
+            setSelectedJobs([]);
+            setIsBulkProcessing(false);
+            router.reload();
+          },
+          onError: (error) => {
+            Swal.fire({
+              icon: 'error',
+              title: 'Failed',
+              text: error?.message || 'Failed to activate jobs.',
+            });
+            setIsBulkProcessing(false);
+          }
+        });
+      }
+    });
+  };
+
+  const handleBulkDeactivate = () => {
+    if (selectedJobs.length === 0) {
+      Swal.fire('No Selection', 'Please select at least one job listing.', 'warning');
+      return;
+    }
+
+    Swal.fire({
+      title: 'Deactivate Jobs',
+      text: `Are you sure you want to deactivate ${selectedJobs.length} job listing(s)?`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#f59e0b',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Yes, deactivate',
+      cancelButtonText: 'Cancel'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        setIsBulkProcessing(true);
+
+        router.post(route('backend.listing.bulk-deactivate'), {
+          job_ids: selectedJobs
+        }, {
+          preserveScroll: true,
+          onSuccess: () => {
+            Swal.fire({
+              icon: 'success',
+              title: 'Deactivated!',
+              text: `${selectedJobs.length} job listing(s) have been deactivated.`,
+              timer: 1500,
+              showConfirmButton: false
+            });
+            setSelectedJobs([]);
+            setIsBulkProcessing(false);
+            router.reload();
+          },
+          onError: (error) => {
+            Swal.fire({
+              icon: 'error',
+              title: 'Failed',
+              text: error?.message || 'Failed to deactivate jobs.',
+            });
+            setIsBulkProcessing(false);
+          }
+        });
+      }
+    });
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedJobs.length === 0) {
+      Swal.fire('No Selection', 'Please select at least one job listing.', 'warning');
+      return;
+    }
+
+    Swal.fire({
+      title: 'Delete Jobs',
+      text: `Are you sure you want to delete ${selectedJobs.length} job listing(s)? This will move them to trash.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, delete',
+      cancelButtonText: 'Cancel'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        setIsBulkProcessing(true);
+
+        router.delete(route('backend.listing.bulk-delete'), {
+          data: { job_ids: selectedJobs },
+          preserveScroll: true,
+          onSuccess: () => {
+            Swal.fire({
+              icon: 'success',
+              title: 'Deleted!',
+              text: `${selectedJobs.length} job listing(s) have been moved to trash.`,
+              timer: 1500,
+              showConfirmButton: false
+            });
+            setSelectedJobs([]);
+            setIsBulkProcessing(false);
+            router.reload();
+          },
+          onError: (error) => {
+            Swal.fire({
+              icon: 'error',
+              title: 'Failed',
+              text: error?.message || 'Failed to delete jobs.',
+            });
+            setIsBulkProcessing(false);
+          }
+        });
+      }
+    });
+  };
 
   // Reset all filters
   const resetFilters = () => {
@@ -428,8 +597,8 @@ export default function JobListingsIndex({ jobListings, flash }) {
               <button
                 onClick={() => setShowFilters(!showFilters)}
                 className={`px-4 py-2.5 rounded-lg flex items-center gap-2 transition-all duration-200 ${showFilters || hasActiveFilters()
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                   }`}
               >
                 <FaFilter size={14} />
@@ -451,6 +620,52 @@ export default function JobListingsIndex({ jobListings, flash }) {
               </a>
             </div>
           </div>
+
+          {/* BULK ACTIONS BAR */}
+          {selectedJobs.length > 0 && (
+            <div className="bg-linear-to-r from-blue-50 to-indigo-50 rounded-xl shadow-lg p-4 mb-6 animate-fade-in border border-blue-200">
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                  <FaCheckDouble className="text-blue-600" size={20} />
+                  <span className="font-semibold text-gray-900">
+                    {selectedJobs.length} job(s) selected
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleBulkActivate}
+                    disabled={isBulkProcessing}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-200 flex items-center gap-2 disabled:opacity-50"
+                  >
+                    <FaCheckCircle size={14} />
+                    Activate All
+                  </button>
+                  <button
+                    onClick={handleBulkDeactivate}
+                    disabled={isBulkProcessing}
+                    className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-all duration-200 flex items-center gap-2 disabled:opacity-50"
+                  >
+                    <FaBan size={14} />
+                    Deactivate All
+                  </button>
+                  <button
+                    onClick={handleBulkDelete}
+                    disabled={isBulkProcessing}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-200 flex items-center gap-2 disabled:opacity-50"
+                  >
+                    <FaTrash size={14} />
+                    Delete All
+                  </button>
+                  <button
+                    onClick={() => setSelectedJobs([])}
+                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all duration-200"
+                  >
+                    Clear Selection
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* FILTERS PANEL */}
           {showFilters && (
@@ -581,6 +796,15 @@ export default function JobListingsIndex({ jobListings, flash }) {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-linear-to-r from-gray-50 to-gray-100">
                   <tr>
+                    <th className="px-4 py-4 text-left">
+                      <input
+                        type="checkbox"
+                        checked={selectedJobs.length === sortedJobListings.filter(job => !job.deleted_at).length && sortedJobListings.filter(job => !job.deleted_at).length > 0}
+                        onChange={handleSelectAll}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        disabled={sortedJobListings.filter(job => !job.deleted_at).length === 0}
+                      />
+                    </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Job Details
                     </th>
@@ -605,7 +829,7 @@ export default function JobListingsIndex({ jobListings, flash }) {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {sortedJobListings.length === 0 && (
                     <tr>
-                      <td colSpan="6" className="text-center py-16">
+                      <td colSpan="7" className="text-center py-16">
                         <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                           <FaBriefcase className="h-10 w-10 text-gray-400" />
                         </div>
@@ -630,13 +854,26 @@ export default function JobListingsIndex({ jobListings, flash }) {
 
                   {sortedJobListings.map((job, index) => {
                     const trashed = isTrashed(job);
+                    const applicationsCount = job.applications_count || 0;
 
                     return (
                       <tr
                         key={job.id}
-                        className={`hover:bg-gray-50 transition-all duration-200 animate-fade-in ${trashed ? 'bg-gray-50 opacity-75' : ''}`}
+                        className={`hover:bg-gray-50 transition-all duration-200 animate-fade-in ${trashed ? 'bg-gray-50 opacity-75' : ''} ${selectedJobs.includes(job.id) ? 'bg-blue-50' : ''}`}
                         style={{ animationDelay: `${index * 50}ms` }}
                       >
+                        {/* Checkbox - Only for non-deleted jobs */}
+                        <td className="px-4 py-4">
+                          {!trashed && (
+                            <input
+                              type="checkbox"
+                              checked={selectedJobs.includes(job.id)}
+                              onChange={() => handleSelectJob(job.id)}
+                              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            />
+                          )}
+                        </td>
+
                         {/* JOB DETAILS */}
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
@@ -746,14 +983,19 @@ export default function JobListingsIndex({ jobListings, flash }) {
                         {/* ACTIONS */}
                         <td className="px-6 py-4 whitespace-nowrap text-right">
                           <div className="flex justify-end gap-2">
-                            {/* VIEW APPLICATIONS - Only for non-deleted jobs */}
+                            {/* VIEW APPLICATIONS - Only for non-deleted jobs with badge */}
                             {!trashed && (
                               <a
                                 href={route('backend.listing.applications', job.id)}
-                                className="p-2 text-purple-600 hover:text-purple-900 hover:bg-purple-50 rounded-lg transition-all duration-200"
+                                className="relative p-2 text-purple-600 hover:text-purple-900 hover:bg-purple-50 rounded-lg transition-all duration-200"
                                 title="View Applications"
                               >
                                 <FaUsers size={18} />
+                                {applicationsCount > 0 && (
+                                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold shadow-md">
+                                    {applicationsCount > 99 ? '99+' : applicationsCount}
+                                  </span>
+                                )}
                               </a>
                             )}
 

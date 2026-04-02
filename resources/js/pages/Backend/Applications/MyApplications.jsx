@@ -13,6 +13,8 @@ import {
   FaSearch,
   FaBuilding,
   FaMapMarkerAlt,
+  FaChartLine,
+  FaSpinner,
 } from 'react-icons/fa';
 import AuthenticatedLayout from '../../../layouts/AuthenticatedLayout';
 
@@ -47,6 +49,27 @@ export default function MyApplications({ applications, filters }) {
     );
   };
 
+  const getATSScoreColor = (score) => {
+    if (!score) return 'text-gray-400';
+    if (score >= 80) return 'text-green-600';
+    if (score >= 60) return 'text-blue-600';
+    if (score >= 40) return 'text-yellow-600';
+    return 'text-red-600';
+  };
+
+  const getATSScore = (application) => {
+    // Check if ATS score exists in various possible locations
+    if (application.ats_score) {
+      if (typeof application.ats_score === 'object') {
+        return application.ats_score.percentage || application.ats_score.total || null;
+      }
+      if (typeof application.ats_score === 'number') {
+        return application.ats_score;
+      }
+    }
+    return null;
+  };
+
   const handleSearch = () => {
     router.get(route('backend.applications.my-applications'), {
       search: searchTerm,
@@ -75,11 +98,11 @@ export default function MyApplications({ applications, filters }) {
       <Head title="My Applications" />
 
       <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className=" mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header */}
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900">My Applications</h1>
-            <p className="text-gray-600 mt-1">View all your job applications</p>
+            <p className="text-gray-600 mt-1">View all your job applications and ATS scores</p>
           </div>
 
           {/* Filters Bar */}
@@ -152,6 +175,9 @@ export default function MyApplications({ applications, filters }) {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
                     </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      ATS Score
+                    </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Action
                     </th>
@@ -160,7 +186,7 @@ export default function MyApplications({ applications, filters }) {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {applications.data.length === 0 ? (
                     <tr>
-                      <td colSpan="5" className="px-6 py-12 text-center text-gray-500">
+                      <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
                         <div className="flex flex-col items-center">
                           <FaBriefcase className="text-4xl text-gray-300 mb-3" />
                           <p>No applications found</p>
@@ -174,47 +200,82 @@ export default function MyApplications({ applications, filters }) {
                       </td>
                     </tr>
                   ) : (
-                    applications.data.map((application) => (
-                      <tr key={application.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-4">
-                          <div className="font-medium text-gray-900">
-                            {application.job_listing?.title || 'N/A'}
-                          </div>
-                          <div className="text-sm text-gray-500 mt-1">
-                            {application.job_listing?.job_type && (
-                              <span className="capitalize">{application.job_listing.job_type}</span>
+                    applications.data.map((application) => {
+                      const atsScore = getATSScore(application);
+                      const isProcessing = application.ats_calculation_status === 'processing';
+
+                      return (
+                        <tr key={application.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-6 py-4">
+                            <div className="font-medium text-gray-900">
+                              {application.job_listing?.title || 'N/A'}
+                            </div>
+                            <div className="text-sm text-gray-500 mt-1">
+                              {application.job_listing?.job_type && (
+                                <span className="capitalize">{application.job_listing.job_type}</span>
+                              )}
+                              {application.job_listing?.location && (
+                                <span className="ml-2 flex items-center gap-1">
+                                  <FaMapMarkerAlt size={10} /> {application.job_listing.location.name}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2">
+                              <FaBuilding className="text-gray-400" />
+                              <span className="text-gray-900">{application.job_listing?.user?.name || 'N/A'}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="text-gray-900">{formatDate(application.created_at)}</div>
+                          </td>
+                          <td className="px-6 py-4">
+                            {getStatusBadge(application.status)}
+                          </td>
+                          <td className="px-6 py-4">
+                            {isProcessing ? (
+                              <div className="flex items-center gap-2">
+                                <FaSpinner className="animate-spin text-gray-400" size={14} />
+                                <span className="text-xs text-gray-500">Calculating...</span>
+                              </div>
+                            ) : atsScore ? (
+                              <div className="flex items-center gap-2">
+                                <span className={`text-lg font-bold ${getATSScoreColor(atsScore)}`}>
+                                  {Math.round(atsScore)}%
+                                </span>
+                                <div className="w-16">
+                                  <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                    <div
+                                      className={`h-full rounded-full ${atsScore >= 80 ? 'bg-green-500' :
+                                          atsScore >= 60 ? 'bg-blue-500' :
+                                            atsScore >= 40 ? 'bg-yellow-500' : 'bg-red-500'
+                                        }`}
+                                      style={{ width: `${atsScore}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1">
+                                <FaChartLine className="text-gray-400" size={14} />
+                                <span className="text-xs text-gray-500">Not available</span>
+                              </div>
                             )}
-                            {application.job_listing?.location && (
-                              <span className="ml-2 flex items-center gap-1">
-                                <FaMapMarkerAlt size={10} /> {application.job_listing.location.name}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <FaBuilding className="text-gray-400" />
-                            <span className="text-gray-900">{application.job_listing?.user?.name || 'N/A'}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="text-gray-900">{formatDate(application.created_at)}</div>
-                        </td>
-                        <td className="px-6 py-4">
-                          {getStatusBadge(application.status)}
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <button
-                            onClick={() => handleViewApplication(application.id)}
-                            className="text-blue-600 hover:text-blue-800 transition-colors inline-flex items-center gap-1"
-                            title="View Details"
-                          >
-                            <FaEye size={18} />
-                            <span className="text-sm">View</span>
-                          </button>
-                        </td>
-                      </tr>
-                    ))
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <button
+                              onClick={() => handleViewApplication(application.id)}
+                              className="text-blue-600 hover:text-blue-800 transition-colors inline-flex items-center gap-1"
+                              title="View Details"
+                            >
+                              <FaEye size={18} />
+                              <span className="text-sm">View</span>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>

@@ -7,10 +7,12 @@ use App\Models\Application;
 use App\Models\JobListing;
 use App\Services\ATSService;
 use App\Jobs\CalculateAtsScore;
+use App\Mail\ShortlistedMail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use ZipArchive;
@@ -219,7 +221,7 @@ class ApplicationController extends Controller
 
         if ($hasApplied) {
             $application = $jobListing->applications()->where('user_id', $user->id)->first();
-            
+
             // Redirect job seekers to their applications list, others to show page
             if ($user->isJobSeeker()) {
                 return redirect()->route('backend.applications.my-applications')
@@ -265,11 +267,31 @@ class ApplicationController extends Controller
 
         if ($existingApplication) {
             if ($existingApplication->trashed()) {
-                // If soft deleted, allow re-application but warn the user
-                // You could restore the application instead of creating a new one
-                return redirect()->back()->with('error', 'You previously applied for this job but your application was withdrawn. Please contact the employer if you wish to reapply.');
+                // Permanently delete the soft-deleted application and its files
+                try {
+                    // Delete custom resume file if exists
+                    if ($existingApplication->resume_path && Storage::disk('public')->exists($existingApplication->resume_path)) {
+                        Storage::disk('public')->delete($existingApplication->resume_path);
+                    }
+
+                    // Force delete the application
+                    $existingApplication->forceDelete();
+
+                    Log::info('Soft-deleted application permanently removed for reapplication', [
+                        'application_id' => $existingApplication->id,
+                        'user_id' => $user->id,
+                        'job_listing_id' => $jobListing->id
+                    ]);
+                } catch (\Exception $e) {
+                    Log::error('Failed to delete soft-deleted application', [
+                        'application_id' => $existingApplication->id,
+                        'error' => $e->getMessage()
+                    ]);
+                    return redirect()->back()->with('error', 'Unable to process your application. Please contact support.');
+                }
             } else {
-                return redirect()->back()->with('error', 'You have already applied for this job.');
+                // Active application exists
+                return redirect()->back()->with('error', 'You have already applied for this job. You cannot apply again.');
             }
         }
 
@@ -291,57 +313,75 @@ class ApplicationController extends Controller
             'user_id' => Auth::id(),
             'applicant_profile_id' => $profile?->id,
             'expected_salary' => $validated['expected_salary'] ?? null,
-            'status' => 'pending'
+            'status' => 'pending',
+            'ats_calculation_status' => 'pending',
+            'ats_attempt_count' => 0,
         ];
 
-        if ($useProfileData && $profile) {
-            // Use profile data
-            $applicationData['name'] = $profile->full_name;
-            $applicationData['email'] = $profile->email;
-            $applicationData['phone'] = $profile->phone;
+        try {
+            if ($useProfileData && $profile) {
+                // Use profile data
+                $applicationData['name'] = $profile->full_name;
+                $applicationData['email'] = $profile->email;
+                $applicationData['phone'] = $profile->phone;
 
-            // Handle custom resume upload (overrides profile CV)
-            if ($request->hasFile('resume')) {
+                // Handle custom resume upload (overrides profile CV)
+                if ($request->hasFile('resume')) {
+                    $resumePath = $request->file('resume')->store('application-resumes', 'public');
+                    $applicationData['resume_path'] = $resumePath;
+                }
+            } else {
+                // Use custom data - all fields are required
+                $customValidation = $request->validate([
+                    'name' => 'required|string|max:255',
+                    'email' => 'required|email|max:255',
+                    'resume' => 'required|file|mimes:pdf,doc,docx|max:5120',
+                ]);
+
+                $applicationData['name'] = $customValidation['name'];
+                $applicationData['email'] = $customValidation['email'];
+                $applicationData['phone'] = $validated['phone'] ?? null;
+
                 $resumePath = $request->file('resume')->store('application-resumes', 'public');
                 $applicationData['resume_path'] = $resumePath;
             }
-            // Otherwise, the resume will come from the profile via accessor
-        } else {
-            // Use custom data - all fields are required
-            $validated = $request->validate([
-                'name' => 'required|string|max:255',
-                'email' => 'required|email|max:255',
-                'resume' => 'required|file|mimes:pdf,doc,docx|max:5120',
-            ]);
 
-            $applicationData['name'] = $validated['name'];
-            $applicationData['email'] = $validated['email'];
-            $applicationData['phone'] = $validated['phone'] ?? null;
-
-            $resumePath = $request->file('resume')->store('application-resumes', 'public');
-            $applicationData['resume_path'] = $resumePath;
-        }
-
-        // Add initial ATS calculation status
-        $applicationData['ats_calculation_status'] = 'pending';
-        $applicationData['ats_attempt_count'] = 0;
-
-        try {
             $application = Application::create($applicationData);
         } catch (\Illuminate\Database\QueryException $e) {
             // Handle duplicate entry constraint violation
             if ($e->getCode() === '23000' && str_contains($e->getMessage(), 'applications_job_listing_id_user_id_unique')) {
-                return redirect()->back()->with('error', 'You have already applied for this job.');
+                Log::warning('Duplicate application detected during creation', [
+                    'user_id' => $user->id,
+                    'job_listing_id' => $jobListing->id,
+                    'error' => $e->getMessage()
+                ]);
+                return redirect()->back()->with('error', 'You have already applied for this job. Your application is being processed.');
             }
-            
-            // Re-throw other database exceptions
-            throw $e;
+
+            // Log other database exceptions
+            Log::error('Database error during application creation', [
+                'user_id' => $user->id,
+                'job_listing_id' => $jobListing->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return redirect()->back()->with('error', 'Unable to submit application due to a system error. Please try again later.');
+        } catch (\Exception $e) {
+            // Handle any other exceptions
+            Log::error('Unexpected error during application creation', [
+                'user_id' => $user->id,
+                'job_listing_id' => $jobListing->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return redirect()->back()->with('error', 'Unable to submit application. Please try again later.');
         }
 
-        // Queue ATS score calculation with both queue and fallback to inline
+        // Queue ATS score calculation
         $atsQueued = false;
         try {
-            // Mark as processing when dispatching to queue
             $application->update(['ats_calculation_status' => 'processing']);
             CalculateAtsScore::dispatch($application->id);
             $atsQueued = true;
@@ -366,7 +406,7 @@ class ApplicationController extends Controller
                     'trace' => $inner->getTraceAsString()
                 ]);
 
-                // Mark as failed if both queue and inline fail
+                // Mark as failed
                 $application->update([
                     'ats_calculation_status' => 'failed',
                     'ats_score' => [
@@ -396,13 +436,10 @@ class ApplicationController extends Controller
         if ($atsQueued) {
             $message .= ' Your ATS score is being calculated...';
         } else {
-            $message .= ' Your ATS score calculation is in progress.';
+            $message .= ' Your application has been received.';
         }
 
-        // Redirect job seekers to their applications list, employers/admins to the application show page
-        /** @var \App\Models\User $user */
-        $user = Auth::user();
-        
+        // Redirect job seekers to their applications list
         if ($user->isJobSeeker()) {
             return redirect()->route('backend.applications.my-applications')
                 ->with('success', $message);
@@ -668,44 +705,94 @@ class ApplicationController extends Controller
         // Job seeker can delete their own pending application
         if ($user->isJobSeeker()) {
             if ($application->user_id !== Auth::id()) {
-                return response()->json(['error' => 'Unauthorized'], 403);
+                if (request()->wantsJson()) {
+                    return response()->json(['error' => 'Unauthorized'], 403);
+                }
+                return redirect()->back()->with('error', 'You are not authorized to delete this application.');
             }
             if (!$application->isPending()) {
-                return response()->json(['error' => 'Only pending applications can be withdrawn'], 400);
+                if (request()->wantsJson()) {
+                    return response()->json(['error' => 'Only pending applications can be withdrawn'], 400);
+                }
+                return redirect()->back()->with('error', 'Only pending applications can be withdrawn.');
             }
+
+            // Soft delete for job seekers (withdraw)
+            $application->delete();
+
+            $message = 'Application withdrawn successfully.';
+
+            if (request()->wantsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => $message
+                ]);
+            }
+
+            return redirect()->route('backend.applications.my-applications')
+                ->with('success', $message);
         }
-        // Employer can delete applications for their jobs (admin can delete any)
-        elseif ($user->isEmployer()) {
+
+        // Employer can delete applications for their jobs
+        if ($user->isEmployer()) {
             if ($application->jobListing->user_id !== $user->id) {
-                return response()->json(['error' => 'Unauthorized'], 403);
+                if (request()->wantsJson()) {
+                    return response()->json(['error' => 'Unauthorized'], 403);
+                }
+                return redirect()->back()->with('error', 'You can only delete applications for your own job listings.');
             }
+
+            // Delete custom resume file if exists
+            if ($application->resume_path && Storage::disk('public')->exists($application->resume_path)) {
+                Storage::disk('public')->delete($application->resume_path);
+            }
+
+            $application->delete();
+
+            $message = 'Application deleted successfully.';
+
+            if (request()->wantsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => $message
+                ]);
+            }
+
+            return redirect()->back()->with('success', $message);
         }
+
         // Admin can delete any
-        elseif (!$user->isAdmin()) {
+        if ($user->isAdmin()) {
+            // Delete custom resume file if exists
+            if ($application->resume_path && Storage::disk('public')->exists($application->resume_path)) {
+                Storage::disk('public')->delete($application->resume_path);
+            }
+
+            $application->delete();
+
+            $message = 'Application deleted successfully.';
+
+            if (request()->wantsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => $message
+                ]);
+            }
+
+            return redirect()->back()->with('success', $message);
+        }
+
+        if (request()->wantsJson()) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
-        // Delete custom resume file if exists
-        if ($application->resume_path) {
-            Storage::disk('public')->delete($application->resume_path);
-        }
-
-        $application->delete();
-
-        if (request()->wantsJson()) {
-            return response()->json([
-                'success' => true,
-                'message' => 'Application deleted successfully.'
-            ]);
-        }
-
-        return redirect()->back()->with('success', 'Application deleted successfully.');
+        return redirect()->back()->with('error', 'You are not authorized to delete this application.');
     }
 
     /**
      * Batch delete applications (soft delete)
      */
-     public function batchDelete(Request $request)
+    public function batchDelete(Request $request)
     {
         /** @var \App\Models\User $user */
         $user = Auth::user();
@@ -907,5 +994,242 @@ class ApplicationController extends Controller
 
             return redirect()->back()->with('error', 'Failed to queue recalculation.');
         }
+    }
+
+
+    // Mail Thing
+    /**
+     * Show email modal content for single application
+     */
+    public function showEmailModal(Application $application)
+    {
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+
+        // Only employer who owns the job or admin can send emails
+        if (!$user->isAdmin() && $application->jobListing->user_id !== $user->id) {
+            abort(403);
+        }
+
+        return response()->json([
+            'application' => [
+                'id' => $application->id,
+                'name' => $application->applicant_name,
+                'email' => $application->applicant_email,
+                'job_title' => $application->jobListing->title
+            ],
+            'default_subject' => "Interview Invitation - {$application->jobListing->title} Position",
+            'default_message' => "We are pleased to inform you that you have been shortlisted for the position of {$application->jobListing->title}.\n\n" .
+                "Next steps:\n" .
+                "1. Please expect a call from our HR team within 3-5 business days\n" .
+                "2. Prepare for the interview by reviewing the job requirements\n" .
+                "3. Have your portfolio/experience ready for discussion\n\n" .
+                "We look forward to speaking with you soon."
+        ]);
+    }
+
+    /**
+     * Send email to single application
+     */
+    public function sendEmail(Request $request, Application $application)
+    {
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+
+        // Eager load relationships needed for email template
+        $application->load('jobListing.user');
+
+        // Debug: Check if relationships are loaded
+        if (!$application->jobListing) {
+            Log::error('Application missing jobListing relationship', ['application_id' => $application->id]);
+            return response()->json(['error' => 'Application job listing not found'], 404);
+        }
+
+        if (!$application->jobListing->user) {
+            Log::error('JobListing missing user relationship', [
+                'application_id' => $application->id,
+                'job_listing_id' => $application->jobListing->id
+            ]);
+            return response()->json(['error' => 'Job listing owner not found'], 404);
+        }
+
+        // Only employer who owns the job or admin can send emails
+        if (!$user->isAdmin() && $application->jobListing->user_id !== $user->id) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $validated = $request->validate([
+            'subject' => 'required|string|max:255',
+            'message' => 'required|string',
+        ]);
+
+        try {
+            // Validate that application has required email data
+            if (!$application->applicant_email) {
+                throw new \Exception('Application does not have a valid email address');
+            }
+
+            Log::info('Attempting to send email', [
+                'application_id' => $application->id,
+                'to_email' => $application->applicant_email,
+                'subject' => $validated['subject'],
+                'job_listing_id' => $application->jobListing->id,
+                'job_title' => $application->jobListing->title,
+                'company_name' => $application->jobListing->user->name ?? 'Unknown'
+            ]);
+
+            Mail::to($application->applicant_email)->send(
+                new ShortlistedMail($application, $validated['subject'], $validated['message'])
+            );
+
+            // Also update status to shortlisted if not already
+            if ($application->status !== 'shortlisted') {
+                $application->update(['status' => 'shortlisted']);
+            }
+
+            Log::info('Email sent to shortlisted candidate', [
+                'application_id' => $application->id,
+                'email' => $application->applicant_email
+            ]);
+
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Email sent successfully to ' . $application->applicant_name
+                ]);
+            }
+
+            return redirect()->back()->with('success', 'Email sent successfully to ' . $application->applicant_name);
+        } catch (\Exception $e) {
+            Log::error('Failed to send email: ' . $e->getMessage(), [
+                'application_id' => $application->id,
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Failed to send email: ' . $e->getMessage()
+                ], 500);
+            }
+
+            return redirect()->back()->with('error', 'Failed to send email: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Show bulk email modal
+     */
+    public function showBulkEmailModal(Request $request)
+    {
+        $validated = $request->validate([
+            'application_ids' => 'required|array',
+            'application_ids.*' => 'exists:applications,id'
+        ]);
+
+        $applications = Application::whereIn('id', $validated['application_ids'])
+            ->with('jobListing')
+            ->get();
+
+        $jobTitle = $applications->first()?->jobListing->title ?? 'the position';
+        $recipientCount = $applications->count();
+        $recipientEmails = $applications->pluck('applicant_email')->implode(', ');
+
+        return response()->json([
+            'application_ids' => $validated['application_ids'],
+            'recipient_count' => $recipientCount,
+            'recipient_emails' => $recipientEmails,
+            'job_title' => $jobTitle,
+            'default_subject' => "Interview Invitation - {$jobTitle}",
+            'default_message' => "We are pleased to inform you that you have been shortlisted for the position of {$jobTitle}.\n\n" .
+                "Next steps:\n" .
+                "1. Please expect a call from our HR team within 3-5 business days\n" .
+                "2. Prepare for the interview by reviewing the job requirements\n" .
+                "3. Have your portfolio/experience ready for discussion\n\n" .
+                "We look forward to speaking with you soon."
+        ]);
+    }
+
+    /**
+     * Send bulk emails to multiple applications
+     */
+    public function sendBulkEmails(Request $request)
+    {
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+
+        $validated = $request->validate([
+            'application_ids' => 'required|array',
+            'application_ids.*' => 'exists:applications,id',
+            'subject' => 'required|string|max:255',
+            'message' => 'required|string',
+        ]);
+
+        $applications = Application::whereIn('id', $validated['application_ids'])
+            ->with('jobListing.user')
+            ->get();
+
+        $successCount = 0;
+        $failCount = 0;
+        $failedEmails = [];
+
+        foreach ($applications as $application) {
+            try {
+                // Validate that application has required email data
+                if (!$application->applicant_email) {
+                    throw new \Exception('No email address for applicant: ' . ($application->applicant_name ?? 'Unknown'));
+                }
+
+                Log::info('Attempting to send bulk email', [
+                    'application_id' => $application->id,
+                    'to_email' => $application->applicant_email,
+                    'subject' => $validated['subject']
+                ]);
+
+                Mail::to($application->applicant_email)->send(
+                    new ShortlistedMail($application, $validated['subject'], $validated['message'])
+                );
+
+                // Update status to shortlisted
+                if ($application->status !== 'shortlisted') {
+                    $application->update(['status' => 'shortlisted']);
+                }
+
+                $successCount++;
+
+                Log::info('Bulk email sent successfully', [
+                    'application_id' => $application->id,
+                    'email' => $application->applicant_email
+                ]);
+            } catch (\Exception $e) {
+                $failCount++;
+                $failedEmails[] = [
+                    'email' => $application->applicant_email,
+                    'reason' => $e->getMessage()
+                ];
+                Log::error('Bulk email failed: ' . $e->getMessage(), [
+                    'application_id' => $application->id,
+                    'email' => $application->applicant_email,
+                    'trace' => $e->getTraceAsString()
+                ]);
+            }
+        }
+
+        $message = "Emails sent: {$successCount} successful";
+        if ($failCount > 0) {
+            $message .= ", {$failCount} failed";
+        }
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => $failCount === 0,
+                'message' => $message,
+                'success_count' => $successCount,
+                'fail_count' => $failCount,
+                'failed_emails' => $failedEmails
+            ]);
+        }
+
+        return redirect()->back()->with('success', $message);
     }
 }

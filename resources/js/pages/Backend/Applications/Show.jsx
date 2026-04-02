@@ -109,7 +109,7 @@ export default function Show({ application, userRole }) {
           submitData.append('employer_notes', employerNotes);
         }
 
-        router.post(route('backend.applications.update-status', application.id), submitData, {
+        router.patch(route('backend.applications.update-status', application.id), submitData, {
           onSuccess: () => {
             Swal.fire({
               icon: 'success',
@@ -190,7 +190,7 @@ export default function Show({ application, userRole }) {
     submitData.append('employer_notes', employerNotes);
     submitData.append('status', application.status);
 
-    router.post(route('backend.applications.update-status', application.id), submitData, {
+    router.patch(route('backend.applications.update-status', application.id), submitData, {
       onSuccess: () => {
         Swal.fire({
           icon: 'success',
@@ -273,7 +273,7 @@ export default function Show({ application, userRole }) {
       <Head title={`Application - ${applicantName}`} />
 
       <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header */}
           <div className="mb-6 flex justify-between items-center">
             <button
@@ -396,73 +396,92 @@ export default function Show({ application, userRole }) {
                 </div>
               </div>
 
-              {/* Job Details Card */}
-              {application.job_listing && (
-                <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-                  <div className="bg-linear-to-r from-gray-700 to-gray-800 px-6 py-4">
-                    <h2 className="text-xl font-semibold text-white">Job Details</h2>
-                  </div>
-                  <div className="p-6">
-                    <Link
-                      href={route('backend.listing.show', application.job_listing.id)}
-                      className="text-xl font-bold text-gray-900 hover:text-blue-600 transition-colors"
-                    >
-                      {application.job_listing.title}
-                    </Link>
-                    <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="flex items-center gap-3 text-sm">
-                        <FaBuilding className="text-gray-400" />
-                        <span className="text-gray-600">{application.job_listing.user?.name || 'Company'}</span>
-                      </div>
-                      <div className="flex items-center gap-3 text-sm">
-                        <FaMapMarkerAlt className="text-gray-400" />
-                        <span className="text-gray-600">{application.job_listing.location?.name || 'Remote'}</span>
-                      </div>
-                      <div className="flex items-center gap-3 text-sm">
-                        <FaBriefcase className="text-gray-400" />
-                        <span className="text-gray-600 capitalize">{application.job_listing.job_type?.replace('-', ' ') || 'Full Time'}</span>
-                      </div>
-                      <div className="flex items-center gap-3 text-sm">
-                        <FaCalendarAlt className="text-gray-400" />
-                        <span className="text-gray-600">Deadline: {formatDate(application.job_listing.application_deadline)}</span>
-                      </div>
-                      {application.job_listing.salary && (
-                        <div className="flex items-center gap-3 text-sm">
-                          <FaMoneyBillWave className="text-gray-400" />
-                          <span className="text-gray-600">Salary: {application.job_listing.salary}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* ATS Score Card */}
-              <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-                <div className="bg-linear-to-r from-purple-600 to-indigo-600 px-6 py-4 flex justify-between items-center">
-                  <h2 className="text-xl font-semibold text-white">ATS Analysis</h2>
+              <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
+
+                {/* Header */}
+                <div className="relative bg-linear-to-r from-purple-600 via-indigo-600 to-blue-600 px-6 py-5 flex justify-between items-center">
+                  <div>
+                    <h2 className="text-xl font-semibold text-white">ATS Analysis</h2>
+                    <p className="text-xs text-purple-100 mt-1">Smart resume-job matching score</p>
+                  </div>
+
                   {(userRole === 'employer' || userRole === 'admin') && (
                     <button
                       onClick={handleRecalculateScore}
                       disabled={recalculating}
-                      className="inline-flex items-center gap-2 px-3 py-1 bg-white/20 text-white rounded-lg hover:bg-white/30 transition-all duration-200 text-sm disabled:opacity-50"
-                      title="Recalculate ATS Score"
+                      className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/20 backdrop-blur text-white rounded-lg hover:bg-white/30 transition text-sm disabled:opacity-50"
                     >
-                      {recalculating ? <FaSpinner className="animate-spin" size={14} /> : <FaSync size={14} />}
+                      {recalculating ? (
+                        <FaSpinner className="animate-spin" size={14} />
+                      ) : (
+                        <FaSync size={14} />
+                      )}
                       Recalculate
                     </button>
                   )}
                 </div>
-                <div className="p-6">
+
+                {/* Body */}
+                <div className="p-8">
                   {atsScore ? (
                     <>
-                      <div className="text-center mb-6">
-                        <div className="relative inline-block">
-                          <div className={`text-5xl font-bold ${getATSScoreColor(atsScore)}`}>
-                            {atsScore}%
+                      {/* Score Circle */}
+                      <div className="flex flex-col items-center justify-center mb-8">
+                        <div className="relative w-36 h-36">
+                          <svg className="w-full h-full transform -rotate-90">
+                            <circle
+                              cx="72"
+                              cy="72"
+                              r="60"
+                              stroke="#E5E7EB"
+                              strokeWidth="10"
+                              fill="none"
+                            />
+                            <circle
+                              cx="72"
+                              cy="72"
+                              r="60"
+                              stroke="url(#gradient)"
+                              strokeWidth="10"
+                              fill="none"
+                              strokeDasharray={`${(atsScore / 100) * 377} 377`}
+                              strokeLinecap="round"
+                            />
+                            <defs>
+                              <linearGradient id="gradient">
+                                <stop offset="0%" stopColor="#7C3AED" />
+                                <stop offset="100%" stopColor="#2563EB" />
+                              </linearGradient>
+                            </defs>
+                          </svg>
+
+                          {/* Center Text */}
+                          <div className="absolute inset-0 flex flex-col items-center justify-center">
+                            <span className={`text-3xl font-bold ${getATSScoreColor(atsScore)}`}>
+                              {atsScore}%
+                            </span>
+                            <span className="text-xs text-gray-500">Match</span>
                           </div>
-                          <div className="text-sm text-gray-500 mt-1">Overall Match</div>
                         </div>
+
+                        {/* Label */}
+                        <div className="mt-4 px-3 py-1 rounded-full text-xs font-medium bg-gray-100">
+                          {atsScore >= 75 && <span className="text-green-600">Excellent Match</span>}
+                          {atsScore >= 50 && atsScore < 75 && <span className="text-yellow-600">Moderate Match</span>}
+                          {atsScore < 50 && <span className="text-red-600">Low Match</span>}
+                        </div>
+                      </div>
+
+                      {/* Insight Bar */}
+                      <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 text-center">
+                        <p className="text-sm text-gray-600">
+                          Your resume matches <strong>{atsScore}%</strong> of the job requirements.
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Improve your score by aligning your skills with job keywords.
+                        </p>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -498,30 +517,43 @@ export default function Show({ application, userRole }) {
                       </div>
                     </>
                   ) : (
-                    <div className="text-center py-8">
-                      <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-4">
-                        <FaSpinner className="text-gray-400 text-2xl animate-spin" />
+                    <div className="text-center py-10">
+                      {/* Animated Loader */}
+                      <div className="relative inline-flex items-center justify-center mb-6">
+                        <div className="w-16 h-16 rounded-full border-4 border-gray-200"></div>
+                        <div className="absolute w-16 h-16 rounded-full border-4 border-purple-600 border-t-transparent animate-spin"></div>
                       </div>
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">ATS Score Processing</h3>
-                      <p className="text-gray-500 text-sm">
-                        Your application is being analyzed by our ATS system.
-                        <br />
-                        The score will appear here shortly.
+
+                      <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                        Analyzing Resume
+                      </h3>
+
+                      <p className="text-sm text-gray-500 max-w-sm mx-auto">
+                        Our ATS engine is scanning your resume against job requirements.
+                        This usually takes a few seconds.
                       </p>
-                      <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-                        <p className="text-xs text-gray-500">
-                          <strong>Note:</strong> ATS (Applicant Tracking System) analyzes your resume against job requirements.
-                          Higher scores indicate better matches with job keywords and requirements.
+
+                      {/* Info Box */}
+                      <div className="mt-6 bg-purple-50 border border-purple-100 rounded-xl p-4 text-left max-w-sm mx-auto">
+                        <p className="text-xs text-purple-800 leading-relaxed">
+                          <strong>ATS Insight:</strong><br />
+                          The system evaluates keywords, skills, and experience relevance.
+                          Higher scores increase your chances of being shortlisted.
                         </p>
                       </div>
+
                       {(userRole === 'employer' || userRole === 'admin') && (
                         <button
                           onClick={handleRecalculateScore}
                           disabled={recalculating}
-                          className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all duration-200"
+                          className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 bg-linear-to-r from-purple-600 to-indigo-600 text-white text-sm rounded-lg shadow hover:scale-[1.03] active:scale-[0.97] transition"
                         >
-                          {recalculating ? <FaSpinner className="animate-spin" size={16} /> : <FaSync size={16} />}
-                          Calculate Score Now
+                          {recalculating ? (
+                            <FaSpinner className="animate-spin" size={14} />
+                          ) : (
+                            <FaSync size={14} />
+                          )}
+                          Calculate Now
                         </button>
                       )}
                     </div>

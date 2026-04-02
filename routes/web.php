@@ -101,6 +101,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::delete('{jobListing}/force-delete', [JobListingController::class, 'forceDelete'])->name('force-delete');
             Route::get('{jobListing}/applications', [JobListingController::class, 'applications'])->name('applications');
 
+
+
+            // Add these routes inside your backend.listing group
+            Route::post('/bulk-activate', [JobListingController::class, 'bulkActivate'])->name('bulk-activate');
+            Route::post('/bulk-deactivate', [JobListingController::class, 'bulkDeactivate'])->name('bulk-deactivate');
+            Route::delete('/bulk-delete', [JobListingController::class, 'bulkDelete'])->name('bulk-delete');
+
             // Resource routes
             Route::get('/', [JobListingController::class, 'index'])->name('index');
             Route::get('/create', [JobListingController::class, 'create'])->name('create');
@@ -217,7 +224,6 @@ Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $requ
     return redirect()->route('verification.verified');
 })->middleware(['auth', 'signed'])->name('verification.verify');
 
-
 // Resend verification email
 Route::post('/email/verification-notification', function (Request $request) {
     $request->user()->sendEmailVerificationNotification();
@@ -226,6 +232,22 @@ Route::post('/email/verification-notification', function (Request $request) {
         'message' => 'Verification link sent'
     ]);
 })->middleware(['auth', 'throttle:6,1'])->name('verification.send');
+
+// Email routes - API endpoints for sending emails
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/applications/{application}/email-modal', [ApplicationController::class, 'showEmailModal'])
+        ->name('backend.applications.email-modal');
+
+    Route::post('/applications/{application}/send-email', [ApplicationController::class, 'sendEmail'])
+        ->name('backend.applications.send-email');
+
+    Route::post('/applications/bulk-email-modal', [ApplicationController::class, 'showBulkEmailModal'])
+        ->name('backend.applications.bulk-email-modal');
+
+    Route::post('/applications/bulk-send-emails', [ApplicationController::class, 'sendBulkEmails'])
+        ->name('backend.applications.bulk-send-emails');
+});
+
 
 
 /*
