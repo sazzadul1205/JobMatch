@@ -1,5 +1,5 @@
 <?php
-// database/migrations/2024_03_22_140200_add_ats_index_to_applications.php
+// database/migrations/2026_03_31_171120_add_ats_index_to_applications.php
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
@@ -15,12 +15,6 @@ return new class extends Migration
     {
         // Add index for better query performance
         Schema::table('applications', function (Blueprint $table) {
-            if (!$this->columnIndexed('applications', 'status')) {
-                $table->index('status', 'applications_status_ats_index');
-            }
-            if (!$this->columnIndexed('applications', 'job_listing_id')) {
-                $table->index('job_listing_id', 'applications_job_listing_id_ats_index');
-            }
             if (!$this->columnIndexed('applications', 'user_id')) {
                 $table->index('user_id', 'applications_user_id_ats_index');
             }
@@ -33,12 +27,6 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('applications', function (Blueprint $table) {
-            if ($this->indexExists('applications', 'applications_status_ats_index')) {
-                $table->dropIndex('applications_status_ats_index');
-            }
-            if ($this->indexExists('applications', 'applications_job_listing_id_ats_index')) {
-                $table->dropIndex('applications_job_listing_id_ats_index');
-            }
             if ($this->indexExists('applications', 'applications_user_id_ats_index')) {
                 $table->dropIndex('applications_user_id_ats_index');
             }

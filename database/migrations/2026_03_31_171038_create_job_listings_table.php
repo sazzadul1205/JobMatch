@@ -39,8 +39,8 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
 
             // Social media toggles
-            $table->boolean('show_linkedin')->default(false);
-            $table->boolean('show_facebook')->default(false);
+            $table->boolean('required_facebook_link')->default(false);
+            $table->boolean('required_linkedin_link')->default(false);
 
             $table->timestamps();
 

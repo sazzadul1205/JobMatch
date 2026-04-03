@@ -18,12 +18,25 @@ return new class extends Migration
         Schema::create('users', function (Blueprint $table) {
             $table->id();
             $table->string('name');
+
+            // Authentication fields
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
-            $table->string('password');
+
+            // 
+            $table->string('password')->nullable();
+
+            // Google OAuth (single-provider)
+            $table->string('google_id')->nullable()->unique();
+            $table->string('google_avatar')->nullable();
+
+            // Additional fields
             $table->enum('role', ['admin', 'employer', 'job_seeker'])->default('job_seeker');
+
+            // Remember token and timestamps
             $table->rememberToken();
             $table->timestamps();
+            $table->softDeletes();
 
             // Add index for role
             $table->index('role');
