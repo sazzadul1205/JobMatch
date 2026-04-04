@@ -34,7 +34,7 @@ class ApplicantProfile extends Model
      */
     protected $casts = [
         'birth_date' => 'date',
-        'social_links' => 'array',      // Will be JSON in DB
+        'social_links' => 'array',      
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',

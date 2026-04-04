@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Inertia\Response;
+use App\Models\ApplicantProfile;
 
 class AuthenticatedSessionController extends Controller
 {
@@ -33,6 +34,15 @@ class AuthenticatedSessionController extends Controller
         $request->authenticate();
 
         $request->session()->regenerate();
+
+        $user = $request->user();
+
+        if ($user && $user->role === 'job_seeker') {
+            $profile = ApplicantProfile::where('user_id', $user->id)->first();
+            if (! $profile || ! $profile->isComplete()) {
+                return redirect()->route('profile.complete');
+            }
+        }
 
         return redirect()->intended(route('dashboard', absolute: false));
     }

@@ -19,6 +19,7 @@ import {
   FaLinkedin,
   FaGithub,
   FaTwitter,
+  FaFilePdf,
 } from 'react-icons/fa';
 import { GiSuitcase, GiAchievement } from 'react-icons/gi';
 import { MdWork, MdSchool } from 'react-icons/md';

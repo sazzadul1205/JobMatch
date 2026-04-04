@@ -2,7 +2,9 @@
 
 // routes/web.php
 
+
 use App\Http\Controllers\ApplicantProfileController;
+use App\Http\Controllers\ProfileCompletionController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\JobListingController;
@@ -34,9 +36,12 @@ Route::get('/jobs/{jobListing}', [JobListingController::class, 'publicShow'])->n
 |--------------------------------------------------------------------------
 */
 
-Route::middleware(['auth'])->get('/complete-profile', function () {
-    return Inertia::render('auth/completeProfile');
-})->name('profile.complete');
+Route::middleware(['auth'])->group(function () {
+    Route::get('/complete-profile', [ProfileCompletionController::class, 'show'])
+        ->name('profile.complete');
+    Route::post('/profile/complete', [ProfileCompletionController::class, 'store'])
+        ->name('profile.complete.store');
+});
 
 
 /*
@@ -45,7 +50,7 @@ Route::middleware(['auth'])->get('/complete-profile', function () {
 |--------------------------------------------------------------------------
 */
 
-Route::middleware(['auth', 'verified'])->group(function () {
+Route::middleware(['auth', 'verified', 'profile.complete'])->group(function () {
 
     /*
     | Dashboard

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { router } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { useForm } from '@inertiajs/react';
 import Swal from 'sweetalert2';
 import {
@@ -177,6 +177,8 @@ const CompleteProfile = ({ applicantProfile = null }) => {
 
   return (
     <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 py-8 text-black">
+
+      <Head title="Complete Your Profile" />
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8 text-center flex mx-auto items-center justify-center gap-4">
