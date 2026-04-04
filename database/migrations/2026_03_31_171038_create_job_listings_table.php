@@ -13,15 +13,23 @@ return new class extends Migration
             $table->id();
             $table->string('title');
             $table->string('slug')->unique();
-            $table->longText('description'); // Rich text
-            $table->longText('requirements'); // Rich text
-            $table->foreignId('location_id')->constrained()->onDelete('cascade');
-            $table->string('salary')->nullable();
-            $table->string('job_type');
-            $table->foreignId('category_id')->constrained('job_categories')->onDelete('cascade');
-            $table->string('experience_level');
 
-            // Education requirement field
+            $table->longText('description');
+            $table->longText('requirements');
+
+            $table->string('job_type');
+
+            // Salary structure (BD-friendly + scalable)
+            $table->decimal('salary_min', 10, 2)->nullable();
+            $table->decimal('salary_max', 10, 2)->nullable();
+            $table->boolean('is_salary_negotiable')->default(false);
+            $table->boolean('as_per_companies_policy')->default(false);
+
+            // Foreign key to locations and categories
+            $table->foreignId('category_id')->constrained('job_categories')->onDelete('cascade');
+
+            // Education requirement & experience level
+            $table->string('experience_level');
             $table->string('education_requirement')->nullable();
 
             // JSON fields for multiple items
@@ -32,8 +40,15 @@ return new class extends Migration
             $table->json('keywords')->nullable();
             $table->date('application_deadline');
 
-            // Schedule start date (optional)
-            $table->date('schedule_start_date')->nullable();
+            // Publish date (optional)
+            $table->date('publish_at')->nullable();
+
+            // Quick counter cache for views
+            $table->unsignedInteger('views_count')->default(0);
+
+            // External apply fields
+            $table->json('external_apply_links')->nullable();
+            $table->boolean('is_external_apply')->default(false);
 
             $table->boolean('is_active')->default(true);
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
@@ -42,18 +57,18 @@ return new class extends Migration
             $table->boolean('required_facebook_link')->default(false);
             $table->boolean('required_linkedin_link')->default(false);
 
-            $table->timestamps();
 
-            // Soft delete
+            // Timestamps and soft deletes
+            $table->timestamps();
             $table->softDeletes();
 
             // Add indexes for better performance
             $table->index(['is_active', 'application_deadline']);
-            $table->index('category_id');
-            $table->index('location_id');
             $table->index('job_type');
-            $table->index('slug');
-            $table->index('schedule_start_date');
+            $table->index('publish_at');
+            $table->index('user_id');
+            $table->index('category_id');
+            $table->index(['is_active', 'publish_at']);
         });
     }
 

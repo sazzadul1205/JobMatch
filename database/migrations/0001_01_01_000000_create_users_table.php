@@ -6,7 +6,6 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 
 return new class extends Migration
 {
@@ -23,8 +22,9 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
 
-            // 
+            // Password field is nullable to allow for OAuth users without a password
             $table->string('password')->nullable();
+            $table->string('old_password')->nullable(); // For password history
 
             // Google OAuth (single-provider)
             $table->string('google_id')->nullable()->unique();

@@ -24,7 +24,6 @@ return new class extends Migration
 
             // Add index for better performance
             $table->index('is_active');
-            $table->index('slug');
         });
 
         // Insert industrial grade categories

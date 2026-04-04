@@ -22,7 +22,10 @@ return new class extends Migration
             $table->string('phone', 20)->nullable();
             $table->text('address')->nullable();
 
+            // Optional profile photo
             $table->string('photo_path')->nullable();
+
+            $table->json('social_links')->nullable(); 
 
             // Professional fields
             $table->string('headline')->nullable();
