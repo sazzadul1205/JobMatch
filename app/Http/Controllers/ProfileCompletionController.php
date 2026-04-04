@@ -14,13 +14,17 @@ class ProfileCompletionController extends Controller
     /**
      * Show the profile completion page.
      */
-    public function show(): Response
+    public function show(): Response|RedirectResponse
     {
         $user = Auth::user();
 
         $profile = ApplicantProfile::with(['cvs', 'jobHistories', 'educationHistories', 'achievements'])
             ->where('user_id', $user->id)
             ->first();
+
+        if ($profile && $profile->isComplete()) {
+            return redirect()->route('dashboard');
+        }
 
         return Inertia::render('auth/completeProfile', [
             'applicantProfile' => $profile,

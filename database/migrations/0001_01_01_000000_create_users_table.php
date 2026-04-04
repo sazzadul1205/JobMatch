@@ -3,9 +3,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\Hash;
 
 return new class extends Migration
 {
@@ -56,41 +54,6 @@ return new class extends Migration
             $table->longText('payload');
             $table->integer('last_activity')->index();
         });
-
-        // Insert pre-verified users
-        $users = [
-            [
-                'name' => 'Sazzadul Islam',
-                'email' => 'psazadul1205@gmail.com',
-                'role' => 'admin',
-                'password' => Hash::make('password123'), // Change this to a secure password
-                'email_verified_at' => now(),
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-            [
-                'name' => 'Sazzadul Islam',
-                'email' => 'www.sazzadul14@gmail.com',
-                'role' => 'employer',
-                'password' => Hash::make('password123'),
-                'email_verified_at' => now(),
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-            [
-                'name' => 'Psazzasul Islam',
-                'email' => 'psazzadul@gmail.com',
-                'role' => 'job_seeker',
-                'password' => Hash::make('password123'),
-                'email_verified_at' => now(),
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-        ];
-
-        foreach ($users as $user) {
-            DB::table('users')->insert($user);
-        }
     }
 
     /**
