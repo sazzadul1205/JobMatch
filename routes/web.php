@@ -28,6 +28,16 @@ Route::get('/', function () {
 Route::get('/jobs', [JobListingController::class, 'publicIndex'])->name('jobs.public');
 Route::get('/jobs/{jobListing}', [JobListingController::class, 'publicShow'])->name('jobs.show.public');
 
+/*
+|--------------------------------------------------------------------------
+| Profile Completion Route
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware(['auth'])->get('/complete-profile', function () {
+    return Inertia::render('auth/completeProfile');
+})->name('profile.complete');
+
 
 /*
 |--------------------------------------------------------------------------
@@ -221,7 +231,7 @@ Route::get('/email-verified', function () {
 // When user clicks email verification link
 Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
     $request->fulfill();
-    return redirect()->route('verification.verified');
+    return redirect()->route('profile.complete');
 })->middleware(['auth', 'signed'])->name('verification.verify');
 
 // Resend verification email

@@ -7,24 +7,25 @@ import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AuthLayout from '@/layouts/auth-layout';
 
 interface RegisterForm {
-    name: string;
     email: string;
     password: string;
     password_confirmation: string;
-    role: 'job_seeker' | 'employer';
+    google?: string;
 }
 
-export default function Register() {
+interface RegisterProps {
+    googleAuthEnabled: boolean;
+    status?: string;
+}
+
+export default function Register({ googleAuthEnabled, status }: RegisterProps) {
     const { data, setData, post, processing, errors, reset } = useForm<RegisterForm>({
-        name: '',
         email: '',
         password: '',
         password_confirmation: '',
-        role: 'job_seeker',
     });
 
     const submit: FormEventHandler = (e) => {
@@ -40,29 +41,13 @@ export default function Register() {
             <form className="flex flex-col gap-6" onSubmit={submit}>
                 <div className="grid gap-6">
                     <div className="grid gap-2">
-                        <Label htmlFor="name">Name</Label>
-                        <Input
-                            id="name"
-                            type="text"
-                            required
-                            autoFocus
-                            tabIndex={1}
-                            autoComplete="name"
-                            value={data.name}
-                            onChange={(e) => setData('name', e.target.value)}
-                            disabled={processing}
-                            placeholder="Full name"
-                        />
-                        <InputError message={errors.name} className="mt-2" />
-                    </div>
-
-                    <div className="grid gap-2">
                         <Label htmlFor="email">Email address</Label>
                         <Input
                             id="email"
                             type="email"
                             required
-                            tabIndex={2}
+                            autoFocus
+                            tabIndex={1}
                             autoComplete="email"
                             value={data.email}
                             onChange={(e) => setData('email', e.target.value)}
@@ -73,30 +58,12 @@ export default function Register() {
                     </div>
 
                     <div className="grid gap-2">
-                        <Label htmlFor="role">Account type</Label>
-                        <Select
-                            value={data.role}
-                            onValueChange={(value) => setData('role', value as RegisterForm['role'])}
-                            disabled={processing}
-                        >
-                            <SelectTrigger id="role" tabIndex={3}>
-                                <SelectValue placeholder="Select account type" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="job_seeker">Job seeker</SelectItem>
-                                <SelectItem value="employer">Employer</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <InputError message={errors.role} />
-                    </div>
-
-                    <div className="grid gap-2">
                         <Label htmlFor="password">Password</Label>
                         <Input
                             id="password"
                             type="password"
                             required
-                            tabIndex={4}
+                            tabIndex={2}
                             autoComplete="new-password"
                             value={data.password}
                             onChange={(e) => setData('password', e.target.value)}
@@ -112,7 +79,7 @@ export default function Register() {
                             id="password_confirmation"
                             type="password"
                             required
-                            tabIndex={5}
+                            tabIndex={3}
                             autoComplete="new-password"
                             value={data.password_confirmation}
                             onChange={(e) => setData('password_confirmation', e.target.value)}
@@ -122,10 +89,27 @@ export default function Register() {
                         <InputError message={errors.password_confirmation} />
                     </div>
 
-                    <Button type="submit" className="mt-2 w-full" tabIndex={6} disabled={processing}>
+                    <Button type="submit" className="mt-2 w-full" tabIndex={4} disabled={processing}>
                         {processing && <LoaderCircle className="h-4 w-4 animate-spin" />}
                         Create account
                     </Button>
+
+                    {googleAuthEnabled && (
+                        <a
+                            href="/auth/google/redirect"
+                            className="inline-flex h-10 w-full items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground"
+                        >
+                            <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
+                                <path fill="#EA4335" d="M12 10.2v3.9h5.5c-.2 1.3-1.6 3.9-5.5 3.9-3.3 0-6-2.7-6-6s2.7-6 6-6c1.9 0 3.2.8 3.9 1.5l2.7-2.6C17 3.3 14.8 2.4 12 2.4A9.6 9.6 0 0 0 2.4 12 9.6 9.6 0 0 0 12 21.6c5.5 0 9.2-3.9 9.2-9.3 0-.6-.1-1.1-.2-1.5H12Z" />
+                                <path fill="#34A853" d="M2.4 12c0 3.8 2.2 7.1 5.4 8.7l3-2.4c-.8-.2-1.5-.7-2.1-1.2-1.1-1.1-1.8-3-1.8-5.1s.6-4 1.8-5.1l-3-2.4A9.6 9.6 0 0 0 2.4 12Z" />
+                                <path fill="#4A90E2" d="M12 21.6c2.8 0 5.1-.9 6.8-2.5l-3.3-2.6c-.9.6-2.1 1.1-3.5 1.1-2.3 0-4.4-1.6-5.2-3.8l-3 2.4A9.6 9.6 0 0 0 12 21.6Z" />
+                                <path fill="#FBBC05" d="M6.8 13.8c-.2-.5-.3-1.2-.3-1.8s.1-1.2.3-1.8l-3-2.4A9.5 9.5 0 0 0 2.4 12c0 1.5.4 2.9 1.1 4.2l3.3-2.4Z" />
+                            </svg>
+                            Sign up with Google
+                        </a>
+                    )}
+
+                    <InputError message={errors.google} />
 
                     <div className="bg-muted rounded-md p-4 text-center text-sm">
                         <p className="text-muted-foreground">
@@ -147,10 +131,12 @@ export default function Register() {
 
                 <div className="text-muted-foreground text-center text-sm">
                     Already have an account?{' '}
-                    <TextLink href={route('login')} tabIndex={7}>
+                    <TextLink href={route('login')} tabIndex={5}>
                         Log in
                     </TextLink>
                 </div>
+
+                {status && <div className="text-center text-sm text-green-600">{status}</div>}
             </form>
         </AuthLayout>
     );
