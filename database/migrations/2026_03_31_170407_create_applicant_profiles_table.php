@@ -28,8 +28,6 @@ return new class extends Migration
             $table->json('social_links')->nullable(); 
 
             // Professional fields
-            $table->string('headline')->nullable();
-            $table->text('summary')->nullable();
             $table->integer('experience_years')->nullable();
             $table->string('current_job_title')->nullable();
 

@@ -25,8 +25,6 @@ class ApplicantProfile extends Model
         'address',
         'photo_path',
         'social_links',
-        'headline',
-        'summary',
         'experience_years',
         'current_job_title',
     ];
@@ -135,8 +133,7 @@ class ApplicantProfile extends Model
      */
     public function scopeComplete($query)
     {
-        return $query->whereNotNull('phone')
-            ->whereNotNull('headline');
+        return $query->whereNotNull('phone');
     }
 
     /* ========== HELPER METHODS ========== */
@@ -146,7 +143,7 @@ class ApplicantProfile extends Model
      */
     public function isComplete()
     {
-        return !empty($this->phone) && !empty($this->headline);
+        return !empty($this->phone);
     }
 
     /**
@@ -154,7 +151,7 @@ class ApplicantProfile extends Model
      */
     public function completionPercentage()
     {
-        $fields = ['first_name', 'last_name', 'phone', 'headline', 'summary', 'experience_years'];
+        $fields = ['first_name', 'last_name', 'phone', 'experience_years', 'current_job_title'];
         $filled = 0;
 
         foreach ($fields as $field) {
