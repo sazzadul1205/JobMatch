@@ -3,57 +3,59 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class ApplicantProfile extends Model
 {
     use HasFactory, SoftDeletes;
 
     /**
-     * Append virtual attributes in JSON/array representation
-     * (so Inertia front-end has cv_url/photo_url/full_name available)
-     *
-     * @var array<int, string>
-     */
-    protected $appends = [
-        'full_name',
-        'cv_url',
-        'photo_url',
-    ];
-
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
+     * Fillable fields - add any field from migration here
      */
     protected $fillable = [
         'user_id',
         'first_name',
         'last_name',
         'birth_date',
-        'email',
+        'gender',
+        'blood_type',
         'phone',
+        'address',
         'photo_path',
-        'cv_path',
+        'social_links',
+        'headline',
+        'summary',
+        'experience_years',
+        'current_job_title',
     ];
 
     /**
-     * The attributes that should be cast.
-     *
-     * @var array<string, string>
+     * Cast fields - JSON fields, dates, etc.
      */
-    protected function casts(): array
-    {
-        return [
-            'birth_date' => 'date',
-            'deleted_at' => 'datetime',
-        ];
-    }
+    protected $casts = [
+        'birth_date' => 'date',
+        'social_links' => 'array',      // Will be JSON in DB
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+        'deleted_at' => 'datetime',
+    ];
 
     /**
-     * Get the user associated with this profile
+     * Appended attributes (virtual fields)
+     */
+    protected $appends = ['full_name'];
+
+    /**
+     * Blood type options - easy to modify
+     */
+    public static $bloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+
+    /* ========== RELATIONSHIPS ========== */
+
+    /**
+     * User relation - inverse
      */
     public function user()
     {
@@ -61,98 +63,106 @@ class ApplicantProfile extends Model
     }
 
     /**
-     * Get the full name of the applicant
-     */
-    public function getFullNameAttribute(): string
-    {
-        return "{$this->first_name} {$this->last_name}";
-    }
-
-    /**
-     * Get the applications submitted by this applicant
+     * Applications relation
      */
     public function applications()
     {
-        return $this->hasMany(Application::class, 'user_id', 'user_id');
+        return $this->hasMany(Application::class);
     }
 
     /**
-     * Scope a query to only include active profiles
+     * CVs/Resumes relation
      */
-    public function scopeActive($query)
+    public function cvs()
     {
-        return $query->whereNull('deleted_at');
+        return $this->hasMany(ApplicantCv::class)->orderBy('order_position');
     }
 
     /**
-     * Check if profile has CV uploaded
+     * Primary CV relation (for quick access)
      */
-    public function hasCV(): bool
+    public function primaryCv()
     {
-        return !empty($this->cv_path);
+        return $this->hasOne(ApplicantCv::class)->where('is_primary', true);
     }
 
     /**
-     * Check if profile has photo uploaded
+     * Work history relation
      */
-    public function hasPhoto(): bool
+    public function jobHistories()
     {
-        return !empty($this->photo_path);
+        return $this->hasMany(JobHistory::class)->orderBy('starting_year', 'desc');
     }
 
     /**
-     * Get CV URL
+     * Current job relation
      */
-    public function getCvUrlAttribute(): ?string
+    public function currentJob()
     {
-        if ($this->cv_path) {
-            return asset('storage/' . $this->cv_path);
-        }
-        return null;
+        return $this->hasOne(JobHistory::class)->where('is_current', true);
     }
 
     /**
-     * Get photo URL
+     * Education history relation
      */
-    public function getPhotoUrlAttribute(): ?string
+    public function educationHistories()
     {
-        if ($this->photo_path) {
-            return asset('storage/' . $this->photo_path);
-        }
-        return null;
+        return $this->hasMany(EducationHistory::class)->orderBy('passing_year', 'desc');
     }
 
     /**
-     * Get age of applicant
+     * Achievements/Certifications relation
      */
-    public function getAgeAttribute(): ?int
+    public function achievements()
     {
-        if ($this->birth_date) {
-            return $this->birth_date->age;
-        }
-        return null;
+        return $this->hasMany(Achievement::class);
+    }
+
+    /* ========== ACCESSORS ========== */
+
+    /**
+     * Get full name attribute
+     */
+    public function getFullNameAttribute()
+    {
+        return $this->first_name . ' ' . $this->last_name;
+    }
+
+    /* ========== SCOPES ========== */
+
+    /**
+     * Scope for completed profiles
+     */
+    public function scopeComplete($query)
+    {
+        return $query->whereNotNull('phone')
+            ->whereNotNull('headline');
+    }
+
+    /* ========== HELPER METHODS ========== */
+
+    /**
+     * Check if profile is complete
+     */
+    public function isComplete()
+    {
+        return !empty($this->phone) && !empty($this->headline);
     }
 
     /**
-     * Boot the model
+     * Get profile completion percentage
      */
-    protected static function boot()
+    public function completionPercentage()
     {
-        parent::boot();
+        $fields = ['first_name', 'last_name', 'phone', 'headline', 'summary', 'experience_years'];
+        $filled = 0;
 
-        // Auto sync email with user model when creating
-        static::creating(function ($profile) {
-            if (empty($profile->email) && $profile->user) {
-                $profile->email = $profile->user->email;
+        foreach ($fields as $field) {
+            if (!empty($this->$field)) {
+                $filled++;
             }
-        });
+        }
 
-        // Auto sync email with user model when updating
-        static::updating(function ($profile) {
-            if ($profile->isDirty('email') && $profile->user) {
-                $profile->user->update(['email' => $profile->email]);
-            }
-        });
+        return round(($filled / count($fields)) * 100);
     }
-
 }

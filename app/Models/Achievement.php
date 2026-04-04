@@ -1,5 +1,5 @@
 <?php
-// app/Models/Location.php
+// app/Models/Achievement.php
 
 namespace App\Models;
 
@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
-class Location extends Model
+class Achievement extends Model
 {
     use HasFactory, SoftDeletes;
 
@@ -15,16 +15,15 @@ class Location extends Model
      * Fillable fields
      */
     protected $fillable = [
-        'name',
-        'address',
-        'is_active',
+        'applicant_profile_id',
+        'achievement_name',
+        'achievement_details',
     ];
 
     /**
      * Cast fields
      */
     protected $casts = [
-        'is_active' => 'boolean',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
@@ -32,19 +31,8 @@ class Location extends Model
 
     /* ========== RELATIONSHIPS ========== */
 
-    /**
-     * Job listings at this location (many-to-many)
-     */
-    public function jobListings()
+    public function applicantProfile()
     {
-        return $this->belongsToMany(JobListing::class, 'job_listing_location')
-            ->withTimestamps();
-    }
-
-    /* ========== SCOPES ========== */
-
-    public function scopeActive($query)
-    {
-        return $query->where('is_active', true);
+        return $this->belongsTo(ApplicantProfile::class);
     }
 }

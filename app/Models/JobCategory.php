@@ -3,62 +3,65 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Support\Str;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class JobCategory extends Model
 {
     use HasFactory, SoftDeletes;
 
+    /**
+     * Fillable fields
+     */
     protected $fillable = [
         'name',
         'slug',
         'is_active',
     ];
 
+    /**
+     * Cast fields
+     */
     protected $casts = [
         'is_active' => 'boolean',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+        'deleted_at' => 'datetime',
     ];
 
+    /* ========== RELATIONSHIPS ========== */
+
     /**
-     * Boot the model
+     * Job listings in this category
      */
-    protected static function boot()
-    {
-        parent::boot();
-
-        // Auto-generate slug when creating a new category
-        static::creating(function ($category) {
-            if (empty($category->slug)) {
-                $category->slug = Str::slug($category->name);
-            }
-        });
-
-        // Auto-update slug when name changes
-        static::updating(function ($category) {
-            if ($category->isDirty('name')) {
-                $category->slug = Str::slug($category->name);
-            }
-        });
-    }
-
-    // Relationships
     public function jobListings()
     {
         return $this->hasMany(JobListing::class, 'category_id');
     }
 
-    // Scopes
+    /**
+     * Active job listings only
+     */
+    public function activeJobListings()
+    {
+        return $this->jobListings()->active();
+    }
+
+    /* ========== SCOPES ========== */
+
     public function scopeActive($query)
     {
         return $query->where('is_active', true);
     }
 
-    // Accessor to get category by slug (optional)
-    public function scopeWhereSlug($query, $slug)
+    /* ========== HELPER METHODS ========== */
+
+    /**
+     * Get job count in this category
+     */
+    public function getJobCountAttribute()
     {
-        return $query->where('slug', $slug);
+        return $this->jobListings()->active()->count();
     }
 }

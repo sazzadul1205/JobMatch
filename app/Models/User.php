@@ -1,35 +1,38 @@
 <?php
+// app/Models/User.php
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
-
-use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
 
-class User extends Authenticatable implements MustVerifyEmail
+class User extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, SoftDeletes;
 
     /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
+     * Table name (optional - Laravel will use 'users' by default)
+     * protected $table = 'users';
+     */
+
+    /**
+     * Fillable fields - add any new field here to allow mass assignment
      */
     protected $fillable = [
         'name',
         'email',
         'password',
+        'old_password',
+        'google_id',
+        'google_avatar',
         'role',
+        'email_verified_at',
     ];
 
     /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var list<string>
+     * Hidden fields for serialization
      */
     protected $hidden = [
         'password',
@@ -37,20 +40,35 @@ class User extends Authenticatable implements MustVerifyEmail
     ];
 
     /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
+     * Cast fields to native types
+     * Add new cast fields here when needed
      */
-    protected function casts(): array
-    {
-        return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-        ];
-    }
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+        'deleted_at' => 'datetime',
+    ];
 
     /**
-     * Get the applicant's profile
+     * Role constants - easy to add more roles
+     */
+    const ROLE_ADMIN = 'admin';
+    const ROLE_EMPLOYER = 'employer';
+    const ROLE_JOB_SEEKER = 'job_seeker';
+
+    // All roles in one place for easy access
+    public static $roles = [
+        self::ROLE_ADMIN,
+        self::ROLE_EMPLOYER,
+        self::ROLE_JOB_SEEKER,
+    ];
+
+    /* ========== RELATIONSHIPS ========== */
+
+    /**
+     * Applicant profile relation (for job seekers)
+     * One user has one applicant profile
      */
     public function applicantProfile()
     {
@@ -58,47 +76,8 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
-     * Check if user is an admin
-     */
-    public function isAdmin(): bool
-    {
-        return $this->role === 'admin';
-    }
-
-    /**
-     * Check if user is an employer
-     */
-    public function isEmployer(): bool
-    {
-        return $this->role === 'employer';
-    }
-
-    /**
-     * Check if user is a job seeker
-     */
-    public function isJobSeeker(): bool
-    {
-        return $this->role === 'job_seeker';
-    }
-
-    /**
-     * Check if user has a specific role
-     */
-    public function hasRole(string $role): bool
-    {
-        return $this->role === $role;
-    }
-
-    /**
-     * Check if user has any of the given roles
-     */
-    public function hasAnyRole(array $roles): bool
-    {
-        return in_array($this->role, $roles);
-    }
-
-    /**
-     * Get the job listings created by this user (for employers)
+     * Job listings relation (for employers)
+     * One user (employer) can have many job listings
      */
     public function jobListings()
     {
@@ -106,10 +85,67 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
-     * Get the applications submitted by this user (for job seekers)
+     * Applications relation
+     * One user can have many job applications
      */
     public function applications()
     {
         return $this->hasMany(Application::class);
+    }
+
+    /**
+     * Job views relation
+     * Track which jobs this user viewed
+     */
+    public function jobViews()
+    {
+        return $this->hasMany(JobView::class);
+    }
+
+    /* ========== HELPER METHODS ========== */
+
+    /**
+     * Check if user is admin
+     */
+    public function isAdmin()
+    {
+        return $this->role === self::ROLE_ADMIN;
+    }
+
+    /**
+     * Check if user is employer
+     */
+    public function isEmployer()
+    {
+        return $this->role === self::ROLE_EMPLOYER;
+    }
+
+    /**
+     * Check if user is job seeker
+     */
+    public function isJobSeeker()
+    {
+        return $this->role === self::ROLE_JOB_SEEKER;
+    }
+
+    /**
+     * Check if user has a specific role
+     * Usage: $user->hasRole('admin')
+     */
+    public function hasRole($role)
+    {
+        return $this->role === $role;
+    }
+
+    /**
+     * Update user role (with validation)
+     */
+    public function updateRole($role)
+    {
+        if (in_array($role, self::$roles)) {
+            $this->update(['role' => $role]);
+            return true;
+        }
+        return false;
     }
 }
