@@ -487,18 +487,33 @@ class ProfileCompletionController extends Controller
                 $job['ending_year'] = null;
             }
 
+            $payload = [
+                'company_name' => $job['company_name'] ?? null,
+                'position' => $job['position'] ?? null,
+                'starting_year' => $job['starting_year'] ?? null,
+                'ending_year' => $job['ending_year'] ?? null,
+                'is_current' => $job['is_current'] ?? false,
+            ];
+
             if (isset($job['id'])) {
-                JobHistory::where('id', $job['id'])
+                $existing = JobHistory::where('id', $job['id'])
                     ->where('applicant_profile_id', $profileId)
-                    ->update($job);
-            } else {
+                    ->first();
+
+                if ($existing) {
+                    $existing->update($payload);
+                    continue;
+                }
+            }
+
+            if (true) {
                 if (($existingCount + $newCount) >= JobHistory::MAX_ENTRIES_PER_PROFILE) {
                     throw ValidationException::withMessages([
                         'job_histories' => sprintf('Maximum %d job history entries allowed.', JobHistory::MAX_ENTRIES_PER_PROFILE)
                     ]);
                 }
-                $job['applicant_profile_id'] = $profileId;
-                JobHistory::create($job);
+                $payload['applicant_profile_id'] = $profileId;
+                JobHistory::create($payload);
                 $newCount++;
             }
         }
@@ -521,18 +536,31 @@ class ProfileCompletionController extends Controller
                 continue;
             }
 
+            $payload = [
+                'institution_name' => $edu['institution_name'] ?? null,
+                'degree' => $edu['degree'] ?? null,
+                'passing_year' => $edu['passing_year'] ?? null,
+            ];
+
             if (isset($edu['id'])) {
-                EducationHistory::where('id', $edu['id'])
+                $existing = EducationHistory::where('id', $edu['id'])
                     ->where('applicant_profile_id', $profileId)
-                    ->update($edu);
-            } else {
+                    ->first();
+
+                if ($existing) {
+                    $existing->update($payload);
+                    continue;
+                }
+            }
+
+            if (true) {
                 if (($existingCount + $newCount) >= EducationHistory::MAX_ENTRIES_PER_PROFILE) {
                     throw ValidationException::withMessages([
                         'education_histories' => sprintf('Maximum %d education history entries allowed.', EducationHistory::MAX_ENTRIES_PER_PROFILE)
                     ]);
                 }
-                $edu['applicant_profile_id'] = $profileId;
-                EducationHistory::create($edu);
+                $payload['applicant_profile_id'] = $profileId;
+                EducationHistory::create($payload);
                 $newCount++;
             }
         }
@@ -555,18 +583,30 @@ class ProfileCompletionController extends Controller
                 continue;
             }
 
+            $payload = [
+                'achievement_name' => $ach['achievement_name'] ?? null,
+                'achievement_details' => $ach['achievement_details'] ?? null,
+            ];
+
             if (isset($ach['id'])) {
-                Achievement::where('id', $ach['id'])
+                $existing = Achievement::where('id', $ach['id'])
                     ->where('applicant_profile_id', $profileId)
-                    ->update($ach);
-            } else {
+                    ->first();
+
+                if ($existing) {
+                    $existing->update($payload);
+                    continue;
+                }
+            }
+
+            if (true) {
                 if (($existingCount + $newCount) >= Achievement::MAX_ACHIEVEMENTS_PER_PROFILE) {
                     throw ValidationException::withMessages([
                         'achievements' => sprintf('Maximum %d achievements allowed.', Achievement::MAX_ACHIEVEMENTS_PER_PROFILE)
                     ]);
                 }
-                $ach['applicant_profile_id'] = $profileId;
-                Achievement::create($ach);
+                $payload['applicant_profile_id'] = $profileId;
+                Achievement::create($payload);
                 $newCount++;
             }
         }
