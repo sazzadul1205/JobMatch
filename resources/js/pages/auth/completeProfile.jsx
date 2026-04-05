@@ -37,6 +37,7 @@ const CompleteProfile = ({ applicantProfile = null }) => {
     blood_type: applicantProfile?.blood_type || '',
     phone: applicantProfile?.phone || '',
     address: applicantProfile?.address || '',
+    photo: null,
 
     // Professional Info
     experience_years: applicantProfile?.experience_years || '',
@@ -65,6 +66,7 @@ const CompleteProfile = ({ applicantProfile = null }) => {
       blood_type: applicantProfile?.blood_type || '',
       phone: applicantProfile?.phone || '',
       address: applicantProfile?.address || '',
+      photo: null,
       experience_years: applicantProfile?.experience_years || '',
       current_job_title: applicantProfile?.current_job_title || '',
       social_links: applicantProfile?.social_links || {},
@@ -117,7 +119,7 @@ const CompleteProfile = ({ applicantProfile = null }) => {
       <div class="text-left">
         <p class="text-gray-700">Are you sure you want to submit your profile?</p>
         <p class="text-sm text-gray-500 mt-3 pt-2 border-t border-gray-100">
-          <span class="flex items-center gap-1">📄 Your CVs will be uploaded to the server.</span>
+          <span class="flex items-center gap-1">📄 Your CVs are already uploaded.</span>
           <span class="flex items-center gap-1 mt-1">✏️ You can still edit your profile later from your dashboard.</span>
         </p>
       </div>
@@ -136,11 +138,21 @@ const CompleteProfile = ({ applicantProfile = null }) => {
       }
     }).then((result) => {
       if (result.isConfirmed) {
+        if (!data.first_name || !data.last_name || !data.phone) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Missing Required Info',
+            text: 'Please fill in First Name, Last Name, and Phone before submitting.',
+            confirmButtonColor: '#ef4444',
+          });
+          return;
+        }
         post('/profile/complete', {
           transform: (payload) => ({
             ...payload,
             cvs: [], // CVs are uploaded immediately via /profile/cv
           }),
+          forceFormData: true,
           onSuccess: () => {
             Swal.fire({
               icon: 'success',
@@ -329,7 +341,7 @@ const CompleteProfile = ({ applicantProfile = null }) => {
           <div className="mt-6 text-center">
             <div className="inline-flex items-center gap-2 text-sm text-gray-500 bg-white px-4 py-2 rounded-full shadow-sm">
               <span className="text-blue-500">✨</span>
-              All fields are optional. You can skip any step and update later.
+              First name, last name, and phone are required to complete your profile.
               <span className="text-blue-500">✨</span>
             </div>
           </div>
@@ -340,3 +352,4 @@ const CompleteProfile = ({ applicantProfile = null }) => {
 };
 
 export default CompleteProfile;
+

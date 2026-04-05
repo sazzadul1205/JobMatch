@@ -18,6 +18,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class ProfileCompletionController extends Controller
 {
@@ -62,6 +63,7 @@ class ProfileCompletionController extends Controller
             'blood_type' => 'nullable|string|max:3',
             'phone' => 'required|string|max:20',
             'address' => 'nullable|string',
+            'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
 
             // Professional Info
             'experience_years' => 'nullable|integer|min:0|max:60',
@@ -78,7 +80,7 @@ class ProfileCompletionController extends Controller
             'cvs.*.to_delete' => 'nullable|boolean',
 
             // Job History
-            'job_histories' => 'nullable|array',
+            'job_histories' => 'nullable|array|max:' . JobHistory::MAX_ENTRIES_PER_PROFILE,
             'job_histories.*.id' => 'nullable|integer',
             'job_histories.*.company_name' => 'required|string|max:255',
             'job_histories.*.position' => 'required|string|max:255',
@@ -88,7 +90,7 @@ class ProfileCompletionController extends Controller
             'job_histories.*.to_delete' => 'nullable|boolean',
 
             // Education
-            'education_histories' => 'nullable|array',
+            'education_histories' => 'nullable|array|max:' . EducationHistory::MAX_ENTRIES_PER_PROFILE,
             'education_histories.*.id' => 'nullable|integer',
             'education_histories.*.institution_name' => 'required|string|max:255',
             'education_histories.*.degree' => 'required|string|max:255',
@@ -96,7 +98,7 @@ class ProfileCompletionController extends Controller
             'education_histories.*.to_delete' => 'nullable|boolean',
 
             // Achievements
-            'achievements' => 'nullable|array',
+            'achievements' => 'nullable|array|max:' . Achievement::MAX_ACHIEVEMENTS_PER_PROFILE,
             'achievements.*.id' => 'nullable|integer',
             'achievements.*.achievement_name' => 'required|string|max:255',
             'achievements.*.achievement_details' => 'nullable|string',
@@ -105,22 +107,39 @@ class ProfileCompletionController extends Controller
 
         try {
             DB::transaction(function () use ($validated, $user) {
+                // Handle photo upload first
+                $photoPath = null;
+                if (isset($validated['photo']) && $validated['photo'] instanceof UploadedFile) {
+                    $photoPath = $this->handlePhotoUpload($validated['photo'], $user->id);
+                }
+
+                $profileData = [
+                    'first_name' => $validated['first_name'],
+                    'last_name' => $validated['last_name'],
+                    'birth_date' => $validated['birth_date'] ?? null,
+                    'gender' => $validated['gender'] ?? null,
+                    'blood_type' => $validated['blood_type'] ?? null,
+                    'phone' => $validated['phone'],
+                    'address' => $validated['address'] ?? null,
+                    'social_links' => $validated['social_links'] ?? [],
+                    'experience_years' => $validated['experience_years'] ?? null,
+                    'current_job_title' => $validated['current_job_title'] ?? null,
+                ];
 
                 $profile = ApplicantProfile::updateOrCreate(
                     ['user_id' => $user->id],
-                    [
-                        'first_name' => $validated['first_name'],
-                        'last_name' => $validated['last_name'],
-                        'birth_date' => $validated['birth_date'] ?? null,
-                        'gender' => $validated['gender'] ?? null,
-                        'blood_type' => $validated['blood_type'] ?? null,
-                        'phone' => $validated['phone'],
-                        'address' => $validated['address'] ?? null,
-                        'social_links' => $validated['social_links'] ?? [],
-                        'experience_years' => $validated['experience_years'] ?? null,
-                        'current_job_title' => $validated['current_job_title'] ?? null,
-                    ]
+                    $profileData
                 );
+
+                // Update photo separately if provided
+                if ($photoPath) {
+                    // Delete old photo if exists
+                    if ($profile->photo_path && Storage::disk('public')->exists($profile->photo_path)) {
+                        Storage::disk('public')->delete($profile->photo_path);
+                    }
+                    $profile->photo_path = $photoPath;
+                    $profile->save();
+                }
 
                 if (!empty($validated['cvs'])) {
                     $this->handleCVs($profile->id, $validated['cvs']);
@@ -143,8 +162,9 @@ class ProfileCompletionController extends Controller
             });
 
             return redirect()->route('dashboard')->with('success', 'Profile completed successfully!');
+        } catch (ValidationException $e) {
+            return back()->withErrors($e->errors())->withInput();
         } catch (\Throwable $e) {
-
             Log::error('Profile completion failed', [
                 'user_id' => $user->id,
                 'error' => $e->getMessage(),
@@ -152,9 +172,78 @@ class ProfileCompletionController extends Controller
             ]);
 
             return back()->withErrors([
-                'error' => 'Failed to save profile. Please try again.'
+                'error' => 'Failed to save profile. Please try again. ' . $e->getMessage()
+            ])->withInput();
+        }
+    }
+
+    /**
+     * Handle photo upload
+     */
+    private function handlePhotoUpload(UploadedFile $photo, int $userId): string
+    {
+        $fileName = 'profile_' . $userId . '_' . time() . '.' . $photo->getClientOriginalExtension();
+        $path = $photo->storeAs('profile_photos', $fileName, 'public');
+        return $path;
+    }
+
+    /**
+     * Upload profile photo separately (AJAX endpoint)
+     */
+    public function uploadPhoto(Request $request)
+    {
+        $user = Auth::user();
+
+        $request->validate([
+            'photo' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+        ]);
+
+        $profile = ApplicantProfile::firstOrCreate(
+            ['user_id' => $user->id],
+            $this->placeholderProfileData($user)
+        );
+
+        // Delete old photo
+        if ($profile->photo_path && Storage::disk('public')->exists($profile->photo_path)) {
+            Storage::disk('public')->delete($profile->photo_path);
+        }
+
+        $path = $this->handlePhotoUpload($request->file('photo'), $user->id);
+        $profile->photo_path = $path;
+        $profile->save();
+
+        return response()->json([
+            'success' => true,
+            'photo_url' => asset('storage/' . $path),
+            'message' => 'Photo uploaded successfully'
+        ]);
+    }
+
+    /**
+     * Delete profile photo
+     */
+    public function deletePhoto(Request $request)
+    {
+        $user = Auth::user();
+        $profile = ApplicantProfile::where('user_id', $user->id)->first();
+
+        if ($profile && $profile->photo_path) {
+            if (Storage::disk('public')->exists($profile->photo_path)) {
+                Storage::disk('public')->delete($profile->photo_path);
+            }
+            $profile->photo_path = null;
+            $profile->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Photo deleted successfully'
             ]);
         }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'No photo found to delete'
+        ], 404);
     }
 
     /**
@@ -163,8 +252,11 @@ class ProfileCompletionController extends Controller
      */
     private function handleCVs(int $profileId, array $cvs): void
     {
-        foreach ($cvs as $cvData) {
+        $activeCount = ApplicantCv::where('applicant_profile_id', $profileId)
+            ->where('status', 'active')
+            ->count();
 
+        foreach ($cvs as $index => $cvData) {
             // Delete CV
             if (!empty($cvData['to_delete']) && isset($cvData['id'])) {
                 $cv = ApplicantCv::where('id', $cvData['id'])
@@ -176,6 +268,7 @@ class ProfileCompletionController extends Controller
                         Storage::disk('public')->delete($cv->cv_path);
                     }
                     $cv->delete();
+                    $activeCount--;
                 }
                 continue;
             }
@@ -186,35 +279,41 @@ class ProfileCompletionController extends Controller
                     ->where('applicant_profile_id', $profileId)
                     ->update([
                         'is_primary' => $cvData['is_primary'] ?? false,
-                        'order_position' => $cvData['order_position'] ?? 0,
+                        'order_position' => $cvData['order_position'] ?? $index,
                     ]);
                 continue;
             }
 
             // Upload new CV
             if (isset($cvData['file']) && $cvData['file'] instanceof UploadedFile) {
+                // Check max limit before creating
+                if ($activeCount >= ApplicantCv::MAX_CVS_PER_PROFILE) {
+                    throw ValidationException::withMessages([
+                        'cvs' => sprintf('Maximum %d active CVs allowed.', ApplicantCv::MAX_CVS_PER_PROFILE)
+                    ]);
+                }
 
                 $path = $cvData['file']->store("cvs/{$profileId}", 'public');
-
                 $isPrimary = !empty($cvData['is_primary']);
 
-                // Count active CVs only
-                $activeCount = ApplicantCv::where('applicant_profile_id', $profileId)
-                    ->where('status', 'active')
-                    ->count();
-
-                ApplicantCv::create([
+                $cv = ApplicantCv::create([
                     'applicant_profile_id' => $profileId,
                     'cv_path' => $path,
                     'original_name' => $cvData['original_name'] ?? $cvData['file']->getClientOriginalName(),
                     'order_position' => $cvData['order_position'] ?? $activeCount,
                     'is_primary' => $activeCount === 0 ? true : $isPrimary,
-                    'status' => 'pending', 
+                    'status' => 'pending',
                 ]);
+
+                if ($activeCount === 0) {
+                    $cv->is_primary = true;
+                    $cv->save();
+                }
+                $activeCount++;
             }
         }
 
-        // Reorder only active CVs
+        // Reorder CVs
         ApplicantCv::reorderCvs($profileId);
     }
 
@@ -234,16 +333,18 @@ class ProfileCompletionController extends Controller
             $this->placeholderProfileData($user)
         );
 
+        // Check max limit
         if (ApplicantCv::hasReachedMaxEntries($profile->id, true)) {
             return response()->json([
-                'message' => 'Maximum CVs reached.',
+                'message' => sprintf('Maximum %d CVs reached.', ApplicantCv::MAX_CVS_PER_PROFILE),
             ], 422);
         }
 
         $path = $validated['cv']->store("cvs/{$profile->id}", 'public');
 
-        $nextPosition = ApplicantCv::where('applicant_profile_id', $profile->id)->max('order_position');
-        $nextPosition = is_null($nextPosition) ? 0 : $nextPosition + 1;
+        $maxPosition = ApplicantCv::where('applicant_profile_id', $profile->id)
+            ->max('order_position');
+        $nextPosition = is_null($maxPosition) ? 0 : $maxPosition + 1;
 
         $cv = ApplicantCv::create([
             'applicant_profile_id' => $profile->id,
@@ -259,7 +360,7 @@ class ProfileCompletionController extends Controller
             'original_name' => $cv->original_name,
             'size' => $validated['cv']->getSize(),
             'type' => $validated['cv']->getMimeType(),
-            'url' => $cv->url,
+            'url' => asset('storage/' . $cv->cv_path),
             'is_primary' => $cv->is_primary,
             'status' => $cv->status,
             'order_position' => $cv->order_position,
@@ -285,7 +386,7 @@ class ProfileCompletionController extends Controller
         $cv->delete();
         ApplicantCv::reorderCvs($cv->applicant_profile_id);
 
-        return back();
+        return back()->with('success', 'CV removed successfully.');
     }
 
     /**
@@ -300,12 +401,12 @@ class ProfileCompletionController extends Controller
         }
 
         if ($cv->status !== 'active') {
-            return back();
+            return back()->with('error', 'Only active CVs can be set as primary.');
         }
 
         $cv->setAsPrimary();
 
-        return back();
+        return back()->with('success', 'Primary CV updated successfully.');
     }
 
     /**
@@ -313,20 +414,35 @@ class ProfileCompletionController extends Controller
      */
     private function activatePendingCvs(int $profileId): void
     {
-        ApplicantCv::where('applicant_profile_id', $profileId)
+        $pendingCount = ApplicantCv::where('applicant_profile_id', $profileId)
             ->where('status', 'pending')
-            ->update(['status' => 'active']);
+            ->count();
 
-        ApplicantCv::reorderCvs($profileId);
+        $activeCount = ApplicantCv::where('applicant_profile_id', $profileId)
+            ->where('status', 'active')
+            ->count();
 
-        $primary = ApplicantCv::getPrimaryCv($profileId);
-        if (! $primary) {
-            $first = ApplicantCv::where('applicant_profile_id', $profileId)
-                ->where('status', 'active')
-                ->orderBy('order_position')
-                ->first();
-            if ($first) {
-                $first->setAsPrimary();
+        // Calculate how many can be activated (max 3 total)
+        $canActivate = min($pendingCount, ApplicantCv::MAX_CVS_PER_PROFILE - $activeCount);
+
+        if ($canActivate > 0) {
+            ApplicantCv::where('applicant_profile_id', $profileId)
+                ->where('status', 'pending')
+                ->limit($canActivate)
+                ->update(['status' => 'active']);
+
+            ApplicantCv::reorderCvs($profileId);
+
+            // Ensure there's a primary CV
+            $primary = ApplicantCv::getPrimaryCv($profileId);
+            if (!$primary) {
+                $first = ApplicantCv::where('applicant_profile_id', $profileId)
+                    ->where('status', 'active')
+                    ->orderBy('order_position')
+                    ->first();
+                if ($first) {
+                    $first->setAsPrimary();
+                }
             }
         }
     }
@@ -345,19 +461,25 @@ class ProfileCompletionController extends Controller
         [$first, $last] = array_pad(preg_split('/\s+/', $name, 2) ?: [], 2, null);
 
         return [
-            'first_name' => $first,
-            'last_name' => $last,
+            'first_name' => $first ?? '',
+            'last_name' => $last ?? '',
         ];
     }
 
-    // Other handlers (Job, Education, Achievement) remain the same
+    /**
+     * Handle Job Histories with max limit validation
+     */
     private function handleJobHistories(int $profileId, array $jobs): void
     {
+        $existingCount = JobHistory::where('applicant_profile_id', $profileId)->count();
+        $newCount = 0;
+
         foreach ($jobs as $job) {
             if (!empty($job['to_delete']) && isset($job['id'])) {
                 JobHistory::where('id', $job['id'])
                     ->where('applicant_profile_id', $profileId)
                     ->delete();
+                $existingCount--;
                 continue;
             }
 
@@ -370,22 +492,32 @@ class ProfileCompletionController extends Controller
                     ->where('applicant_profile_id', $profileId)
                     ->update($job);
             } else {
-                if (JobHistory::hasReachedMaxEntries($profileId)) {
-                    throw new \Exception('Max job history reached.');
+                if (($existingCount + $newCount) >= JobHistory::MAX_ENTRIES_PER_PROFILE) {
+                    throw ValidationException::withMessages([
+                        'job_histories' => sprintf('Maximum %d job history entries allowed.', JobHistory::MAX_ENTRIES_PER_PROFILE)
+                    ]);
                 }
                 $job['applicant_profile_id'] = $profileId;
                 JobHistory::create($job);
+                $newCount++;
             }
         }
     }
 
+    /**
+     * Handle Education Histories with max limit validation
+     */
     private function handleEducationHistories(int $profileId, array $educations): void
     {
+        $existingCount = EducationHistory::where('applicant_profile_id', $profileId)->count();
+        $newCount = 0;
+
         foreach ($educations as $edu) {
             if (!empty($edu['to_delete']) && isset($edu['id'])) {
                 EducationHistory::where('id', $edu['id'])
                     ->where('applicant_profile_id', $profileId)
                     ->delete();
+                $existingCount--;
                 continue;
             }
 
@@ -394,22 +526,32 @@ class ProfileCompletionController extends Controller
                     ->where('applicant_profile_id', $profileId)
                     ->update($edu);
             } else {
-                if (EducationHistory::hasReachedMaxEntries($profileId)) {
-                    throw new \Exception('Max education history reached.');
+                if (($existingCount + $newCount) >= EducationHistory::MAX_ENTRIES_PER_PROFILE) {
+                    throw ValidationException::withMessages([
+                        'education_histories' => sprintf('Maximum %d education history entries allowed.', EducationHistory::MAX_ENTRIES_PER_PROFILE)
+                    ]);
                 }
                 $edu['applicant_profile_id'] = $profileId;
                 EducationHistory::create($edu);
+                $newCount++;
             }
         }
     }
 
+    /**
+     * Handle Achievements with max limit validation
+     */
     private function handleAchievements(int $profileId, array $achievements): void
     {
+        $existingCount = Achievement::where('applicant_profile_id', $profileId)->count();
+        $newCount = 0;
+
         foreach ($achievements as $ach) {
             if (!empty($ach['to_delete']) && isset($ach['id'])) {
                 Achievement::where('id', $ach['id'])
                     ->where('applicant_profile_id', $profileId)
                     ->delete();
+                $existingCount--;
                 continue;
             }
 
@@ -418,11 +560,14 @@ class ProfileCompletionController extends Controller
                     ->where('applicant_profile_id', $profileId)
                     ->update($ach);
             } else {
-                if (Achievement::hasReachedMaxEntries($profileId)) {
-                    throw new \Exception('Max achievements reached.');
+                if (($existingCount + $newCount) >= Achievement::MAX_ACHIEVEMENTS_PER_PROFILE) {
+                    throw ValidationException::withMessages([
+                        'achievements' => sprintf('Maximum %d achievements allowed.', Achievement::MAX_ACHIEVEMENTS_PER_PROFILE)
+                    ]);
                 }
                 $ach['applicant_profile_id'] = $profileId;
                 Achievement::create($ach);
+                $newCount++;
             }
         }
     }
