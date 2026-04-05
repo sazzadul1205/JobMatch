@@ -112,19 +112,38 @@ const CVUpload = ({ data, setData }) => {
     setUploading(true);
 
     try {
-      // Read file as data URL for preview
+      const formData = new FormData();
+      formData.append('cv', file);
+
+      const response = await fetch('/profile/cv', {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData?.message || 'Upload failed');
+      }
+
+      const result = await response.json();
+
       const fileData = await readFileAsDataURL(file);
 
       const newCv = {
-        id: Date.now(),
-        name: file.name,
-        size: file.size,
-        type: file.type,
+        id: result.id,
+        name: result.original_name,
+        size: result.size,
+        type: result.type,
         data: fileData,
-        original_name: file.name,
-        order_position: data.cvs.length,
-        is_primary: data.cvs.length === 0,
-        upload_date: new Date().toISOString()
+        original_name: result.original_name,
+        order_position: result.order_position,
+        is_primary: result.is_primary,
+        upload_date: result.upload_date || new Date().toISOString(),
+        status: result.status,
       };
 
       setData('cvs', [...data.cvs, newCv]);
@@ -132,7 +151,7 @@ const CVUpload = ({ data, setData }) => {
       Swal.fire({
         icon: 'success',
         title: 'CV Uploaded!',
-        text: `${file.name} has been uploaded successfully.`,
+        text: `${file.name} uploaded and marked as pending until profile completion.`,
         timer: 2000,
         showConfirmButton: false
       });
@@ -141,7 +160,7 @@ const CVUpload = ({ data, setData }) => {
       Swal.fire({
         icon: 'error',
         title: 'Upload Failed',
-        text: 'Something went wrong while reading the file.',
+      text: error.message || 'Something went wrong while uploading the file.',
       });
     } finally {
       setUploading(false);
@@ -157,8 +176,19 @@ const CVUpload = ({ data, setData }) => {
       confirmButtonColor: '#d33',
       cancelButtonColor: '#3085d6',
       confirmButtonText: 'Yes, remove it!'
-    }).then((result) => {
+    }).then(async (result) => {
       if (result.isConfirmed) {
+        const cvToRemove = data.cvs[index];
+        if (cvToRemove?.id) {
+          await fetch(`/profile/cv/${cvToRemove.id}`, {
+            method: 'DELETE',
+            headers: {
+              'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+              'X-Requested-With': 'XMLHttpRequest',
+            },
+          });
+        }
+
         const newCVs = data.cvs.filter((_, i) => i !== index);
         newCVs.forEach((cv, idx) => {
           cv.order_position = idx;
@@ -182,12 +212,23 @@ const CVUpload = ({ data, setData }) => {
     });
   };
 
-  const setPrimaryCV = (index) => {
+  const setPrimaryCV = async (index) => {
     const newCVs = data.cvs.map((cv, idx) => ({
       ...cv,
       is_primary: idx === index
     }));
     setData('cvs', newCVs);
+
+    const cv = data.cvs[index];
+    if (cv?.id) {
+      await fetch(`/profile/cv/${cv.id}/primary`, {
+        method: 'PATCH',
+        headers: {
+          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+      });
+    }
 
     Swal.fire({
       icon: 'success',
@@ -345,7 +386,7 @@ const CVUpload = ({ data, setData }) => {
                     ) : (
                       <>
                         <FaRegStar className="h-3 w-3 text-gray-400" />
-                        <span>CV {index + 1}</span>
+                        <span>{cv.status === 'pending' ? 'Pending' : `CV ${index + 1}`}</span>
                       </>
                     )}
                   </p>
@@ -511,7 +552,7 @@ const CVUpload = ({ data, setData }) => {
           <FaCloudUploadAlt className="h-5 w-5 text-blue-500" />
           <p className="text-sm text-gray-600">
             You can upload up to {MAX_CVS} CVs and set one as primary. Your primary CV will be used for auto-applications.
-            Files are stored locally in your browser.
+            Files upload immediately and stay pending until your profile is complete.
           </p>
         </div>
       </div>

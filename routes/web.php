@@ -41,6 +41,13 @@ Route::middleware(['auth'])->group(function () {
         ->name('profile.complete');
     Route::post('/profile/complete', [ProfileCompletionController::class, 'store'])
         ->name('profile.complete.store');
+    Route::post('/profile/cv', [ProfileCompletionController::class, 'uploadCv'])
+        ->middleware('throttle:profile-cv')
+        ->name('profile.cv.upload');
+    Route::delete('/profile/cv/{cv}', [ProfileCompletionController::class, 'destroyCv'])
+        ->name('profile.cv.destroy');
+    Route::patch('/profile/cv/{cv}/primary', [ProfileCompletionController::class, 'setPrimaryCv'])
+        ->name('profile.cv.primary');
 });
 
 

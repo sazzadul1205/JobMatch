@@ -1,5 +1,4 @@
 <?php
-// database/migrations/2026_04_03_174404_create_applicant_cvs_table.php
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
@@ -11,18 +10,29 @@ return new class extends Migration
     {
         Schema::create('applicant_cvs', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('applicant_profile_id')->constrained()->onDelete('cascade');
+
+            $table->foreignId('applicant_profile_id')
+                ->constrained()
+                ->cascadeOnDelete();
+
             $table->string('cv_path');
-            $table->string('original_name');
+            $table->string('original_name')->nullable();
+
+            $table->enum('status', ['pending', 'active'])->default('pending');
+
             $table->integer('order_position')->default(0);
+
             $table->boolean('is_primary')->default(false);
+
             $table->timestamps();
             $table->softDeletes();
 
-            // Indexes
+
+            $table->index('applicant_profile_id');
+            $table->index('status');
             $table->index('is_primary');
 
-            // Ensure unique order_position per applicant
+            // Prevent duplicate ordering per profile
             $table->unique(['applicant_profile_id', 'order_position']);
         });
     }

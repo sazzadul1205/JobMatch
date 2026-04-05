@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Head, router } from '@inertiajs/react';
 import { useForm } from '@inertiajs/react';
 import Swal from 'sweetalert2';
@@ -55,6 +55,29 @@ const CompleteProfile = ({ applicantProfile = null }) => {
     // Achievements
     achievements: applicantProfile?.achievements || [],
   });
+
+  useEffect(() => {
+    const nextData = {
+      first_name: applicantProfile?.first_name || '',
+      last_name: applicantProfile?.last_name || '',
+      birth_date: applicantProfile?.birth_date || '',
+      gender: applicantProfile?.gender || '',
+      blood_type: applicantProfile?.blood_type || '',
+      phone: applicantProfile?.phone || '',
+      address: applicantProfile?.address || '',
+      experience_years: applicantProfile?.experience_years || '',
+      current_job_title: applicantProfile?.current_job_title || '',
+      social_links: applicantProfile?.social_links || {},
+      cvs: applicantProfile?.cvs || [],
+      job_histories: applicantProfile?.job_histories || [],
+      education_histories: applicantProfile?.education_histories || [],
+      achievements: applicantProfile?.achievements || [],
+    };
+
+    Object.entries(nextData).forEach(([key, value]) => {
+      setData(key, value);
+    });
+  }, [applicantProfile?.id]);
 
   const steps = [
     { name: 'Basic Info', component: BasicInfo, icon: FaUser },
@@ -113,22 +136,11 @@ const CompleteProfile = ({ applicantProfile = null }) => {
       }
     }).then((result) => {
       if (result.isConfirmed) {
-        // Show uploading indicator for CVs
-        const hasCVs = data.cvs.length > 0;
-
-        if (hasCVs) {
-          Swal.fire({
-            title: 'Uploading CVs...',
-            text: 'Please wait while your CVs are being uploaded.',
-            allowOutsideClick: false,
-            showConfirmButton: false,
-            willOpen: () => {
-              Swal.showLoading();
-            }
-          });
-        }
-
         post('/profile/complete', {
+          transform: (payload) => ({
+            ...payload,
+            cvs: [], // CVs are uploaded immediately via /profile/cv
+          }),
           onSuccess: () => {
             Swal.fire({
               icon: 'success',
