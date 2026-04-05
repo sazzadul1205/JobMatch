@@ -1,8 +1,10 @@
+// pages/Backend/ApplicantProfile/Show.jsx
+
 // React
 import { useState } from 'react';
 
 // Inertia
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 
 // Icons
 import {
@@ -29,12 +31,18 @@ import {
   FaTwitter,
   FaGlobe,
   FaCalendarAlt,
-  FaBuilding,
   FaStar,
-  FaClock,
+  FaPlus,
+  FaFacebook,
+  FaYoutube,
+  FaMedium,
+  FaDev,
+  FaStackOverflow,
   FaChartLine,
+  FaUserTie,
+  FaLink,
 } from 'react-icons/fa';
-import { MdOutlineBloodtype, MdWork, MdSchool, MdPending } from 'react-icons/md';
+import { MdOutlineBloodtype, MdSchool, MdPending } from 'react-icons/md';
 
 // SweetAlert2
 import Swal from 'sweetalert2';
@@ -43,22 +51,34 @@ import Swal from 'sweetalert2';
 import AuthenticatedLayout from '../../../layouts/AuthenticatedLayout';
 
 // Modals
-import BasicInfoModal from './Modals/BasicInfoModal';
-import ProfessionalInfoModal from './Modals/ProfessionalInfoModal';
-import WorkExperienceModal from './Modals/WorkExperienceModal';
+import CVModal from './Modals/CVModal';
 import EducationModal from './Modals/EducationModal';
+import BasicInfoModal from './Modals/BasicInfoModal';
 import AchievementsModal from './Modals/AchievementsModal';
+import WorkExperienceModal from './Modals/WorkExperienceModal';
+import ChangePasswordModal from './Modals/ChangePasswordModal';
+import ProfessionalInfoModal from './Modals/ProfessionalInfoModal';
 
 export default function Show({ profile }) {
+  // Get authenticated user
+  const authUser = usePage().props?.auth?.user || null;
+  const isOauthUser = !!authUser?.google_id;
+
+  // State for delete/restore actions
   const [deleting, setDeleting] = useState(false);
+  const [imgError, setImgError] = useState(false);
   const [restoring, setRestoring] = useState(false);
+
+  // Base API path for profile actions
+  const baseProfilePath = '/backend/applicant/profile';
 
   // Modal states
   const [activeModal, setActiveModal] = useState(null);
-  const [saving, setSaving] = useState(false);
 
+  // Check if profile is deleted
   const isDeleted = profile?.deleted_at !== null;
 
+  // Date formatting
   const formatDate = (date) => {
     if (!date) return 'Not specified';
     return new Date(date).toLocaleDateString('en-US', {
@@ -68,6 +88,7 @@ export default function Show({ profile }) {
     });
   };
 
+  // Calculate age from birth date
   const calculateAge = (birthDate) => {
     if (!birthDate) return null;
     const today = new Date();
@@ -80,6 +101,7 @@ export default function Show({ profile }) {
     return age;
   };
 
+  // Open Modal
   const openModal = (modalType) => {
     if (isDeleted) {
       Swal.fire({
@@ -92,210 +114,12 @@ export default function Show({ profile }) {
     setActiveModal(modalType);
   };
 
+  // Close Modal
   const closeModal = () => {
     setActiveModal(null);
   };
 
-  // Save handlers
-  const saveBasicInfo = async (formData) => {
-    setSaving(true);
-    try {
-      const response = await fetch(`/applicant/profile/${profile.id}/basic-info`, {
-        method: 'POST',
-        headers: {
-          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-          'X-Requested-With': 'XMLHttpRequest',
-          'Accept': 'application/json'
-        },
-        body: formData
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        Swal.fire({
-          icon: 'success',
-          title: 'Updated!',
-          text: 'Basic information updated successfully.',
-          timer: 1500,
-          showConfirmButton: false
-        });
-        router.reload();
-        closeModal();
-      } else {
-        throw new Error(data.message || 'Failed to update');
-      }
-    } catch (error) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Error!',
-        text: error.message || 'Failed to update basic information.',
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const saveProfessionalInfo = async (data) => {
-    setSaving(true);
-    try {
-      const response = await fetch(`/applicant/profile/${profile.id}/professional-info`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-          'X-Requested-With': 'XMLHttpRequest',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify(data)
-      });
-
-      const responseData = await response.json();
-
-      if (responseData.success) {
-        Swal.fire({
-          icon: 'success',
-          title: 'Updated!',
-          text: 'Professional information updated successfully.',
-          timer: 1500,
-          showConfirmButton: false
-        });
-        router.reload();
-        closeModal();
-      } else {
-        throw new Error(responseData.message || 'Failed to update');
-      }
-    } catch (error) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Error!',
-        text: error.message || 'Failed to update professional information.',
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const saveWorkExperiences = async (data) => {
-    setSaving(true);
-    try {
-      const response = await fetch(`/applicant/profile/${profile.id}/work-experiences`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-          'X-Requested-With': 'XMLHttpRequest',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify(data)
-      });
-
-      const responseData = await response.json();
-
-      if (responseData.success) {
-        Swal.fire({
-          icon: 'success',
-          title: 'Updated!',
-          text: 'Work experience updated successfully.',
-          timer: 1500,
-          showConfirmButton: false
-        });
-        router.reload();
-        closeModal();
-      } else {
-        throw new Error(responseData.message || 'Failed to update');
-      }
-    } catch (error) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Error!',
-        text: error.message || 'Failed to update work experience.',
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const saveEducations = async (data) => {
-    setSaving(true);
-    try {
-      const response = await fetch(`/applicant/profile/${profile.id}/educations`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-          'X-Requested-With': 'XMLHttpRequest',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify(data)
-      });
-
-      const responseData = await response.json();
-
-      if (responseData.success) {
-        Swal.fire({
-          icon: 'success',
-          title: 'Updated!',
-          text: 'Education updated successfully.',
-          timer: 1500,
-          showConfirmButton: false
-        });
-        router.reload();
-        closeModal();
-      } else {
-        throw new Error(responseData.message || 'Failed to update');
-      }
-    } catch (error) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Error!',
-        text: error.message || 'Failed to update education.',
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const saveAchievements = async (data) => {
-    setSaving(true);
-    try {
-      const response = await fetch(`/applicant/profile/${profile.id}/achievements`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-          'X-Requested-With': 'XMLHttpRequest',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify(data)
-      });
-
-      const responseData = await response.json();
-
-      if (responseData.success) {
-        Swal.fire({
-          icon: 'success',
-          title: 'Updated!',
-          text: 'Achievements updated successfully.',
-          timer: 1500,
-          showConfirmButton: false
-        });
-        router.reload();
-        closeModal();
-      } else {
-        throw new Error(responseData.message || 'Failed to update');
-      }
-    } catch (error) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Error!',
-        text: error.message || 'Failed to update achievements.',
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
+  // Delete Profile
   const handleDelete = () => {
     Swal.fire({
       title: 'Delete Profile?',
@@ -310,7 +134,7 @@ export default function Show({ profile }) {
       if (result.isConfirmed) {
         setDeleting(true);
         try {
-          const response = await fetch(`/applicant/profile/${profile.id}`, {
+          const response = await fetch(`${baseProfilePath}/${profile.id}`, {
             method: 'DELETE',
             headers: {
               'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
@@ -346,6 +170,7 @@ export default function Show({ profile }) {
     });
   };
 
+  // Restore Profile
   const handleRestore = () => {
     Swal.fire({
       title: 'Restore Profile?',
@@ -360,7 +185,7 @@ export default function Show({ profile }) {
       if (result.isConfirmed) {
         setRestoring(true);
         try {
-          const response = await fetch(`/applicant/profile/${profile.user_id}/restore`, {
+          const response = await fetch(`${baseProfilePath}/${profile.user_id}/restore`, {
             method: 'POST',
             headers: {
               'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
@@ -396,83 +221,7 @@ export default function Show({ profile }) {
     });
   };
 
-  const handleChangePassword = () => {
-    Swal.fire({
-      title: 'Change Password',
-      html: `
-        <input type="password" id="current_password" class="swal2-input" placeholder="Current Password">
-        <input type="password" id="new_password" class="swal2-input" placeholder="New Password (min 8 characters)">
-        <input type="password" id="new_password_confirmation" class="swal2-input" placeholder="Confirm New Password">
-      `,
-      focusConfirm: false,
-      showCancelButton: true,
-      confirmButtonText: 'Change Password',
-      cancelButtonText: 'Cancel',
-      preConfirm: async () => {
-        const current_password = document.getElementById('current_password').value;
-        const new_password = document.getElementById('new_password').value;
-        const new_password_confirmation = document.getElementById('new_password_confirmation').value;
-
-        if (!current_password || !new_password || !new_password_confirmation) {
-          Swal.showValidationMessage('All fields are required');
-          return false;
-        }
-
-        if (new_password.length < 8) {
-          Swal.showValidationMessage('New password must be at least 8 characters');
-          return false;
-        }
-
-        if (new_password !== new_password_confirmation) {
-          Swal.showValidationMessage('New passwords do not match');
-          return false;
-        }
-
-        try {
-          const response = await fetch('/applicant/profile/change-password', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-              'X-Requested-With': 'XMLHttpRequest',
-              'Accept': 'application/json'
-            },
-            body: JSON.stringify({
-              current_password,
-              new_password,
-              new_password_confirmation
-            })
-          });
-
-          const data = await response.json();
-
-          if (!response.ok) {
-            if (data.errors) {
-              const errors = Object.values(data.errors).flat().join('\n');
-              throw new Error(errors);
-            }
-            throw new Error(data.message || 'Failed to change password');
-          }
-
-          return data;
-        } catch (error) {
-          Swal.showValidationMessage(error.message);
-          return false;
-        }
-      }
-    }).then((result) => {
-      if (result.isConfirmed && result.value?.success) {
-        Swal.fire({
-          icon: 'success',
-          title: 'Success!',
-          text: 'Password changed successfully!',
-          timer: 2000,
-          showConfirmButton: false
-        });
-      }
-    });
-  };
-
+  // Modal content mapping
   if (!profile) {
     return (
       <AuthenticatedLayout>
@@ -499,22 +248,26 @@ export default function Show({ profile }) {
     );
   }
 
+  // Calculate age for display
   const age = calculateAge(profile?.birth_date);
   const stats = profile?.stats || {};
 
   return (
     <AuthenticatedLayout>
+
+      {/* Page Head */}
       <Head title={`${profile.first_name} ${profile.last_name} - Profile`} />
 
+      {/* Main Content */}
       <div className="min-h-screen bg-gray-50 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header */}
           <div className="mb-6 flex justify-between items-center flex-wrap gap-3">
             <h1 className="text-3xl font-bold text-gray-900">My Profile</h1>
             <div className="flex gap-3 flex-wrap">
-              {!isDeleted && (
+              {!isDeleted && !isOauthUser && (
                 <button
-                  onClick={handleChangePassword}
+                  onClick={() => openModal('change-password')}
                   className="inline-flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
                 >
                   <FaUser size={16} />
@@ -533,14 +286,6 @@ export default function Show({ profile }) {
                 </button>
               ) : (
                 <>
-                  <Link
-                    href={route('backend.applicant.profile.edit', profile.id)}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                  >
-                    <FaEdit size={16} />
-                    Edit Profile
-                  </Link>
-
                   <Link
                     href={route('backend.applications.my-applications')}
                     className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
@@ -574,75 +319,21 @@ export default function Show({ profile }) {
             </div>
           )}
 
-          {/* Stats Cards */}
-          {!isDeleted && stats && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-gray-500">CVs</p>
-                    <p className="text-2xl font-bold text-gray-900">{stats.active_cvs || 0}/{stats.total_cvs || 0}</p>
-                  </div>
-                  <FaFilePdf className="text-red-500 text-2xl" />
-                </div>
-              </div>
-              <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-gray-500">Work Experience</p>
-                    <p className="text-2xl font-bold text-gray-900">{stats.total_jobs || 0}</p>
-                  </div>
-                  <FaBriefcase className="text-orange-500 text-2xl" />
-                </div>
-              </div>
-              <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-gray-500">Education</p>
-                    <p className="text-2xl font-bold text-gray-900">{stats.total_education || 0}</p>
-                  </div>
-                  <MdSchool className="text-green-500 text-2xl" />
-                </div>
-              </div>
-              <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-gray-500">Achievements</p>
-                    <p className="text-2xl font-bold text-gray-900">{stats.total_achievements || 0}</p>
-                  </div>
-                  <FaTrophy className="text-yellow-500 text-2xl" />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Completion Progress */}
-          {!isDeleted && profile.completion_percentage && (
-            <div className="mb-6 bg-white rounded-lg p-4 shadow-sm border border-gray-200">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-medium text-gray-700">Profile Completion</span>
-                <span className="text-sm font-semibold text-blue-600">{profile.completion_percentage}%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div
-                  className="bg-blue-600 rounded-full h-2 transition-all duration-500"
-                  style={{ width: `${profile.completion_percentage}%` }}
-                />
-              </div>
-            </div>
-          )}
-
           {/* Main Profile Card */}
           <div className={`bg-white rounded-xl shadow-lg overflow-hidden ${isDeleted ? 'opacity-75' : ''}`}>
+
+            {/* Banner */}
             <div className={`h-32 ${isDeleted ? 'bg-gray-400' : 'bg-linear-to-r from-blue-600 to-blue-700'}`} />
 
+            {/* Content */}
             <div className="px-6 pb-6">
               {/* Profile Photo */}
               <div className="flex justify-center -mt-16 mb-4">
-                {profile.photo_url && !isDeleted ? (
+                {profile.photo_url && !isDeleted && !imgError ? (
                   <img
                     src={profile.photo_url}
                     alt={profile.full_name}
+                    onError={() => setImgError(true)}
                     className="w-32 h-32 rounded-full object-cover border-4 border-white shadow-lg"
                   />
                 ) : (
@@ -668,6 +359,7 @@ export default function Show({ profile }) {
 
               {/* Basic Information */}
               <div className="border-t pt-6 mb-6">
+                {/* Header */}
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                     <FaUser className="text-blue-600" />
@@ -682,12 +374,15 @@ export default function Show({ profile }) {
                     </button>
                   )}
                 </div>
+
+                {/* Fields */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {/* Basic info fields - same as before */}
                   <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                     <FaEnvelope className="text-blue-600" size={18} />
                     <div>
                       <p className="text-xs text-gray-500">Email</p>
-                      <p className="text-sm font-medium text-gray-900">{profile.email}</p>
+                      <p className="text-sm font-medium text-gray-900">{profile?.email}</p>
                     </div>
                   </div>
 
@@ -752,73 +447,163 @@ export default function Show({ profile }) {
                     </button>
                   )}
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                    <MdWork className="text-purple-600" size={18} />
-                    <div>
-                      <p className="text-xs text-gray-500">Years of Experience</p>
-                      <p className="text-sm font-medium text-gray-900">
-                        {profile.experience_years !== null
-                          ? (profile.experience_years === 0 ? 'Fresher' : `${profile.experience_years} year${profile.experience_years > 1 ? 's' : ''}`)
-                          : 'Not specified'}
-                      </p>
-                    </div>
-                  </div>
 
-                  <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                    <FaBuilding className="text-purple-600" size={18} />
-                    <div>
-                      <p className="text-xs text-gray-500">Current Job Title</p>
-                      <p className="text-sm font-medium text-gray-900">{profile.current_job_title || 'Not specified'}</p>
-                    </div>
+                {/* Empty State */}
+                {(!profile.experience_years && profile.experience_years !== 0) && !profile.current_job_title && (!profile.social_links || Object.keys(profile.social_links).length === 0) ? (
+                  <div className="text-center py-8 bg-gray-50 rounded-lg">
+                    <FaBriefcase className="h-12 w-12 text-gray-300 mx-auto mb-2" />
+                    <p className="text-gray-500">No professional information added yet</p>
+                    {!isDeleted && (
+                      <button
+                        onClick={() => openModal('professional')}
+                        className="mt-3 inline-flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                      >
+                        <FaPlus size={14} /> Add Professional Information
+                      </button>
+                    )}
                   </div>
-                </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Years of Experience */}
+                      <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                        <div className="p-2 bg-purple-100 rounded-lg">
+                          <FaChartLine className="text-purple-600" size={18} />
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">Years of Experience</p>
+                          <p className="text-sm font-medium text-gray-900">
+                            {profile.experience_years !== null && profile.experience_years !== undefined
+                              ? (profile.experience_years === 0 ? 'Fresher' : `${profile.experience_years} year${profile.experience_years > 1 ? 's' : ''}`)
+                              : 'Not specified'}
+                          </p>
+                        </div>
+                      </div>
 
-                {profile.social_links && Object.keys(profile.social_links).length > 0 && (
-                  <div className="mt-4">
-                    <p className="text-sm font-medium text-gray-700 mb-2">Social Links</p>
-                    <div className="flex flex-wrap gap-3">
-                      {Object.entries(profile.social_links).map(([platform, url]) => {
-                        let Icon = FaGlobe;
-                        let color = "text-gray-600";
-                        if (platform === 'linkedin') { Icon = FaLinkedin; color = "text-blue-600"; }
-                        if (platform === 'github') { Icon = FaGithub; color = "text-gray-800"; }
-                        if (platform === 'twitter') { Icon = FaTwitter; color = "text-blue-400"; }
-                        return (
-                          <a
-                            key={platform}
-                            href={url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg hover:bg-gray-100"
-                          >
-                            <Icon className={color} size={16} />
-                            <span className="text-sm text-gray-700 capitalize">{platform}</span>
-                          </a>
-                        );
-                      })}
+                      {/* Current Job Title */}
+                      <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                        <div className="p-2 bg-purple-100 rounded-lg">
+                          <FaUserTie className="text-purple-600" size={18} />
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">Current Job Title</p>
+                          <p className="text-sm font-medium text-gray-900">{profile.current_job_title || 'Not specified'}</p>
+                        </div>
+                      </div>
                     </div>
-                  </div>
+
+                    {/* Social Links Section */}
+                    {profile.social_links && Object.keys(profile.social_links).length > 0 && (
+                      <div className="mt-4">
+                        <p className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                          <FaLink className="h-4 w-4 text-gray-400" />
+                          Social Links
+                        </p>
+                        <div className="flex flex-wrap gap-3">
+                          {Object.entries(profile.social_links).map(([platform, url]) => {
+                            let Icon = FaGlobe;
+                            let color = "text-gray-600";
+                            let bgColor = "bg-gray-50";
+
+                            switch (platform) {
+                              case 'linkedin':
+                                Icon = FaLinkedin;
+                                color = "text-blue-600";
+                                bgColor = "bg-blue-50";
+                                break;
+                              case 'github':
+                                Icon = FaGithub;
+                                color = "text-gray-800";
+                                bgColor = "bg-gray-100";
+                                break;
+                              case 'twitter':
+                                Icon = FaTwitter;
+                                color = "text-blue-400";
+                                bgColor = "bg-blue-50";
+                                break;
+                              case 'facebook':
+                                Icon = FaFacebook;
+                                color = "text-blue-700";
+                                bgColor = "bg-blue-50";
+                                break;
+                              case 'youtube':
+                                Icon = FaYoutube;
+                                color = "text-red-600";
+                                bgColor = "bg-red-50";
+                                break;
+                              case 'medium':
+                                Icon = FaMedium;
+                                color = "text-gray-700";
+                                bgColor = "bg-gray-100";
+                                break;
+                              case 'devto':
+                                Icon = FaDev;
+                                color = "text-gray-800";
+                                bgColor = "bg-gray-100";
+                                break;
+                              case 'stackoverflow':
+                                Icon = FaStackOverflow;
+                                color = "text-orange-600";
+                                bgColor = "bg-orange-50";
+                                break;
+                              case 'portfolio':
+                                Icon = FaGlobe;
+                                color = "text-green-600";
+                                bgColor = "bg-green-50";
+                                break;
+                              default:
+                                Icon = FaGlobe;
+                                color = "text-gray-600";
+                                bgColor = "bg-gray-50";
+                            }
+
+                            return (
+                              <a
+                                key={platform}
+                                href={url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={`flex items-center gap-2 px-3 py-2 ${bgColor} rounded-lg hover:shadow-md transition-all duration-200 group`}
+                              >
+                                <Icon className={`${color} transition-transform group-hover:scale-110`} size={16} />
+                                <span className="text-sm text-gray-700 capitalize font-medium">{platform}</span>
+                              </a>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Tips Section - Only show if there are social links */}
+                    {profile.social_links && Object.keys(profile.social_links).length > 0 && (
+                      <div className="mt-4 p-3 bg-purple-50 rounded-lg border border-purple-100">
+                        <p className="text-xs text-gray-600 flex items-center gap-2">
+                          <FaLink className="h-3 w-3 text-purple-500" />
+                          Your social links help employers learn more about you professionally.
+                        </p>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
 
               {/* Work Experience */}
-              {profile.job_histories && profile.job_histories.length > 0 && (
-                <div className="border-t pt-6 mb-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                      <FaBriefcase className="text-orange-600" />
-                      Work Experience ({profile.job_histories.length})
-                    </h3>
-                    {!isDeleted && (
-                      <button
-                        onClick={() => openModal('work')}
-                        className="text-orange-600 hover:text-orange-700 flex items-center gap-1 text-sm"
-                      >
-                        <FaEdit size={14} /> Edit
-                      </button>
-                    )}
-                  </div>
+              <div className="border-t pt-6 mb-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <FaBriefcase className="text-orange-600" />
+                    Work Experience ({profile.job_histories?.length || 0})
+                  </h3>
+                  {!isDeleted && (
+                    <button
+                      onClick={() => openModal('work')}
+                      className="text-orange-600 hover:text-orange-700 flex items-center gap-1 text-sm"
+                    >
+                      <FaEdit size={14} /> Edit
+                    </button>
+                  )}
+                </div>
+                {profile.job_histories && profile.job_histories.length > 0 ? (
                   <div className="space-y-4">
                     {profile.job_histories.map((job, index) => (
                       <div key={job.id || index} className="p-4 bg-gray-50 rounded-lg">
@@ -840,26 +625,39 @@ export default function Show({ profile }) {
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
-
-              {/* Education */}
-              {profile.education_histories && profile.education_histories.length > 0 && (
-                <div className="border-t pt-6 mb-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                      <MdSchool className="text-green-600" />
-                      Education ({profile.education_histories.length})
-                    </h3>
+                ) : (
+                  <div className="text-center py-8 bg-gray-50 rounded-lg">
+                    <FaBriefcase className="h-12 w-12 text-gray-300 mx-auto mb-2" />
+                    <p className="text-gray-500">No work experience added yet</p>
                     {!isDeleted && (
                       <button
-                        onClick={() => openModal('education')}
-                        className="text-green-600 hover:text-green-700 flex items-center gap-1 text-sm"
+                        onClick={() => openModal('work')}
+                        className="mt-3 inline-flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                       >
-                        <FaEdit size={14} /> Edit
+                        <FaPlus size={14} /> Add Work Experience
                       </button>
                     )}
                   </div>
+                )}
+              </div>
+
+              {/* Education */}
+              <div className="border-t pt-6 mb-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <MdSchool className="text-green-600" />
+                    Education ({profile.education_histories?.length || 0})
+                  </h3>
+                  {!isDeleted && (
+                    <button
+                      onClick={() => openModal('education')}
+                      className="text-green-600 hover:text-green-700 flex items-center gap-1 text-sm"
+                    >
+                      <FaEdit size={14} /> Edit
+                    </button>
+                  )}
+                </div>
+                {profile.education_histories && profile.education_histories.length > 0 ? (
                   <div className="space-y-4">
                     {profile.education_histories.map((edu, index) => (
                       <div key={edu.id || index} className="p-4 bg-gray-50 rounded-lg">
@@ -869,26 +667,39 @@ export default function Show({ profile }) {
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
-
-              {/* Achievements */}
-              {profile.achievements && profile.achievements.length > 0 && (
-                <div className="border-t pt-6 mb-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                      <FaTrophy className="text-yellow-600" />
-                      Achievements & Certifications ({profile.achievements.length})
-                    </h3>
+                ) : (
+                  <div className="text-center py-8 bg-gray-50 rounded-lg">
+                    <MdSchool className="h-12 w-12 text-gray-300 mx-auto mb-2" />
+                    <p className="text-gray-500">No education added yet</p>
                     {!isDeleted && (
                       <button
-                        onClick={() => openModal('achievements')}
-                        className="text-yellow-600 hover:text-yellow-700 flex items-center gap-1 text-sm"
+                        onClick={() => openModal('education')}
+                        className="mt-3 inline-flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                       >
-                        <FaEdit size={14} /> Edit
+                        <FaPlus size={14} /> Add Education
                       </button>
                     )}
                   </div>
+                )}
+              </div>
+
+              {/* Achievements */}
+              <div className="border-t pt-6 mb-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <FaTrophy className="text-yellow-600" />
+                    Achievements & Certifications ({profile.achievements?.length || 0})
+                  </h3>
+                  {!isDeleted && (
+                    <button
+                      onClick={() => openModal('achievements')}
+                      className="text-yellow-600 hover:text-yellow-700 flex items-center gap-1 text-sm"
+                    >
+                      <FaEdit size={14} /> Edit
+                    </button>
+                  )}
+                </div>
+                {profile.achievements && profile.achievements.length > 0 ? (
                   <div className="space-y-4">
                     {profile.achievements.map((achievement, index) => (
                       <div key={achievement.id || index} className="p-4 bg-linear-to-r from-yellow-50 to-orange-50 rounded-lg">
@@ -902,16 +713,39 @@ export default function Show({ profile }) {
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div className="text-center py-8 bg-gray-50 rounded-lg">
+                    <FaTrophy className="h-12 w-12 text-gray-300 mx-auto mb-2" />
+                    <p className="text-gray-500">No achievements added yet</p>
+                    {!isDeleted && (
+                      <button
+                        onClick={() => openModal('achievements')}
+                        className="mt-3 inline-flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                      >
+                        <FaPlus size={14} /> Add Achievement
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
 
               {/* CV Section */}
-              {profile.cvs && profile.cvs.length > 0 && (
-                <div className="border-t pt-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <div className="border-t pt-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                     <FaFileAlt className="text-red-600" />
-                    CV / Resume ({profile.cvs.length})
+                    CV / Resume ({profile.cvs?.length || 0})
                   </h3>
+                  {!isDeleted && (
+                    <button
+                      onClick={() => openModal('cv')}
+                      className="text-red-600 hover:text-red-700 flex items-center gap-1 text-sm"
+                    >
+                      <FaEdit size={14} /> Manage CVs
+                    </button>
+                  )}
+                </div>
+                {profile.cvs && profile.cvs.length > 0 ? (
                   <div className="space-y-3">
                     {profile.cvs.map((cv) => (
                       <div key={cv.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg flex-wrap gap-3">
@@ -945,8 +779,21 @@ export default function Show({ profile }) {
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div className="text-center py-8 bg-gray-50 rounded-lg">
+                    <FaFilePdf className="h-12 w-12 text-gray-300 mx-auto mb-2" />
+                    <p className="text-gray-500">No CV uploaded yet</p>
+                    {!isDeleted && (
+                      <button
+                        onClick={() => openModal('cv')}
+                        className="mt-3 inline-flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                      >
+                        <FaPlus size={14} /> Upload CV
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
 
               {/* Member Since */}
               <div className="border-t pt-6 mt-6">
@@ -964,44 +811,53 @@ export default function Show({ profile }) {
       </div>
 
       {/* Modals */}
+
+      {/* Basic Info */}
       <BasicInfoModal
         isOpen={activeModal === 'basic'}
         onClose={closeModal}
-        onSave={saveBasicInfo}
         profile={profile}
-        saving={saving}
       />
 
+      {/* Professional Info */}
       <ProfessionalInfoModal
         isOpen={activeModal === 'professional'}
         onClose={closeModal}
-        onSave={saveProfessionalInfo}
         profile={profile}
-        saving={saving}
       />
 
+      {/* Work Experience */}
       <WorkExperienceModal
         isOpen={activeModal === 'work'}
         onClose={closeModal}
-        onSave={saveWorkExperiences}
         profile={profile}
-        saving={saving}
       />
 
       <EducationModal
         isOpen={activeModal === 'education'}
         onClose={closeModal}
-        onSave={saveEducations}
         profile={profile}
-        saving={saving}
       />
 
+      {/* Achievements */}
       <AchievementsModal
         isOpen={activeModal === 'achievements'}
         onClose={closeModal}
-        onSave={saveAchievements}
         profile={profile}
-        saving={saving}
+      />
+
+      {/* CV */}
+      <CVModal
+        isOpen={activeModal === 'cv'}
+        onClose={closeModal}
+        profile={profile}
+      />
+
+      {/* Change Password */}
+      <ChangePasswordModal
+        isOpen={activeModal === 'change-password'}
+        onClose={closeModal}
+        profile={profile}
       />
     </AuthenticatedLayout>
   );

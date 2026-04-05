@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import Swal from 'sweetalert2';
 import {
   FaPlus,
   FaBook,
@@ -8,18 +9,20 @@ import {
   FaUniversity,
   FaCalendarAlt,
   FaGraduationCap,
+  FaSpinner
 } from 'react-icons/fa';
 import { MdSchool } from 'react-icons/md';
 import { GiBookshelf } from 'react-icons/gi';
 import Modal from './Modal';
 
-const EducationModal = ({ isOpen, onClose, onSave, profile, saving }) => {
+const EducationModal = ({ isOpen, onClose, profile }) => {
+  const [saving, setSaving] = useState(false);
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 60 }, (_, i) => currentYear - i);
 
   const [modalData, setModalData] = useState({
     education_histories: profile?.education_histories?.map(edu => ({
-      id: edu.id || Date.now(),
+      id: edu.id || null,
       institution_name: edu.institution_name || '',
       degree: edu.degree || '',
       passing_year: edu.passing_year || currentYear,
@@ -33,7 +36,7 @@ const EducationModal = ({ isOpen, onClose, onSave, profile, saving }) => {
       education_histories: [
         ...modalData.education_histories,
         {
-          id: Date.now(),
+          id: null,
           institution_name: '',
           degree: '',
           passing_year: currentYear,
@@ -51,20 +54,54 @@ const EducationModal = ({ isOpen, onClose, onSave, profile, saving }) => {
 
   const removeEducation = (index) => {
     const updatedEducations = [...modalData.education_histories];
-    if (updatedEducations[index].id && typeof updatedEducations[index].id === 'number' && updatedEducations[index].id.toString().length > 10) {
-      // This is an existing record from database, mark for deletion
+    if (updatedEducations[index].id) {
       updatedEducations[index].to_delete = true;
     } else {
-      // This is a new unsaved record, remove it completely
       updatedEducations.splice(index, 1);
     }
     setModalData({ ...modalData, education_histories: updatedEducations });
   };
 
   const handleSave = async () => {
-    await onSave({
-      education_histories: modalData.education_histories.filter(edu => !edu.to_delete)
-    });
+    setSaving(true);
+
+    try {
+      const response = await fetch(`/backend/applicant/profile/${profile.id}/educations`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+          'X-Requested-With': 'XMLHttpRequest',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          education_histories: modalData.education_histories
+        })
+      });
+
+      const responseData = await response.json();
+
+      if (responseData.success) {
+        Swal.fire({
+          icon: 'success',
+          title: 'Updated!',
+          text: 'Education updated successfully.',
+          timer: 1500,
+          showConfirmButton: false
+        });
+        window.location.reload();
+      } else {
+        throw new Error(responseData.message || 'Failed to update');
+      }
+    } catch (error) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error!',
+        text: error.message || 'Failed to update education.',
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const getDegreeIcon = (degree) => {
@@ -81,7 +118,6 @@ const EducationModal = ({ isOpen, onClose, onSave, profile, saving }) => {
   return (
     <Modal title="Edit Education" onClose={onClose} onSave={handleSave} saving={saving}>
       <div className="space-y-6">
-        {/* Header */}
         <div className="border-b border-gray-200 pb-4">
           <div className="flex items-center space-x-3">
             <div className="p-2 bg-blue-100 rounded-lg">
@@ -94,7 +130,6 @@ const EducationModal = ({ isOpen, onClose, onSave, profile, saving }) => {
           </div>
         </div>
 
-        {/* Empty State */}
         {activeEducations.length === 0 && (
           <div className="text-center py-12 bg-linear-to-b from-gray-50 to-gray-100 rounded-xl">
             <div className="p-4 bg-white rounded-full w-20 h-20 mx-auto mb-4 shadow-md flex items-center justify-center">
@@ -105,7 +140,6 @@ const EducationModal = ({ isOpen, onClose, onSave, profile, saving }) => {
           </div>
         )}
 
-        {/* Education List */}
         {activeEducations.map((edu, index) => (
           <div key={edu.id} className="border border-gray-200 rounded-xl p-5 relative hover:shadow-lg transition-all duration-200 bg-white">
             <button
@@ -178,7 +212,6 @@ const EducationModal = ({ isOpen, onClose, onSave, profile, saving }) => {
               </div>
             </div>
 
-            {/* Preview of entered data */}
             {(edu.institution_name || edu.degree) && (
               <div className="mt-4 p-3 bg-gray-50 rounded-lg">
                 <p className="text-xs text-gray-500 mb-1">Preview:</p>
@@ -193,20 +226,16 @@ const EducationModal = ({ isOpen, onClose, onSave, profile, saving }) => {
           </div>
         ))}
 
-        {/* Add Button */}
-        {/* Add Button */}
         <button
           onClick={addEducation}
           disabled={activeEducations.length >= 3}
           className={`w-full py-3.5 border-2 border-dashed rounded-xl text-gray-600 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200 flex items-center justify-center gap-2 font-medium
-    ${activeEducations.length >= 3 ? 'border-gray-200 text-gray-400 cursor-not-allowed hover:border-gray-200 hover:text-gray-400 hover:bg-white' : 'border-gray-300'}
-  `}
+            ${activeEducations.length >= 3 ? 'border-gray-200 text-gray-400 cursor-not-allowed hover:border-gray-200 hover:text-gray-400 hover:bg-white' : 'border-gray-300'}`}
         >
           <FaPlus className="h-5 w-5" />
           Add Education
         </button>
 
-        {/* Info Notice */}
         {activeEducations.length > 0 && (
           <div className="bg-linear-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
             <div className="flex items-center justify-center gap-2">

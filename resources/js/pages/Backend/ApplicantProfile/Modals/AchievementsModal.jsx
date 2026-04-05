@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import Swal from 'sweetalert2';
 import {
   FaPlus,
   FaTrophy,
@@ -7,16 +8,18 @@ import {
   FaTrashAlt,
   FaMedal,
   FaCertificate,
-  FaRegStar
+  FaRegStar,
+  FaSpinner
 } from 'react-icons/fa';
 import { MdEmojiEvents, MdVerified } from 'react-icons/md';
 import { GiAchievement, GiMedalSkull } from 'react-icons/gi';
 import Modal from './Modal';
 
-const AchievementsModal = ({ isOpen, onClose, onSave, profile, saving }) => {
+const AchievementsModal = ({ isOpen, onClose, profile }) => {
+  const [saving, setSaving] = useState(false);
   const [modalData, setModalData] = useState({
     achievements: profile?.achievements?.map(ach => ({
-      id: ach.id || Date.now(),
+      id: ach.id || null,
       achievement_name: ach.achievement_name || '',
       achievement_details: ach.achievement_details || '',
       to_delete: false
@@ -29,7 +32,7 @@ const AchievementsModal = ({ isOpen, onClose, onSave, profile, saving }) => {
       achievements: [
         ...modalData.achievements,
         {
-          id: Date.now(),
+          id: null,
           achievement_name: '',
           achievement_details: '',
           to_delete: false
@@ -46,20 +49,54 @@ const AchievementsModal = ({ isOpen, onClose, onSave, profile, saving }) => {
 
   const removeAchievement = (index) => {
     const updatedAchievements = [...modalData.achievements];
-    if (updatedAchievements[index].id && typeof updatedAchievements[index].id === 'number' && updatedAchievements[index].id.toString().length > 10) {
-      // This is an existing record from database, mark for deletion
+    if (updatedAchievements[index].id) {
       updatedAchievements[index].to_delete = true;
     } else {
-      // This is a new unsaved record, remove it completely
       updatedAchievements.splice(index, 1);
     }
     setModalData({ ...modalData, achievements: updatedAchievements });
   };
 
   const handleSave = async () => {
-    await onSave({
-      achievements: modalData.achievements.filter(ach => !ach.to_delete)
-    });
+    setSaving(true);
+
+    try {
+      const response = await fetch(`/backend/applicant/profile/${profile.id}/achievements`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+          'X-Requested-With': 'XMLHttpRequest',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          achievements: modalData.achievements
+        })
+      });
+
+      const responseData = await response.json();
+
+      if (responseData.success) {
+        Swal.fire({
+          icon: 'success',
+          title: 'Updated!',
+          text: 'Achievements updated successfully.',
+          timer: 1500,
+          showConfirmButton: false
+        });
+        window.location.reload();
+      } else {
+        throw new Error(responseData.message || 'Failed to update');
+      }
+    } catch (error) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error!',
+        text: error.message || 'Failed to update achievements.',
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const getAchievementIcon = (title) => {
@@ -82,7 +119,6 @@ const AchievementsModal = ({ isOpen, onClose, onSave, profile, saving }) => {
   return (
     <Modal title="Edit Achievements & Certifications" onClose={onClose} onSave={handleSave} saving={saving}>
       <div className="space-y-6">
-        {/* Header */}
         <div className="border-b border-gray-200 pb-4">
           <div className="flex items-center space-x-3">
             <div className="p-2 bg-blue-100 rounded-lg">
@@ -95,7 +131,6 @@ const AchievementsModal = ({ isOpen, onClose, onSave, profile, saving }) => {
           </div>
         </div>
 
-        {/* Empty State */}
         {activeAchievements.length === 0 && (
           <div className="text-center py-12 bg-linear-to-b from-gray-50 to-gray-100 rounded-xl">
             <div className="p-4 bg-white rounded-full w-20 h-20 mx-auto mb-4 shadow-md flex items-center justify-center">
@@ -106,7 +141,6 @@ const AchievementsModal = ({ isOpen, onClose, onSave, profile, saving }) => {
           </div>
         )}
 
-        {/* Achievements List */}
         {activeAchievements.map((achievement, index) => (
           <div key={achievement.id} className="border border-gray-200 rounded-xl p-5 relative hover:shadow-lg transition-all duration-200 bg-white">
             <button
@@ -158,7 +192,6 @@ const AchievementsModal = ({ isOpen, onClose, onSave, profile, saving }) => {
               />
             </div>
 
-            {/* Preview of entered data */}
             {(achievement.achievement_name || achievement.achievement_details) && (
               <div className="mt-4 p-3 bg-linear-to-r from-yellow-50 to-orange-50 rounded-lg border border-yellow-100">
                 <p className="text-xs text-gray-500 mb-1 flex items-center gap-1">
@@ -180,19 +213,16 @@ const AchievementsModal = ({ isOpen, onClose, onSave, profile, saving }) => {
           </div>
         ))}
 
-        {/* Add Button */}
         <button
           onClick={addAchievement}
           disabled={activeAchievements.length >= 3}
           className={`w-full py-3.5 border-2 border-dashed rounded-xl text-gray-600 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200 flex items-center justify-center gap-2 font-medium
-    ${activeAchievements.length >= 3 ? 'border-gray-200 text-gray-400 cursor-not-allowed hover:border-gray-200 hover:text-gray-400 hover:bg-white' : 'border-gray-300'}
-  `}
+            ${activeAchievements.length >= 3 ? 'border-gray-200 text-gray-400 cursor-not-allowed hover:border-gray-200 hover:text-gray-400 hover:bg-white' : 'border-gray-300'}`}
         >
           <FaPlus className="h-5 w-5" />
           Add Achievement / Certification
         </button>
 
-        {/* Info Notice */}
         {activeAchievements.length > 0 && (
           <div className="bg-linear-to-r from-yellow-50 to-orange-50 rounded-xl p-4 border border-yellow-100">
             <div className="flex items-center justify-center gap-2">
@@ -204,7 +234,6 @@ const AchievementsModal = ({ isOpen, onClose, onSave, profile, saving }) => {
           </div>
         )}
 
-        {/* Examples Section when empty */}
         {activeAchievements.length === 0 && (
           <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
             <p className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-1">

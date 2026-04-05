@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import Swal from 'sweetalert2';
 import Modal from './Modal';
 import {
   FaBriefcase,
@@ -15,10 +16,12 @@ import {
   FaDev,
   FaStackOverflow,
   FaTrash,
-  FaPlus
+  FaPlus,
+  FaSpinner
 } from 'react-icons/fa';
 
-const ProfessionalInfoModal = ({ isOpen, onClose, onSave, profile, saving }) => {
+const ProfessionalInfoModal = ({ isOpen, onClose, profile }) => {
+  const [saving, setSaving] = useState(false);
   const [modalData, setModalData] = useState({
     experience_years: profile?.experience_years || '',
     current_job_title: profile?.current_job_title || '',
@@ -45,10 +48,8 @@ const ProfessionalInfoModal = ({ isOpen, onClose, onSave, profile, saving }) => 
     setModalData({ ...modalData, [e.target.name]: e.target.value });
   };
 
-  // Get current social links
   const socialLinks = modalData.social_links || {};
 
-  // Add new social link
   const addSocialLink = () => {
     if (selectedPlatform && socialUrl && socialUrl.trim()) {
       const platformId = selectedPlatform;
@@ -61,14 +62,12 @@ const ProfessionalInfoModal = ({ isOpen, onClose, onSave, profile, saving }) => 
         social_links: updatedLinks
       });
 
-      // Reset form
       setSelectedPlatform('');
       setSocialUrl('');
       setShowAddForm(false);
     }
   };
 
-  // Remove social link
   const removeSocialLink = (platformId) => {
     const updatedLinks = { ...socialLinks };
     delete updatedLinks[platformId];
@@ -78,7 +77,6 @@ const ProfessionalInfoModal = ({ isOpen, onClose, onSave, profile, saving }) => 
     });
   };
 
-  // Get platform details by id
   const getPlatformDetails = (platformId) => {
     return platforms.find(p => p.id === platformId) || {
       name: platformId,
@@ -88,11 +86,47 @@ const ProfessionalInfoModal = ({ isOpen, onClose, onSave, profile, saving }) => 
   };
 
   const handleSave = async () => {
-    await onSave({
-      experience_years: modalData.experience_years,
-      current_job_title: modalData.current_job_title,
-      social_links: modalData.social_links
-    });
+    setSaving(true);
+
+    try {
+      const response = await fetch(`/backend/applicant/profile/${profile.id}/professional-info`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+          'X-Requested-With': 'XMLHttpRequest',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          experience_years: modalData.experience_years,
+          current_job_title: modalData.current_job_title,
+          social_links: modalData.social_links
+        })
+      });
+
+      const responseData = await response.json();
+
+      if (responseData.success) {
+        Swal.fire({
+          icon: 'success',
+          title: 'Updated!',
+          text: 'Professional information updated successfully.',
+          timer: 1500,
+          showConfirmButton: false
+        });
+        window.location.reload();
+      } else {
+        throw new Error(responseData.message || 'Failed to update');
+      }
+    } catch (error) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error!',
+        text: error.message || 'Failed to update professional information.',
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -100,7 +134,6 @@ const ProfessionalInfoModal = ({ isOpen, onClose, onSave, profile, saving }) => 
   return (
     <Modal title="Edit Professional Information" onClose={onClose} onSave={handleSave} saving={saving}>
       <div className="space-y-6">
-        {/* Header */}
         <div className="border-b border-gray-200 pb-4">
           <div className="flex items-center space-x-3">
             <div className="p-2 bg-blue-100 rounded-lg">
@@ -114,7 +147,6 @@ const ProfessionalInfoModal = ({ isOpen, onClose, onSave, profile, saving }) => 
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Years of Experience */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Years of Experience
@@ -139,7 +171,6 @@ const ProfessionalInfoModal = ({ isOpen, onClose, onSave, profile, saving }) => 
             </div>
           </div>
 
-          {/* Current Job Title */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               <span className="flex items-center gap-2">
@@ -158,7 +189,6 @@ const ProfessionalInfoModal = ({ isOpen, onClose, onSave, profile, saving }) => 
           </div>
         </div>
 
-        {/* Social Links */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             <span className="flex items-center gap-2">
@@ -167,7 +197,6 @@ const ProfessionalInfoModal = ({ isOpen, onClose, onSave, profile, saving }) => 
             </span>
           </label>
 
-          {/* Display existing social links */}
           {Object.keys(socialLinks).length > 0 && (
             <div className="space-y-2 mb-4">
               {Object.entries(socialLinks).map(([platformId, url]) => {
@@ -201,7 +230,6 @@ const ProfessionalInfoModal = ({ isOpen, onClose, onSave, profile, saving }) => 
             </div>
           )}
 
-          {/* Add new social link button */}
           {!showAddForm ? (
             <button
               onClick={() => setShowAddForm(true)}
@@ -213,7 +241,6 @@ const ProfessionalInfoModal = ({ isOpen, onClose, onSave, profile, saving }) => 
           ) : (
             <div className="border border-gray-200 rounded-xl p-4 bg-gray-50">
               <div className="space-y-3">
-                {/* Platform selection */}
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">
                     Select Platform
@@ -224,18 +251,14 @@ const ProfessionalInfoModal = ({ isOpen, onClose, onSave, profile, saving }) => 
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value="">Choose a platform</option>
-                    {platforms.map(platform => {
-                      const Icon = platform.icon;
-                      return (
-                        <option key={platform.id} value={platform.id}>
-                          {platform.name}
-                        </option>
-                      );
-                    })}
+                    {platforms.map(platform => (
+                      <option key={platform.id} value={platform.id}>
+                        {platform.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
-                {/* URL input */}
                 {selectedPlatform && (
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -251,7 +274,6 @@ const ProfessionalInfoModal = ({ isOpen, onClose, onSave, profile, saving }) => 
                   </div>
                 )}
 
-                {/* Action buttons */}
                 <div className="flex gap-2">
                   <button
                     onClick={addSocialLink}
@@ -275,7 +297,6 @@ const ProfessionalInfoModal = ({ isOpen, onClose, onSave, profile, saving }) => 
             </div>
           )}
 
-          {/* Social Media Tips */}
           <div className="mt-3 p-3 bg-gray-50 rounded-lg">
             <p className="text-xs text-gray-500 mb-2">Popular platforms you can add:</p>
             <div className="flex flex-wrap gap-3">

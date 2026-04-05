@@ -214,7 +214,7 @@ class ProfileCompletionController extends Controller
 
         return response()->json([
             'success' => true,
-            'photo_url' => asset('storage/' . $path),
+            'photo_url' => route('profile.photo', ['path' => $path]),
             'message' => 'Photo uploaded successfully'
         ]);
     }

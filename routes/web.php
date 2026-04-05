@@ -39,6 +39,9 @@ Route::get('/jobs/{jobListing}', [JobListingController::class, 'publicShow'])->n
 Route::middleware(['auth'])->group(function () {
     Route::get('/complete-profile', [ProfileCompletionController::class, 'show'])
         ->name('profile.complete');
+    Route::get('/profile/photo/{path}', [ApplicantProfileController::class, 'photo'])
+        ->where('path', '.*')
+        ->name('profile.photo');
     Route::post('/profile/complete', [ProfileCompletionController::class, 'store'])
         ->name('profile.complete.store');
     Route::post('/profile/cv', [ProfileCompletionController::class, 'uploadCv'])

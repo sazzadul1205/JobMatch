@@ -1,6 +1,7 @@
-import { useState, useRef } from 'react';
+// page/Backend/ApplicantProfile/Modals/BasicInfoModal.jsx
+
+import { useState, useRef, useEffect } from 'react';
 import {
-  FaUser,
   FaPhone,
   FaCalendarAlt,
   FaMapMarkerAlt,
@@ -12,17 +13,29 @@ import {
   FaTrash,
   FaCloudUploadAlt,
   FaImage,
-  FaCheckCircle
 } from 'react-icons/fa';
 import { MdOutlineBloodtype } from 'react-icons/md';
+import Swal from 'sweetalert2';
 import Modal from './Modal';
 
-const BasicInfoModal = ({ isOpen, onClose, onSave, profile, saving }) => {
+const BasicInfoModal = ({ isOpen, onClose, profile }) => {
   const [dragActive, setDragActive] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const normalizeDate = (value) => {
+    if (!value) return '';
+    if (typeof value === 'string') {
+      if (value.length >= 10) return value.slice(0, 10);
+      return value;
+    }
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return '';
+    return parsed.toISOString().slice(0, 10);
+  };
+
   const [modalData, setModalData] = useState({
     first_name: profile?.first_name || '',
     last_name: profile?.last_name || '',
-    birth_date: profile?.birth_date || '',
+    birth_date: normalizeDate(profile?.birth_date),
     gender: profile?.gender || '',
     blood_type: profile?.blood_type || '',
     phone: profile?.phone || '',
@@ -61,16 +74,26 @@ const BasicInfoModal = ({ isOpen, onClose, onSave, profile, saving }) => {
       const file = e.target.files[0];
       validateAndSetPhoto(file);
     }
+    // Allow re-selecting the same file next time
+    e.target.value = '';
   };
 
   const validateAndSetPhoto = (file) => {
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
     if (!validTypes.includes(file.type)) {
-      alert('Please upload a valid image file (JPG, PNG, or GIF)');
+      Swal.fire({
+        icon: 'error',
+        title: 'Invalid File',
+        text: 'Please upload a valid image file (JPG, PNG, or GIF)',
+      });
       return;
     }
     if (file.size > 2 * 1024 * 1024) {
-      alert('File size must be less than 2MB');
+      Swal.fire({
+        icon: 'error',
+        title: 'File Too Large',
+        text: 'File size must be less than 2MB',
+      });
       return;
     }
     if (modalData.photoPreview) {
@@ -95,7 +118,10 @@ const BasicInfoModal = ({ isOpen, onClose, onSave, profile, saving }) => {
   };
 
   const handleSave = async () => {
+    setSaving(true);
+
     const formData = new FormData();
+    formData.append('_method', 'PATCH');
     formData.append('first_name', modalData.first_name);
     formData.append('last_name', modalData.last_name);
     if (modalData.birth_date) formData.append('birth_date', modalData.birth_date);
@@ -106,13 +132,68 @@ const BasicInfoModal = ({ isOpen, onClose, onSave, profile, saving }) => {
     if (modalData.remove_photo) formData.append('remove_photo', '1');
     if (modalData.photo) formData.append('photo', modalData.photo);
 
-    await onSave(formData);
+    try {
+      const response = await fetch(`/backend/applicant/profile/${profile.id}/basic-info`, {
+        method: 'POST',
+        headers: {
+          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+          'X-Requested-With': 'XMLHttpRequest',
+          'Accept': 'application/json'
+        },
+        body: formData
+      });
 
-    // Clean up preview URL after save
+      const data = await response.json();
+
+      if (data.success) {
+        // Clean up preview URL after save
+        if (modalData.photoPreview) {
+          URL.revokeObjectURL(modalData.photoPreview);
+        }
+
+        Swal.fire({
+          icon: 'success',
+          title: 'Updated!',
+          text: 'Basic information updated successfully.',
+          timer: 1500,
+          showConfirmButton: false
+        });
+
+        window.location.reload();
+      } else {
+        throw new Error(data.message || 'Failed to update');
+      }
+    } catch (error) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error!',
+        text: error.message || 'Failed to update basic information.',
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+
     if (modalData.photoPreview) {
       URL.revokeObjectURL(modalData.photoPreview);
     }
-  };
+
+    setModalData({
+      first_name: profile?.first_name || '',
+      last_name: profile?.last_name || '',
+      birth_date: normalizeDate(profile?.birth_date),
+      gender: profile?.gender || '',
+      blood_type: profile?.blood_type || '',
+      phone: profile?.phone || '',
+      address: profile?.address || '',
+      photo: null,
+      photoPreview: null,
+      remove_photo: false,
+    });
+  }, [isOpen, profile?.id]);
 
   if (!isOpen) return null;
 
@@ -122,33 +203,47 @@ const BasicInfoModal = ({ isOpen, onClose, onSave, profile, saving }) => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column - Profile Photo */}
           <div className="lg:col-span-1">
+            {/* Profile Photo */}
             <div className="sticky top-6">
               <label className="block text-sm font-semibold text-gray-700 mb-3">
                 Profile Photo
               </label>
 
-              {!modalData.photoPreview && !profile?.photo_url ? (
-                <div
-                  className={`relative border-2 border-dashed rounded-2xl transition-all duration-200 cursor-pointer ${dragActive
-                      ? 'border-blue-500 bg-blue-50 scale-105'
-                      : 'border-gray-300 bg-gray-50 hover:bg-gray-100 hover:border-gray-400'
-                    }`}
-                  onDragEnter={handleDrag}
-                  onDragLeave={handleDrag}
-                  onDragOver={handleDrag}
-                  onDrop={handleDrop}
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/png,image/jpeg,image/jpg,image/gif"
-                    onChange={handleFileChange}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                    aria-label="Upload profile photo"
+              <div
+                className={`relative border-2 border-dashed rounded-2xl transition-all duration-200 cursor-pointer ${dragActive
+                  ? 'border-blue-500 bg-blue-50 scale-105'
+                  : 'border-gray-300 bg-gray-50 hover:bg-gray-100 hover:border-gray-400'
+                  }`}
+                onDragEnter={handleDrag}
+                onDragLeave={handleDrag}
+                onDragOver={handleDrag}
+                onDrop={handleDrop}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/jpg,image/gif"
+                  onChange={handleFileChange}
+                  onClick={(e) => e.stopPropagation()}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  aria-label="Upload profile photo"
+                />
+
+                {modalData.photoPreview || profile?.photo_url ? (
+                  <img
+                    src={modalData.photoPreview || profile?.photo_url}
+                    alt={profile?.full_name || 'Profile'}
+                    className="w-full h-64 object-cover rounded-2xl shadow-lg"
+                    onError={(e) => {
+                      e.target.onerror = null; // prevent infinite loop
+                      e.target.src = ''; // force fallback
+                      setModalData({ ...modalData, photoPreview: null });
+                    }}
                   />
-                  <div className="text-center py-16 px-6">
+                ) : (
+                  <div className="w-full h-64 flex flex-col items-center justify-center text-center">
                     <div className="flex justify-center mb-4">
-                      <div className="p-4 bg-linear-to-br from-blue-100 to-blue-200 rounded-full">
+                      <div className="p-4 bg-blue-100 rounded-full">
                         <FaCloudUploadAlt className="h-10 w-10 text-blue-600" />
                       </div>
                     </div>
@@ -159,48 +254,32 @@ const BasicInfoModal = ({ isOpen, onClose, onSave, profile, saving }) => {
                       <span className="text-xs text-gray-600">JPG, PNG, GIF up to 2MB</span>
                     </div>
                   </div>
-                </div>
-              ) : (
-                <div className="relative group">
-                  <div className="relative rounded-2xl overflow-hidden bg-linear-to-br from-gray-50 to-gray-100 shadow-lg">
-                    <img
-                      src={modalData.photoPreview || profile?.photo_url}
-                      alt="Profile preview"
-                      className="w-full h-64 object-cover"
-                    />
-                    <div className="absolute top-3 right-3">
-                      <div className="bg-green-500 text-white rounded-full p-1.5 shadow-lg">
-                        <FaCheckCircle className="h-4 w-4" />
-                      </div>
-                    </div>
-                    <div className="absolute inset-0 bg-linear-to-t from-black via-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-end justify-center pb-6 gap-3">
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="px-5 py-2.5 bg-white text-gray-800 rounded-xl hover:bg-gray-100 transition-all duration-200 font-medium text-sm flex items-center gap-2 shadow-lg transform hover:scale-105"
-                      >
-                        <FaImage className="h-4 w-4" />
-                        Change
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleDeletePhoto}
-                        className="px-5 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-all duration-200 font-medium text-sm flex items-center gap-2 shadow-lg transform hover:scale-105"
-                      >
-                        <FaTrash size={16} />
-                        Delete
-                      </button>
-                    </div>
+                )}
+
+                {/* Change/Delete buttons */}
+                {(modalData.photoPreview || profile?.photo_url) && (
+                  <div className="absolute inset-0 bg-black/30 opacity-0 hover:opacity-100 transition flex items-end justify-center pb-6 gap-3 rounded-2xl">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        fileInputRef.current?.click();
+                      }}
+                      className="px-5 py-2.5 bg-white text-gray-800 rounded-xl hover:bg-gray-100 font-medium text-sm flex items-center gap-2 shadow-lg"
+                    >
+                      <FaImage className="h-4 w-4" /> Change
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDeletePhoto}
+                      className="px-5 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 font-medium text-sm flex items-center gap-2 shadow-lg"
+                    >
+                      <FaTrash size={16} /> Delete
+                    </button>
                   </div>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/png,image/jpeg,image/jpg,image/gif"
-                    onChange={handleFileChange}
-                    className="hidden"
-                  />
-                </div>
-              )}
+                )}
+              </div>
+
               <p className="text-xs text-gray-400 text-center mt-3">
                 Recommended: Square image, at least 200x200px
               </p>

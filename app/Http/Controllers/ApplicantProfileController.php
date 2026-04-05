@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
@@ -63,7 +64,9 @@ class ApplicantProfileController extends Controller
         // If profile exists, add computed attributes
         if ($profile) {
             // Add photo URL
-            $profile->photo_url = $profile->photo_path ? asset('storage/' . $profile->photo_path) : null;
+            $profile->photo_url = $profile->photo_path
+                ? route('profile.photo', ['path' => $profile->photo_path])
+                : null;
 
             // Add CV URLs and format CV data
             foreach ($profile->cvs as $cv) {
@@ -76,15 +79,8 @@ class ApplicantProfileController extends Controller
             // Add completion percentage
             $profile->completion_percentage = $profile->completionPercentage();
 
-            // Add statistics
-            $profile->stats = [
-                'total_cvs' => $profile->cvs->count(),
-                'active_cvs' => $profile->cvs->where('status', 'active')->count(),
-                'total_jobs' => $profile->jobHistories->count(),
-                'total_education' => $profile->educationHistories->count(),
-                'total_achievements' => $profile->achievements->count(),
-                'total_applications' => $profile->applications->count(),
-            ];
+            // Add email
+            $profile->email = $profile->user?->email;
         }
 
         return Inertia::render('Backend/ApplicantProfile/Show', [
@@ -92,164 +88,21 @@ class ApplicantProfileController extends Controller
             'auth' => ['user' => Auth::user()]
         ]);
     }
-    /**
-     * Show the form for creating a new profile
-     */
-    public function create()
-    {
-        // Check if user already has a profile (including soft deleted)
-        $existingProfile = ApplicantProfile::withTrashed()
-            ->where('user_id', Auth::id())
-            ->first();
-
-        if ($existingProfile) {
-            if ($existingProfile->trashed()) {
-                return redirect()->route('backend.applicant.profile.show')
-                    ->with('info', 'You have a deleted profile. You can restore it instead of creating a new one.');
-            } else {
-                return redirect()->route('backend.applicant.profile.show')
-                    ->with('error', 'You already have a profile.');
-            }
-        }
-
-        return Inertia::render('Backend/ApplicantProfile/Create');
-    }
 
     /**
-     * Store a newly created profile
+     * Serve profile photo from storage to avoid public symlink issues.
      */
-    public function store(Request $request)
+    public function photo(string $path)
     {
-        $validated = $request->validate([
-            'first_name' => 'required|string|max:255',
-            'last_name' => 'required|string|max:255',
-            'birth_date' => 'nullable|date',
-            'gender' => 'nullable|string|max:50',
-            'blood_type' => 'nullable|string|max:3',
-            'phone' => 'nullable|string|max:20',
-            'address' => 'nullable|string',
-            'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-            'experience_years' => 'nullable|integer|min:0|max:60',
-            'current_job_title' => 'nullable|string|max:255',
-            'social_links' => 'nullable|array',
-        ]);
-
-        $user = Auth::user();
-
-        $profileData = [
-            'user_id' => $user->id,
-            'first_name' => $validated['first_name'],
-            'last_name' => $validated['last_name'],
-            'birth_date' => $validated['birth_date'] ?? null,
-            'gender' => $validated['gender'] ?? null,
-            'blood_type' => $validated['blood_type'] ?? null,
-            'email' => $user->email,
-            'phone' => $validated['phone'] ?? null,
-            'address' => $validated['address'] ?? null,
-            'experience_years' => $validated['experience_years'] ?? null,
-            'current_job_title' => $validated['current_job_title'] ?? null,
-            'social_links' => $validated['social_links'] ?? [],
-        ];
-
-        // Handle photo upload
-        if ($request->hasFile('photo')) {
-            $photoPath = $this->handlePhotoUpload($request->file('photo'), $user->id);
-            $profileData['photo_path'] = $photoPath;
+        if (Str::contains($path, '..')) {
+            abort(404);
         }
 
-        $profile = ApplicantProfile::create($profileData);
-
-        return redirect()->route('backend.applicant.profile.show')
-            ->with('success', 'Profile created successfully!');
-    }
-
-    /**
-     * Show the form for editing the profile
-     */
-    public function edit(ApplicantProfile $applicantProfile)
-    {
-        // Only allow editing own profile
-        if (Auth::id() !== $applicantProfile->user_id) {
-            abort(403);
+        if (!Storage::disk('public')->exists($path)) {
+            abort(404);
         }
 
-        if ($applicantProfile->trashed()) {
-            return redirect()->route('backend.applicant.profile.show')
-                ->with('error', 'Cannot edit a deleted profile. Please restore it first.');
-        }
-
-        return Inertia::render('Backend/ApplicantProfile/Edit', [
-            'profile' => $applicantProfile->load([
-                'cvs',
-                'jobHistories',
-                'educationHistories',
-                'achievements'
-            ])
-        ]);
-    }
-
-    /**
-     * Update the specified profile (Full Update)
-     */
-    public function update(Request $request, ApplicantProfile $applicantProfile)
-    {
-        // Only allow updating own profile
-        if (Auth::id() !== $applicantProfile->user_id) {
-            abort(403);
-        }
-
-        if ($applicantProfile->trashed()) {
-            return redirect()->route('backend.applicant.profile.show')
-                ->with('error', 'Cannot update a deleted profile. Please restore it first.');
-        }
-
-        $validated = $request->validate([
-            'first_name' => 'required|string|max:255',
-            'last_name' => 'required|string|max:255',
-            'birth_date' => 'nullable|date',
-            'gender' => 'nullable|string|max:50',
-            'blood_type' => 'nullable|string|max:3',
-            'phone' => 'nullable|string|max:20',
-            'address' => 'nullable|string',
-            'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-            'experience_years' => 'nullable|integer|min:0|max:60',
-            'current_job_title' => 'nullable|string|max:255',
-            'social_links' => 'nullable|array',
-            'remove_photo' => 'nullable|boolean',
-        ]);
-
-        $profileData = [
-            'first_name' => $validated['first_name'],
-            'last_name' => $validated['last_name'],
-            'birth_date' => $validated['birth_date'] ?? null,
-            'gender' => $validated['gender'] ?? null,
-            'blood_type' => $validated['blood_type'] ?? null,
-            'phone' => $validated['phone'] ?? null,
-            'address' => $validated['address'] ?? null,
-            'experience_years' => $validated['experience_years'] ?? null,
-            'current_job_title' => $validated['current_job_title'] ?? null,
-            'social_links' => $validated['social_links'] ?? [],
-        ];
-
-        // Handle photo removal
-        if ($request->boolean('remove_photo') && $applicantProfile->photo_path) {
-            Storage::disk('public')->delete($applicantProfile->photo_path);
-            $profileData['photo_path'] = null;
-        }
-
-        // Handle photo upload
-        if ($request->hasFile('photo')) {
-            if ($applicantProfile->photo_path) {
-                Storage::disk('public')->delete($applicantProfile->photo_path);
-            }
-            $photoPath = $this->handlePhotoUpload($request->file('photo'), $applicantProfile->user_id);
-            $profileData['photo_path'] = $photoPath;
-        }
-
-        $applicantProfile->update($profileData);
-
-        return redirect()->route('backend.applicant.profile.show')
-            ->with('success', 'Profile updated successfully!');
+        return response()->file(Storage::disk('public')->path($path));
     }
 
     /**
@@ -565,15 +418,25 @@ class ApplicantProfileController extends Controller
 
         // Soft delete related records first
         DB::transaction(function () use ($applicantProfile) {
-            // Soft delete CVs
+            // Permanently delete CVs (remove file + force delete)
             foreach ($applicantProfile->cvs as $cv) {
-                $cv->delete();
+                if ($cv->cv_path && Storage::disk('public')->exists($cv->cv_path)) {
+                    Storage::disk('public')->delete($cv->cv_path);
+                }
+                $cv->forceDelete();
             }
 
             // Delete job histories, education, achievements (these don't have soft delete, so just delete)
             $applicantProfile->jobHistories()->delete();
             $applicantProfile->educationHistories()->delete();
             $applicantProfile->achievements()->delete();
+
+            // Delete profile photo file and clear path
+            if ($applicantProfile->photo_path && Storage::disk('public')->exists($applicantProfile->photo_path)) {
+                Storage::disk('public')->delete($applicantProfile->photo_path);
+            }
+            $applicantProfile->photo_path = null;
+            $applicantProfile->save();
 
             // Soft delete the profile
             $applicantProfile->delete();
@@ -615,6 +478,11 @@ class ApplicantProfileController extends Controller
             // Restore the profile
             $profile->restore();
         });
+
+        if ($profile->photo_path && !Storage::disk('public')->exists($profile->photo_path)) {
+            $profile->photo_path = null;
+            $profile->save();
+        }
 
         return response()->json([
             'success' => true,

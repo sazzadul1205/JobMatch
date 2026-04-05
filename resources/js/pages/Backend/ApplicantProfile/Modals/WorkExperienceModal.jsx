@@ -1,23 +1,26 @@
 import { useState } from 'react';
+import Swal from 'sweetalert2';
 import {
   FaPlus,
   FaBriefcase,
   FaBuilding,
   FaCalendarAlt,
   FaTrashAlt,
-  FaCheckCircle
+  FaCheckCircle,
+  FaSpinner
 } from 'react-icons/fa';
 import { GiSuitcase } from 'react-icons/gi';
 import { MdWork, MdBusinessCenter } from 'react-icons/md';
 import Modal from './Modal';
 
-const WorkExperienceModal = ({ isOpen, onClose, onSave, profile, saving }) => {
+const WorkExperienceModal = ({ isOpen, onClose, profile }) => {
+  const [saving, setSaving] = useState(false);
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 60 }, (_, i) => currentYear - i);
 
   const [modalData, setModalData] = useState({
     job_histories: profile?.job_histories?.map(job => ({
-      id: job.id || Date.now(),
+      id: job.id || null,
       company_name: job.company_name || '',
       position: job.position || '',
       starting_year: job.starting_year || currentYear,
@@ -33,7 +36,7 @@ const WorkExperienceModal = ({ isOpen, onClose, onSave, profile, saving }) => {
       job_histories: [
         ...modalData.job_histories,
         {
-          id: Date.now(),
+          id: null,
           company_name: '',
           position: '',
           starting_year: currentYear,
@@ -56,20 +59,54 @@ const WorkExperienceModal = ({ isOpen, onClose, onSave, profile, saving }) => {
 
   const removeWorkExperience = (index) => {
     const updatedJobs = [...modalData.job_histories];
-    if (updatedJobs[index].id && typeof updatedJobs[index].id === 'number' && updatedJobs[index].id.toString().length > 10) {
-      // This is an existing record from database, mark for deletion
+    if (updatedJobs[index].id) {
       updatedJobs[index].to_delete = true;
     } else {
-      // This is a new unsaved record, remove it completely
       updatedJobs.splice(index, 1);
     }
     setModalData({ ...modalData, job_histories: updatedJobs });
   };
 
   const handleSave = async () => {
-    await onSave({
-      job_histories: modalData.job_histories.filter(job => !job.to_delete)
-    });
+    setSaving(true);
+
+    try {
+      const response = await fetch(`/backend/applicant/profile/${profile.id}/work-experiences`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+          'X-Requested-With': 'XMLHttpRequest',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          job_histories: modalData.job_histories
+        })
+      });
+
+      const responseData = await response.json();
+
+      if (responseData.success) {
+        Swal.fire({
+          icon: 'success',
+          title: 'Updated!',
+          text: 'Work experience updated successfully.',
+          timer: 1500,
+          showConfirmButton: false
+        });
+        window.location.reload();
+      } else {
+        throw new Error(responseData.message || 'Failed to update');
+      }
+    } catch (error) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error!',
+        text: error.message || 'Failed to update work experience.',
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -79,7 +116,6 @@ const WorkExperienceModal = ({ isOpen, onClose, onSave, profile, saving }) => {
   return (
     <Modal title="Edit Work Experience" onClose={onClose} onSave={handleSave} saving={saving}>
       <div className="space-y-6">
-        {/* Header */}
         <div className="border-b border-gray-200 pb-4">
           <div className="flex items-center space-x-3">
             <div className="p-2 bg-blue-100 rounded-lg">
@@ -92,7 +128,6 @@ const WorkExperienceModal = ({ isOpen, onClose, onSave, profile, saving }) => {
           </div>
         </div>
 
-        {/* Empty State */}
         {activeJobs.length === 0 && (
           <div className="text-center py-12 bg-linear-to-b from-gray-50 to-gray-100 rounded-xl">
             <div className="p-4 bg-white rounded-full w-20 h-20 mx-auto mb-4 shadow-md flex items-center justify-center">
@@ -103,7 +138,6 @@ const WorkExperienceModal = ({ isOpen, onClose, onSave, profile, saving }) => {
           </div>
         )}
 
-        {/* Work Experience List */}
         {activeJobs.map((job, index) => (
           <div key={job.id} className="border border-gray-200 rounded-xl p-5 relative hover:shadow-lg transition-all duration-200 bg-white">
             <button
@@ -217,7 +251,6 @@ const WorkExperienceModal = ({ isOpen, onClose, onSave, profile, saving }) => {
           </div>
         ))}
 
-        {/* Add Button */}
         <button
           onClick={addWorkExperience}
           disabled={activeJobs.length >= 3}
@@ -228,7 +261,6 @@ const WorkExperienceModal = ({ isOpen, onClose, onSave, profile, saving }) => {
           Add Work Experience
         </button>
 
-        {/* Info Notice */}
         {activeJobs.length > 0 && (
           <div className="bg-linear-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
             <div className="flex items-center justify-center gap-2">

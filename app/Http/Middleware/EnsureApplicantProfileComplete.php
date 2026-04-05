@@ -24,7 +24,14 @@ class EnsureApplicantProfileComplete
             return $next($request);
         }
 
-        $profile = ApplicantProfile::where('user_id', $user->id)->first();
+        $profile = ApplicantProfile::withTrashed()
+            ->where('user_id', $user->id)
+            ->first();
+
+        // If the profile was soft deleted, do not force completion flow.
+        if ($profile && $profile->trashed()) {
+            return $next($request);
+        }
 
         if (! $profile || ! $profile->isComplete()) {
             return redirect()->route('profile.complete');
