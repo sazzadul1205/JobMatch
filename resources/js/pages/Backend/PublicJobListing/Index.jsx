@@ -1,138 +1,121 @@
-// resources/js/pages/Backend/PublicJobListing/Index.jsx
+// resources/js/Pages/Public/JobListings/Index.jsx
 
+// React
 import { useState, useEffect } from 'react';
-import { Head, Link, router } from '@inertiajs/react';
+
+// Inertia
+import { Head, router, usePage } from '@inertiajs/react';
+
+// Layout
+import AuthenticatedLayout from '../../../layouts/AuthenticatedLayout';
+
+// Icons
 import {
+  FaSearch,
   FaBriefcase,
   FaMapMarkerAlt,
   FaCalendarAlt,
-  FaClock,
-  FaSearch,
+  FaEye,
+  FaUsers,
+  FaDollarSign,
   FaFilter,
   FaTimes,
   FaChevronDown,
   FaChevronUp,
-  FaDollarSign,
-  FaSort,
-  FaSpinner
+  FaChevronLeft,
+  FaChevronRight,
+  FaBuilding,
+  FaChartLine,
 } from 'react-icons/fa';
-import AuthenticatedLayout from '../../../layouts/AuthenticatedLayout';
 
-export default function PublicJobsIndex({
-  jobListings,
+// SweetAlert
+import Swal from 'sweetalert2';
+
+export default function PublicJobListingsIndex({
+  jobListings: initialJobListings,
   categories,
   locations,
   jobTypes,
   experienceLevels,
   salaryRange,
-  filters
+  filters: initialFilters = {},
+  stats,
 }) {
+  const { flash } = usePage().props;
+
+  // States
+  const [jobListings, setJobListings] = useState(initialJobListings);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const normalizeSelectValue = (value, fallback = '') => {
-    if (value === null || value === undefined) return fallback;
-    const str = String(value);
-    return str;
-  };
-  const [localFilters, setLocalFilters] = useState({
-    search: filters.search || '',
-    category: normalizeSelectValue(filters.category),
-    location: normalizeSelectValue(filters.location),
-    job_type: normalizeSelectValue(filters.job_type),
-    experience_level: normalizeSelectValue(filters.experience_level),
-    salary_min: filters.salary_min ?? '',
-    salary_max: filters.salary_max ?? '',
-    sort: normalizeSelectValue(filters.sort, 'latest')
+  const [showSortMenu, setShowSortMenu] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  // Filter states
+  const [filters, setFilters] = useState({
+    search: initialFilters.search || '',
+    category: initialFilters.category || '',
+    location: initialFilters.location || '',
+    job_type: initialFilters.job_type || '',
+    experience_level: initialFilters.experience_level || '',
+    salary_min: initialFilters.salary_min || '',
+    salary_max: initialFilters.salary_max || '',
+    sort: initialFilters.sort || 'latest',
   });
 
-  // Debounce search input
+  // Get job listings array from paginated response
+  const jobListingItems = jobListings?.data || [];
+
+  // Pagination info
+  const pagination = jobListings && {
+    currentPage: jobListings.current_page,
+    lastPage: jobListings.last_page,
+    perPage: jobListings.per_page,
+    total: jobListings.total,
+    from: jobListings.from,
+    to: jobListings.to,
+  };
+
+  // Apply filters
+  const applyFilters = () => {
+    setLoading(true);
+    router.get(route('backend.public-jobs.index'), filters, {
+      preserveState: true,
+      preserveScroll: true,
+      replace: true,
+      onSuccess: (page) => {
+        setJobListings(page.props.jobListings);
+        setLoading(false);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      },
+      onError: () => {
+        setLoading(false);
+      },
+    });
+  };
+
+  // Debounced search
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      if (localFilters.search !== filters.search) {
+      if (filters.search !== initialFilters.search) {
         applyFilters();
       }
     }, 500);
-
     return () => clearTimeout(timeoutId);
-  }, [localFilters.search]);
+  }, [filters.search]);
 
-  const formatDate = (date) => {
-    if (!date) return 'N/A';
-    return new Date(date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
+  // Handle filter change
+  const handleFilterChange = (key, value) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
   };
 
-  const formatSalary = (min, max) => {
-    if (!min && !max) return 'Salary not specified';
-    const formatter = new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    });
-
-    if (min && max) return `${formatter.format(min)} - ${formatter.format(max)}`;
-    if (min) return `From ${formatter.format(min)}`;
-    if (max) return `Up to ${formatter.format(max)}`;
-    return 'Salary not specified';
+  // Apply all filters
+  const handleApplyFilters = () => {
+    applyFilters();
+    setShowMobileFilters(false);
   };
 
-  const getJobTypeBadge = (type) => {
-    const types = {
-      'full-time': 'bg-green-100 text-green-800',
-      'part-time': 'bg-yellow-100 text-yellow-800',
-      'contract': 'bg-blue-100 text-blue-800',
-      'freelance': 'bg-purple-100 text-purple-800',
-      'internship': 'bg-orange-100 text-orange-800',
-      'remote': 'bg-indigo-100 text-indigo-800'
-    };
-    return types[type] || 'bg-gray-100 text-gray-800';
-  };
-
-  const getExperienceBadge = (level) => {
-    const levels = {
-      'intern': 'Intern (0-6 months)',
-      'entry': 'Entry Level (0-1 years)',
-      'junior': 'Junior (1-3 years)',
-      'mid': 'Mid Level (3-5 years)',
-      'senior': 'Senior (5-8 years)',
-      'lead': 'Lead (8-10 years)',
-      'executive': 'Executive (10+ years)'
-    };
-    return levels[level] || level;
-  };
-
-  const daysUntilDeadline = (deadline) => {
-    const today = new Date();
-    const deadlineDate = new Date(deadline);
-    const diffTime = deadlineDate - today;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
-  };
-
-  const applyFilters = () => {
-    setIsLoading(true);
-
-    // Clean up filters (remove empty values)
-    const cleanedFilters = Object.entries(localFilters).reduce((acc, [key, value]) => {
-      if (value !== '' && value !== null && value !== undefined) {
-        acc[key] = value;
-      }
-      return acc;
-    }, {});
-
-    router.get(route('backend.public-jobs.index'), cleanedFilters, {
-      preserveState: true,
-      preserveScroll: true,
-      onFinish: () => setIsLoading(false),
-    });
-  };
-
+  // Reset all filters
   const resetFilters = () => {
-    const resetFilters = {
+    setFilters({
       search: '',
       category: '',
       location: '',
@@ -140,417 +123,684 @@ export default function PublicJobsIndex({
       experience_level: '',
       salary_min: '',
       salary_max: '',
-      sort: 'latest'
-    };
-    setLocalFilters(resetFilters);
-    setIsLoading(true);
-    router.get(route('backend.public-jobs.index'), resetFilters, {
-      preserveState: true,
-      preserveScroll: true,
-      onFinish: () => setIsLoading(false),
+      sort: 'latest',
     });
   };
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setLocalFilters(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleSalaryChange = (type, value) => {
-    setLocalFilters(prev => ({ ...prev, [type]: value }));
-  };
-
-  const handleSearch = (e) => {
-    e.preventDefault();
+  // Handle sort change
+  const handleSortChange = (sortValue) => {
+    setFilters(prev => ({ ...prev, sort: sortValue }));
+    setShowSortMenu(false);
     applyFilters();
   };
 
-  const handleSortChange = (e) => {
-    const newSort = e.target.value;
-    setLocalFilters(prev => ({ ...prev, sort: newSort }));
-    applyFilters();
+  // Handle page change
+  const handlePageChange = (page) => {
+    if (page === pagination?.currentPage) return;
+    if (page < 1 || page > pagination?.lastPage) return;
+
+    setLoading(true);
+    router.get(route('backend.public-jobs.index'), { ...filters, page }, {
+      preserveState: true,
+      preserveScroll: true,
+      replace: true,
+      onSuccess: (page) => {
+        setJobListings(page.props.jobListings);
+        setLoading(false);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      },
+      onError: () => {
+        setLoading(false);
+      },
+    });
   };
 
+  // Check if any filter is active
   const hasActiveFilters = () => {
-    return localFilters.search !== '' ||
-      localFilters.category !== '' ||
-      localFilters.location !== '' ||
-      localFilters.job_type !== '' ||
-      localFilters.experience_level !== '' ||
-      localFilters.salary_min !== '' ||
-      localFilters.salary_max !== '' ||
-      localFilters.sort !== 'latest';
+    return filters.category || filters.location || filters.job_type ||
+      filters.experience_level || filters.salary_min || filters.salary_max;
   };
 
-  const getActiveFiltersCount = () => {
-    return Object.entries(localFilters).filter(([key, value]) => {
-      if (key === 'sort') return value !== 'latest';
-      return value !== '' && value !== null && value !== undefined;
-    }).length;
+  // Clear single filter
+  const clearFilter = (key) => {
+    setFilters(prev => ({ ...prev, [key]: '' }));
   };
 
-  // Handle pagination
-  const handlePageChange = (url) => {
-    if (!url) return;
-    setIsLoading(true);
-    router.get(url, {}, {
-      preserveState: true,
-      preserveScroll: true,
-      onFinish: () => setIsLoading(false),
-    });
+  // Format date
+  const formatDate = (date) => {
+    if (!date) return 'N/A';
+    const daysLeft = Math.ceil((new Date(date) - new Date()) / (1000 * 60 * 60 * 24));
+    if (daysLeft < 0) return 'Expired';
+    if (daysLeft === 0) return 'Today';
+    if (daysLeft === 1) return 'Tomorrow';
+    return `${daysLeft} days left`;
   };
+
+  // Get deadline color
+  const getDeadlineColor = (date) => {
+    const daysLeft = Math.ceil((new Date(date) - new Date()) / (1000 * 60 * 60 * 24));
+    if (daysLeft <= 3) return 'text-red-600 bg-red-50';
+    if (daysLeft <= 7) return 'text-orange-600 bg-orange-50';
+    return 'text-green-600 bg-green-50';
+  };
+
+  // Format salary
+  const formatSalary = (job) => {
+    if (job.as_per_companies_policy) return 'As per policy';
+    if (job.is_salary_negotiable) return 'Negotiable';
+    if (job.salary_min && job.salary_max) {
+      return `${job.salary_min.toLocaleString()} - ${job.salary_max.toLocaleString()} BDT`;
+    }
+    if (job.salary_min) return `From ${job.salary_min.toLocaleString()} BDT`;
+    return 'Not specified';
+  };
+
+  // Get job type badge color
+  const getJobTypeColor = (type) => {
+    const colors = {
+      'full-time': 'bg-green-100 text-green-800',
+      'part-time': 'bg-yellow-100 text-yellow-800',
+      'contract': 'bg-blue-100 text-blue-800',
+      'internship': 'bg-purple-100 text-purple-800',
+      'remote': 'bg-indigo-100 text-indigo-800',
+      'hybrid': 'bg-pink-100 text-pink-800',
+    };
+    return colors[type] || 'bg-gray-100 text-gray-800';
+  };
+
+  // Get sort label
+  const getSortLabel = () => {
+    const sorts = {
+      latest: 'Latest Jobs',
+      oldest: 'Oldest Jobs',
+      deadline_soon: 'Deadline Soon',
+      deadline_later: 'Deadline Later',
+      salary_high: 'Highest Salary',
+      salary_low: 'Lowest Salary',
+      popular: 'Most Viewed',
+      most_applied: 'Most Applied',
+    };
+    return sorts[filters.sort] || 'Latest Jobs';
+  };
+
+  // Show flash messages
+  useEffect(() => {
+    if (flash?.success) {
+      Swal.fire({
+        icon: 'success',
+        title: 'Success!',
+        text: flash.success,
+        timer: 3000,
+        showConfirmButton: false,
+      });
+    }
+    if (flash?.error) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error!',
+        text: flash.error,
+        confirmButtonColor: '#2563eb',
+      });
+    }
+  }, [flash]);
 
   return (
     <AuthenticatedLayout>
-      <Head title="Find Jobs" />
+      <Head title="Find Your Dream Job" />
 
-      <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            Find Your Dream Job
-          </h1>
-          <p className="text-lg text-gray-600">
-            Discover opportunities that match your skills and experience
-          </p>
-        </div>
-
-        {/* Mobile Filter Button */}
-        <div className="lg:hidden mb-4">
-          <button
-            onClick={() => setShowMobileFilters(!showMobileFilters)}
-            className="w-full flex items-center justify-between px-4 py-2 bg-white border border-gray-300 rounded-lg"
-          >
-            <div className="flex items-center gap-2">
-              <FaFilter className="text-gray-500" />
-              <span>Filters</span>
-              {hasActiveFilters() && (
-                <span className="ml-1 bg-blue-600 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center">
-                  {getActiveFiltersCount()}
-                </span>
-              )}
-            </div>
-            {showMobileFilters ? <FaChevronUp /> : <FaChevronDown />}
-          </button>
-        </div>
-
-        <div className="flex flex-col lg:flex-row gap-6">
-          {/* Sidebar Filters */}
-          <div className={`lg:w-80 ${showMobileFilters ? 'block' : 'hidden lg:block'}`}>
-            <div className="bg-white rounded-xl shadow-lg p-6 sticky top-4">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Filters</h3>
-                {hasActiveFilters() && (
-                  <button
-                    onClick={resetFilters}
-                    className="text-sm text-red-600 hover:text-red-800 flex items-center gap-1"
-                  >
-                    <FaTimes size={12} />
-                    Reset all
-                  </button>
-                )}
-              </div>
-
-              {/* Search */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
-                <form onSubmit={handleSearch}>
-                  <div className="relative">
-                    <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={14} />
-                    <input
-                      type="text"
-                      name="search"
-                      value={localFilters.search}
-                      onChange={handleInputChange}
-                      placeholder="Job title, category, location..."
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </form>
-              </div>
-
-              {/* Category Filter */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
-                <select
-                  name="category"
-                  value={localFilters.category}
-                  onChange={handleInputChange}
-                  onBlur={applyFilters}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">All Categories</option>
-                  {categories.map(cat => (
-                    <option key={cat.id} value={cat.slug}>
-                      {cat.name} ({cat.job_listings_count})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Location Filter */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
-                <select
-                  name="location"
-                  value={localFilters.location}
-                  onChange={handleInputChange}
-                  onBlur={applyFilters}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">All Locations</option>
-                  {locations.map(loc => (
-                    <option key={loc.id} value={loc.slug}>
-                      {loc.name} ({loc.job_listings_count})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Job Type Filter */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Job Type</label>
-                <select
-                  name="job_type"
-                  value={localFilters.job_type}
-                  onChange={handleInputChange}
-                  onBlur={applyFilters}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">All Types</option>
-                  {jobTypes.map(type => (
-                    <option key={type} value={type}>
-                      {type?.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Experience Level Filter */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Experience Level</label>
-                <select
-                  name="experience_level"
-                  value={localFilters.experience_level}
-                  onChange={handleInputChange}
-                  onBlur={applyFilters}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">All Levels</option>
-                  {experienceLevels.map(level => (
-                    <option key={level} value={level}>
-                      {getExperienceBadge(level)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Salary Range Filter */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Salary Range</label>
-                <div className="space-y-2">
-                  <div className="relative">
-                    <FaDollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={14} />
-                    <input
-                      type="number"
-                      name="salary_min"
-                      value={localFilters.salary_min}
-                      onChange={(e) => handleSalaryChange('salary_min', e.target.value)}
-                      onBlur={applyFilters}
-                      placeholder={`Min ($${salaryRange?.min?.toLocaleString() || 0})`}
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div className="relative">
-                    <FaDollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={14} />
-                    <input
-                      type="number"
-                      name="salary_max"
-                      value={localFilters.salary_max}
-                      onChange={(e) => handleSalaryChange('salary_max', e.target.value)}
-                      onBlur={applyFilters}
-                      placeholder={`Max ($${salaryRange?.max?.toLocaleString() || 1000000})`}
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Sort By */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Sort By</label>
-                <div className="relative">
-                  <FaSort className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={14} />
-                  <select
-                    name="sort"
-                    value={localFilters.sort}
-                    onChange={handleSortChange}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 appearance-none"
-                  >
-                    <option value="latest">Latest First</option>
-                    <option value="oldest">Oldest First</option>
-                    <option value="deadline_soon">Deadline: Soonest First</option>
-                    <option value="deadline_later">Deadline: Latest First</option>
-                    <option value="salary_high">Salary: High to Low</option>
-                    <option value="salary_low">Salary: Low to High</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Apply Filters Button */}
-              <button
-                onClick={applyFilters}
-                disabled={isLoading}
-                className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {isLoading && <FaSpinner className="animate-spin" />}
-                Apply Filters
-              </button>
-            </div>
-          </div>
-
-          {/* Job Listings */}
-          <div className="flex-1">
-            {/* Results Count and Sort (Mobile) */}
-            <div className="mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-              <p className="text-gray-600">
-                Found {jobListings.total} job{jobListings.total !== 1 ? 's' : ''}
+      <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100">
+        {/* Hero Section */}
+        <div className="bg-linear-to-r from-blue-600 to-indigo-700 text-white py-12">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center">
+              <h1 className="text-3xl md:text-4xl font-bold mb-3">
+                Find Your Dream Job
+              </h1>
+              <p className="text-blue-100 mb-6">
+                {stats.total_jobs.toLocaleString()} active jobs • {stats.total_views.toLocaleString()} total views • {stats.total_applications.toLocaleString()} applications
               </p>
 
-              {/* Mobile Sort */}
-              <div className="sm:hidden w-full">
-                <select
-                  value={localFilters.sort}
-                  onChange={handleSortChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="latest">Latest First</option>
-                  <option value="oldest">Oldest First</option>
-                  <option value="deadline_soon">Deadline: Soonest First</option>
-                  <option value="deadline_later">Deadline: Latest First</option>
-                  <option value="salary_high">Salary: High to Low</option>
-                  <option value="salary_low">Salary: Low to High</option>
-                </select>
+              {/* Search Bar */}
+              <div className="max-w-2xl mx-auto">
+                <div className="relative">
+                  <FaSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                  <input
+                    type="text"
+                    value={filters.search}
+                    onChange={(e) => handleFilterChange('search', e.target.value)}
+                    placeholder="Search by job title, company, or keyword..."
+                    className="w-full bg-white pl-12 pr-4 py-3 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-300 shadow-lg"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div className=" mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex flex-col lg:flex-row gap-6">
+            {/* Sidebar Filters - Desktop */}
+            <div className="hidden lg:block w-80 shrink-0">
+              <div className="bg-white rounded-xl shadow-md sticky top-24">
+                <div className="p-5 border-b border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                      <FaFilter size={16} className="text-gray-500" />
+                      Filters
+                    </h3>
+                    {hasActiveFilters() && (
+                      <button
+                        onClick={resetFilters}
+                        className="text-sm text-red-600 hover:text-red-800"
+                      >
+                        Reset all
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="p-5 space-y-5">
+                  {/* Category Filter */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Job Category
+                    </label>
+                    <select
+                      value={filters.category}
+                      onChange={(e) => handleFilterChange('category', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">All Categories</option>
+                      {categories.map(cat => (
+                        <option key={cat.id} value={cat.slug}>
+                          {cat.name} ({cat.job_listings_count})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Location Filter */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Location
+                    </label>
+                    <select
+                      value={filters.location}
+                      onChange={(e) => handleFilterChange('location', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">All Locations</option>
+                      {locations.map(loc => (
+                        <option key={loc.id} value={loc.id}>
+                          {loc.name} ({loc.job_listings_count})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Job Type Filter */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Job Type
+                    </label>
+                    <select
+                      value={filters.job_type}
+                      onChange={(e) => handleFilterChange('job_type', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">All Types</option>
+                      {jobTypes.map(type => (
+                        <option key={type} value={type}>
+                          {type.replace('-', ' ').toUpperCase()}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Experience Level Filter */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Experience Level
+                    </label>
+                    <select
+                      value={filters.experience_level}
+                      onChange={(e) => handleFilterChange('experience_level', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">All Levels</option>
+                      {experienceLevels.map(level => (
+                        <option key={level} value={level}>
+                          {level.charAt(0).toUpperCase() + level.slice(1).replace('-', ' ')}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Salary Range Filter */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Salary Range (BDT)
+                    </label>
+                    <div className="space-y-2">
+                      <input
+                        type="number"
+                        placeholder={`Min (${salaryRange.min.toLocaleString()})`}
+                        value={filters.salary_min}
+                        onChange={(e) => handleFilterChange('salary_min', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      />
+                      <input
+                        type="number"
+                        placeholder={`Max (${salaryRange.max.toLocaleString()})`}
+                        value={filters.salary_max}
+                        onChange={(e) => handleFilterChange('salary_max', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Apply Button */}
+                  <button
+                    onClick={handleApplyFilters}
+                    className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition font-medium"
+                  >
+                    Apply Filters
+                  </button>
+                </div>
               </div>
             </div>
 
-            {isLoading ? (
-              <div className="text-center py-12 bg-white rounded-xl shadow-lg">
-                <FaSpinner className="h-12 w-12 text-blue-600 animate-spin mx-auto mb-4" />
-                <p className="text-gray-600">Loading jobs...</p>
-              </div>
-            ) : jobListings.data.length === 0 ? (
-              <div className="text-center py-12 bg-white rounded-xl shadow-lg">
-                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <FaBriefcase className="h-10 w-10 text-gray-400" />
-                </div>
-                <h3 className="text-lg font-medium text-gray-900">No jobs found</h3>
-                <p className="mt-1 text-sm text-gray-500">
-                  {hasActiveFilters() ? 'Try adjusting your filters.' : 'Check back later for new opportunities.'}
-                </p>
-                {hasActiveFilters() && (
-                  <div className="mt-6">
-                    <button
-                      onClick={resetFilters}
-                      className="inline-flex items-center px-5 py-2.5 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700"
-                    >
-                      <FaTimes className="mr-2" size={16} />
-                      Clear Filters
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-6">
-                {jobListings.data.map((job) => {
-                  const daysLeft = daysUntilDeadline(job.application_deadline);
-                  const isUrgent = daysLeft <= 7 && daysLeft > 0;
-                  const locationsList = job.locations || (job.location ? [job.location] : []);
+            {/* Mobile Filter Button */}
+            <div className="lg:hidden sticky top-0 z-10 bg-white shadow-md rounded-lg p-3 mb-4">
+              <button
+                onClick={() => setShowMobileFilters(!showMobileFilters)}
+                className="w-full flex items-center justify-between px-4 py-2 bg-gray-100 rounded-lg"
+              >
+                <span className="flex items-center gap-2">
+                  <FaFilter />
+                  Filters
+                  {hasActiveFilters() && (
+                    <span className="bg-blue-600 text-white text-xs rounded-full px-2 py-0.5">
+                      Active
+                    </span>
+                  )}
+                </span>
+                {showMobileFilters ? <FaChevronUp /> : <FaChevronDown />}
+              </button>
 
-                  return (
-                    <Link
+              {showMobileFilters && (
+                <div className="mt-4 space-y-4">
+                  {/* Mobile filters - same as desktop but stacked */}
+                  <select
+                    value={filters.category}
+                    onChange={(e) => handleFilterChange('category', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  >
+                    <option value="">All Categories</option>
+                    {categories.map(cat => (
+                      <option key={cat.id} value={cat.slug}>{cat.name}</option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={filters.location}
+                    onChange={(e) => handleFilterChange('location', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  >
+                      <option value="">All Locations</option>
+                      {locations.map(loc => (
+                      <option key={loc.id} value={loc.id}>{loc.name}</option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={filters.job_type}
+                    onChange={(e) => handleFilterChange('job_type', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  >
+                    <option value="">All Types</option>
+                    {jobTypes.map(type => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </select>
+
+                  <button
+                    onClick={handleApplyFilters}
+                    className="w-full bg-blue-600 text-white py-2 rounded-lg"
+                  >
+                    Apply Filters
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Job Listings */}
+            <div className="flex-1">
+              {/* Sort and Results Header */}
+              <div className="bg-white rounded-lg shadow-sm p-4 mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div className="text-sm text-gray-600">
+                  Showing <span className="font-semibold">{pagination?.from || 0}</span> to{' '}
+                  <span className="font-semibold">{pagination?.to || 0}</span> of{' '}
+                  <span className="font-semibold">{pagination?.total || 0}</span> jobs
+                </div>
+
+                <div className="relative">
+                  <button
+                    onClick={() => setShowSortMenu(!showSortMenu)}
+                    className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
+                  >
+                    <FaChartLine size={14} />
+                    Sort by: {getSortLabel()}
+                    <FaChevronDown size={12} />
+                  </button>
+
+                  {showSortMenu && (
+                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-20">
+                      {[
+                        { value: 'latest', label: 'Latest Jobs' },
+                        { value: 'oldest', label: 'Oldest Jobs' },
+                        { value: 'deadline_soon', label: 'Deadline Soon' },
+                        { value: 'deadline_later', label: 'Deadline Later' },
+                        { value: 'salary_high', label: 'Highest Salary' },
+                        { value: 'salary_low', label: 'Lowest Salary' },
+                        { value: 'popular', label: 'Most Viewed' },
+                        { value: 'most_applied', label: 'Most Applied' },
+                      ].map(option => (
+                        <button
+                          key={option.value}
+                          onClick={() => handleSortChange(option.value)}
+                          className={`block w-full text-left px-4 py-2 hover:bg-gray-50 transition ${filters.sort === option.value ? 'bg-blue-50 text-blue-600' : ''
+                            }`}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Active Filters Tags */}
+              {hasActiveFilters() && (
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {filters.category && (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
+                      Category: {categories.find(c => c.slug === filters.category)?.name}
+                      <button onClick={() => clearFilter('category')} className="ml-1 hover:text-blue-600">
+                        <FaTimes size={10} />
+                      </button>
+                    </span>
+                  )}
+                      {filters.location && (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
+                      Location: {locations.find(l => String(l.id) === String(filters.location))?.name}
+                      <button onClick={() => clearFilter('location')} className="ml-1 hover:text-blue-600">
+                        <FaTimes size={10} />
+                      </button>
+                    </span>
+                  )}
+                  {filters.job_type && (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
+                      Type: {filters.job_type}
+                      <button onClick={() => clearFilter('job_type')} className="ml-1 hover:text-blue-600">
+                        <FaTimes size={10} />
+                      </button>
+                    </span>
+                  )}
+                  {(filters.salary_min || filters.salary_max) && (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
+                      Salary: {filters.salary_min ? `${Number(filters.salary_min).toLocaleString()}+` : ''}
+                      {filters.salary_min && filters.salary_max ? ' - ' : ''}
+                      {filters.salary_max ? `up to ${Number(filters.salary_max).toLocaleString()}` : ''}
+                      <button onClick={() => { clearFilter('salary_min'); clearFilter('salary_max'); }} className="ml-1 hover:text-blue-600">
+                        <FaTimes size={10} />
+                      </button>
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Loading State */}
+              {loading && (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                </div>
+              )}
+
+              {/* Job Cards */}
+              {!loading && jobListingItems.length === 0 && (
+                <div className="bg-white rounded-xl shadow-md p-12 text-center">
+                  <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <FaBriefcase className="h-10 w-10 text-gray-400" />
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900">No jobs found</h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Try adjusting your filters or search term.
+                  </p>
+                  <button
+                    onClick={resetFilters}
+                    className="mt-4 inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    Clear all filters
+                  </button>
+                </div>
+              )}
+
+              {/* Job Cards Grid */}
+              {!loading && (
+                <div className="space-y-4">
+                  {jobListingItems.map((job, index) => (
+                    <div
                       key={job.id}
-                      href={route('backend.public-jobs.show', job.slug)}
-                      className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group block"
+                      className="bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden animate-fade-in"
+                      style={{ animationDelay: `${index * 50}ms` }}
                     >
-                      <div className="p-6">
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <h3 className="text-xl font-semibold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
-                              {job.title}
-                            </h3>
-                            <p className="text-gray-600 text-sm mb-3">
-                              {job.category?.name || 'General'}
-                            </p>
-                            <div className="flex flex-wrap items-center gap-4 mb-4">
-                              <div className="flex items-center gap-2 text-gray-500 text-sm">
+                      <div className="p-5">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          {/* Job Info */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-2 flex-wrap">
+                              <h2 className="text-xl font-bold text-gray-900 hover:text-blue-600 transition">
+                                <a href={route('backend.public-jobs.show', job.slug)}>
+                                  {job.title}
+                                </a>
+                              </h2>
+                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getJobTypeColor(job.job_type)}`}>
+                                {job.job_type?.replace('-', ' ').toUpperCase()}
+                              </span>
+                              {job.experience_level && (
+                                <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-700">
+                                  {job.experience_level}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex flex-wrap gap-3 text-sm text-gray-500 mb-3">
+                              <div className="flex items-center gap-1">
+                                <FaBuilding size={14} />
+                                <span>{job.employer?.name || 'Company'}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
                                 <FaMapMarkerAlt size={14} />
                                 <span>
-                                  {locationsList.length > 0
-                                    ? locationsList.map(l => l.name).join(', ')
-                                    : 'Remote'
-                                  }
+                                  {job.locations?.length > 0
+                                    ? job.locations.map(l => l.name).join(', ')
+                                    : 'Location not specified'}
                                 </span>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getJobTypeBadge(job.job_type)}`}>
-                                  {job.job_type?.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'N/A'}
+                              <div className="flex items-center gap-1">
+                                <FaDollarSign size={14} />
+                                <span className="font-medium text-green-600">
+                                  {formatSalary(job)}
                                 </span>
                               </div>
                             </div>
-                            <div className="mb-4">
-                              <p className="text-green-600 font-medium text-sm">
-                                {formatSalary(job.salary_min, job.salary_max)}
-                              </p>
-                            </div>
-                            <p className="text-gray-600 text-sm line-clamp-2">
-                              {job.description?.replace(/<[^>]*>/g, '').substring(0, 150)}...
+
+                            <p className="text-gray-600 text-sm mb-3 line-clamp-2">
+                              {job.description}
                             </p>
-                          </div>
-                          <div className="text-right ml-4">
-                            <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
-                              <FaCalendarAlt size={14} />
-                              <span>{formatDate(job.application_deadline)}</span>
-                            </div>
-                            {isUrgent && (
-                              <div className="flex items-center gap-1 text-xs text-red-600">
-                                <FaClock size={12} />
-                                <span className="font-medium">{daysLeft} days left</span>
+
+                            <div className="flex flex-wrap gap-3 text-xs">
+                              <div className={`flex items-center gap-1 px-2 py-1 rounded-full ${getDeadlineColor(job.application_deadline)}`}>
+                                <FaCalendarAlt size={12} />
+                                <span>{formatDate(job.application_deadline)}</span>
                               </div>
-                            )}
+                            </div>
+                          </div>
+
+                          {/* Stats and Actions */}
+                          <div className="flex flex-col items-end gap-3">
+                            <div className="flex gap-3 text-sm">
+                              <div className="text-center">
+                                <div className="flex items-center gap-1 text-blue-600">
+                                  <FaEye size={14} />
+                                  <span className="font-semibold">{job.views_count?.toLocaleString() || 0}</span>
+                                </div>
+                                <span className="text-xs text-gray-500">Views</span>
+                              </div>
+                              <div className="text-center">
+                                <div className="flex items-center gap-1 text-purple-600">
+                                  <FaUsers size={14} />
+                                  <span className="font-semibold">{job.applications_count || 0}</span>
+                                </div>
+                                <span className="text-xs text-gray-500">Applied</span>
+                              </div>
+                            </div>
+
+                            <a
+                              href={route('backend.public-jobs.show', job.slug)}
+                              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium"
+                            >
+                              View Details
+                              <FaChevronRight size={12} />
+                            </a>
                           </div>
                         </div>
                       </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Pagination */}
-            {jobListings.links && jobListings.links.length > 3 && (
-              <div className="mt-8 flex justify-center">
-                <div className="flex gap-2 flex-wrap justify-center">
-                  {jobListings.links.map((link, index) => (
-                    <button
-                      key={index}
-                      onClick={() => handlePageChange(link.url)}
-                      disabled={!link.url || link.active}
-                      className={`px-3 py-2 rounded-lg transition-all duration-200 ${link.active
-                          ? 'bg-blue-600 text-white cursor-default'
-                          : link.url
-                            ? 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300 cursor-pointer'
-                            : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                        }`}
-                      dangerouslySetInnerHTML={{ __html: link.label }}
-                    />
+                    </div>
                   ))}
                 </div>
-              </div>
-            )}
+              )}
+
+              {/* Pagination */}
+              {pagination && pagination.lastPage > 1 && !loading && (
+                <div className="mt-6 flex items-center justify-between flex-wrap gap-3">
+                  <div className="text-sm text-gray-500">
+                    Showing {pagination.from || 0} to {pagination.to || 0} of {pagination.total} jobs
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handlePageChange(pagination.currentPage - 1)}
+                      disabled={pagination.currentPage === 1}
+                      className={`px-3 py-2 rounded-lg text-sm flex items-center gap-1 transition ${pagination.currentPage === 1
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+                        }`}
+                    >
+                      <FaChevronLeft size={12} />
+                      Previous
+                    </button>
+
+                    {(() => {
+                      const pages = [];
+                      const maxVisible = 5;
+                      let startPage = Math.max(1, pagination.currentPage - Math.floor(maxVisible / 2));
+                      let endPage = Math.min(pagination.lastPage, startPage + maxVisible - 1);
+
+                      if (endPage - startPage + 1 < maxVisible) {
+                        startPage = Math.max(1, endPage - maxVisible + 1);
+                      }
+
+                      for (let i = startPage; i <= endPage; i++) {
+                        pages.push(i);
+                      }
+
+                      return (
+                        <>
+                          {startPage > 1 && (
+                            <>
+                              <button
+                                onClick={() => handlePageChange(1)}
+                                className="px-3 py-2 rounded-lg text-sm bg-white text-gray-700 hover:bg-gray-100 border border-gray-300"
+                              >
+                                1
+                              </button>
+                              {startPage > 2 && <span className="px-2 text-gray-400">...</span>}
+                            </>
+                          )}
+
+                          {pages.map(page => (
+                            <button
+                              key={page}
+                              onClick={() => handlePageChange(page)}
+                              className={`px-3 py-2 rounded-lg text-sm transition ${page === pagination.currentPage
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+                                }`}
+                            >
+                              {page}
+                            </button>
+                          ))}
+
+                          {endPage < pagination.lastPage && (
+                            <>
+                              {endPage < pagination.lastPage - 1 && <span className="px-2 text-gray-400">...</span>}
+                              <button
+                                onClick={() => handlePageChange(pagination.lastPage)}
+                                className="px-3 py-2 rounded-lg text-sm bg-white text-gray-700 hover:bg-gray-100 border border-gray-300"
+                              >
+                                {pagination.lastPage}
+                              </button>
+                            </>
+                          )}
+                        </>
+                      );
+                    })()}
+
+                    <button
+                      onClick={() => handlePageChange(pagination.currentPage + 1)}
+                      disabled={pagination.currentPage === pagination.lastPage}
+                      className={`px-3 py-2 rounded-lg text-sm flex items-center gap-1 transition ${pagination.currentPage === pagination.lastPage
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+                        }`}
+                    >
+                      Next
+                      <FaChevronRight size={12} />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
+
+      <style>{`
+        @keyframes fade-in {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        .animate-fade-in {
+          animation: fade-in 0.3s ease-out forwards;
+        }
+        
+        .line-clamp-2 {
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+      `}</style>
     </AuthenticatedLayout>
   );
 }
