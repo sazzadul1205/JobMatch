@@ -1,353 +1,422 @@
 // resources/js/pages/Backend/JobListings/Create.jsx
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Head, router } from '@inertiajs/react';
-
-// Icons
-import {
-  FaArrowLeft,
-  FaSave,
-  FaSpinner,
-  FaCheckCircle,
-  FaExclamationTriangle,
-} from 'react-icons/fa';
-
-// Layout
 import AuthenticatedLayout from '../../../layouts/AuthenticatedLayout';
 
+// Icons
+import { FaArrowLeft, FaSave, FaEye } from 'react-icons/fa';
+
 // Step Components
-import BasicInfoStep from './Steps/BasicInfoStep';
-import JobDetailsStep from './Steps/JobDetailsStep';
-import DescriptionStep from './Steps/DescriptionStep';
-import SkillsStep from './Steps/SkillsStep';
-import PreviewStep from './Steps/PreviewStep';
+import { StepIndicator } from '../../../components/JobListingSteps/StepIndicator';
+import { StepNavigation } from '../../../components/JobListingSteps/StepNavigation';
+import { BasicInfoStep } from '../../../components/JobListingSteps/BasicInfoStep';
+import { RequirementsStep } from '../../../components/JobListingSteps/RequirementsStep';
+import { LocationStep } from '../../../components/JobListingSteps/LocationStep';
+import { CompensationStep } from '../../../components/JobListingSteps/CompensationStep';
+import { PublishingStep } from '../../../components/JobListingSteps/PublishingStep';
+import { ReviewStep } from '../../../components/JobListingSteps/ReviewStep'; // Import Review Step
 
-export default function Create({ categories, locations, errors: serverErrors }) {
-  const [currentStep, setCurrentStep] = useState(1);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [stepErrors, setStepErrors] = useState({});
-  const formRef = useRef(null);
-  const submitButtonRef = useRef(null);
+// SweetAlert
+import Swal from 'sweetalert2';
 
-  // Form state
-  const [formData, setFormData] = useState({
-    title: '',
-    category_id: '',
-    location_id: '',
-    job_type: '',
-    experience_level: '',
-    salaryMode: 'single',
-    salarySingle: '',
-    salaryFrom: '',
-    salaryTo: '',
-    education_requirement: '',
-    application_deadline: '',
-    schedule_start_date: '',
-    is_active: true,
-    show_linkedin: false,
-    show_facebook: false,
-  });
-
-  // Editor states
-  const [description, setDescription] = useState('');
-  const [requirements, setRequirements] = useState('');
-
-  // Array fields
-  const [benefits, setBenefits] = useState([]);
-  const [skills, setSkills] = useState([]);
-  const [responsibilities, setResponsibilities] = useState([]);
-  const [keywords, setKeywords] = useState([]);
-
-  // Make categories and locations available to step components
-  useEffect(() => {
+export default function Create({ categories, locations }) {
+  // Make categories and locations available globally for child components
+  if (typeof window !== 'undefined') {
     window.categories = categories;
     window.locations = locations;
-  }, [categories, locations]);
+  }
+
+  const [currentStep, setCurrentStep] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState({});
 
   const steps = [
-    { number: 1, title: 'Basic Information', component: BasicInfoStep },
-    { number: 2, title: 'Job Details', component: JobDetailsStep },
-    { number: 3, title: 'Description & Requirements', component: DescriptionStep },
-    { number: 4, title: 'Skills & Benefits', component: SkillsStep },
-    { number: 5, title: 'Preview & Submit', component: PreviewStep },
+    { id: 1, title: 'Basic Info', component: BasicInfoStep },
+    { id: 2, title: 'Requirements', component: RequirementsStep },
+    { id: 3, title: 'Location', component: LocationStep },
+    { id: 4, title: 'Compensation', component: CompensationStep },
+    { id: 5, title: 'Publishing', component: PublishingStep },
+    { id: 6, title: 'Review', component: ReviewStep }, // Add Review Step
   ];
 
-  const allErrors = { ...serverErrors, ...stepErrors };
+  const [formData, setFormData] = useState({
+    // Basic Info
+    title: '',
+    category_id: '',
+    job_type: '',
+    experience_level: '',
+    description: '',
 
-  const validateStep = async (stepNumber) => {
-    const errors = {};
+    // Requirements
+    requirements: '',
+    skills: [],
+    responsibilities: [],
+    benefits: [],
+    education_requirement: '',
+    education_details: '',
 
-    if (stepNumber === 1) {
-      if (!formData.title) errors.title = 'Job title is required';
-      else if (formData.title.length < 5) errors.title = 'Job title must be at least 5 characters';
-      if (!formData.category_id) errors.category_id = 'Please select a category';
-      if (!formData.location_id) errors.location_id = 'Please select a location';
-      if (!formData.job_type) errors.job_type = 'Please select job type';
-      if (!formData.experience_level) errors.experience_level = 'Please select experience level';
-    }
+    // Location
+    location_ids: [],
 
-    if (stepNumber === 2) {
-      if (!formData.application_deadline) errors.application_deadline = 'Application deadline is required';
-    }
+    // Compensation
+    salary_min: '',
+    salary_max: '',
+    is_salary_negotiable: false,
+    as_per_companies_policy: false,
+    keywords: [],
 
-    if (stepNumber === 3) {
-      if (!description.trim()) errors.description = 'Job description is required';
-      else if (description.trim().length < 50) errors.description = 'Job description must be at least 50 characters';
-      if (!requirements.trim()) errors.requirements = 'Job requirements are required';
-      else if (requirements.trim().length < 50) errors.requirements = 'Job requirements must be at least 50 characters';
-    }
+    // Publishing
+    application_deadline: '',
+    publish_at: '',
+    is_active: true,
+    required_linkedin_link: false,
+    required_facebook_link: false,
+    is_external_apply: false,
+    external_apply_links: [],
+  });
 
-    if (stepNumber === 4) {
-      if (skills.length === 0) errors.skills = 'At least one skill is required';
-      if (responsibilities.length === 0) errors.responsibilities = 'At least one responsibility is required';
-    }
-
-    setStepErrors(errors);
-    return Object.keys(errors).length === 0;
+  // Check if form has any data entered
+  const hasFormData = () => {
+    return (
+      formData.title ||
+      formData.category_id ||
+      formData.job_type ||
+      formData.experience_level ||
+      formData.description ||
+      formData.requirements ||
+      formData.skills.length > 0 ||
+      formData.responsibilities.length > 0 ||
+      formData.location_ids.length > 0
+    );
   };
 
-  const handleNextStep = async () => {
-    const isValid = await validateStep(currentStep);
-
-    if (isValid && currentStep < 5) {
-      setCurrentStep(currentStep + 1);
-      window.scrollTo(0, 0);
-    }
-  };
-
-  const handlePrevStep = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
-      window.scrollTo(0, 0);
-    }
-  };
-
-  const performSubmit = () => {
-    if (isSubmitting) {
-      console.warn('Blocked: already submitting');
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    const salary =
-      formData.salaryMode === 'single'
-        ? formData.salarySingle
-        : `${formData.salaryFrom} - ${formData.salaryTo}`;
-
-    const submitData = {
-      ...formData,
-      salary,
-      description,
-      requirements,
-      benefits,
-      skills,
-      responsibilities,
-      keywords,
-    };
-
-    router.post(route('backend.listing.store'), submitData, {
-      preserveScroll: true,
-      onFinish: () => {
-        setIsSubmitting(false);
-      },
-      onSuccess: () => {
-        router.get(route('backend.listing.index'));
-      },
-      onError: (errors) => {
-        console.error('Create failed:', errors);
-        if (errors?.response?.data?.errors) {
-          setStepErrors(errors.response.data.errors);
+  // Handle back button click with confirmation if data exists
+  const handleBackToListings = () => {
+    if (hasFormData()) {
+      Swal.fire({
+        title: 'Discard changes?',
+        text: 'You have entered information that will be lost if you leave. Are you sure?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Yes, discard',
+        cancelButtonText: 'Stay',
+      }).then((result) => {
+        if (result.isConfirmed) {
+          router.visit(route('backend.listing.index'));
         }
-      },
+      });
+    } else {
+      router.visit(route('backend.listing.index'));
+    }
+  };
+
+  // Validate current step
+  const validateStep = () => {
+    const newErrors = {};
+
+    switch (currentStep) {
+      case 1: // Basic Info
+        if (!formData.title || formData.title.length < 5) {
+          newErrors.title = 'Title must be at least 5 characters';
+        }
+        if (!formData.category_id) {
+          newErrors.category_id = 'Please select a category';
+        }
+        if (!formData.job_type) {
+          newErrors.job_type = 'Please select a job type';
+        }
+        if (!formData.experience_level) {
+          newErrors.experience_level = 'Please select an experience level';
+        }
+        if (!formData.description || formData.description.replace(/<[^>]*>/g, '').trim().length < 50) {
+          newErrors.description = 'Description must be at least 50 characters';
+        }
+        break;
+
+      case 2: // Requirements
+        if (!formData.requirements || formData.requirements.replace(/<[^>]*>/g, '').trim().length < 50) {
+          newErrors.requirements = 'Requirements must be at least 50 characters';
+        }
+        if (formData.skills.length === 0) {
+          newErrors.skills = 'Please add at least one required skill';
+        }
+        if (formData.responsibilities.length === 0) {
+          newErrors.responsibilities = 'Please add at least one responsibility';
+        }
+        break;
+
+      case 3: // Location
+        if (formData.location_ids.length === 0) {
+          newErrors.location_ids = 'Please select at least one location';
+        }
+        break;
+
+      case 4: // Compensation
+        if (formData.salary_min && formData.salary_max && parseFloat(formData.salary_max) < parseFloat(formData.salary_min)) {
+          newErrors.salary_max = 'Maximum salary must be greater than or equal to minimum salary';
+        }
+        break;
+
+      case 5: // Publishing
+        if (!formData.application_deadline) {
+          newErrors.application_deadline = 'Please set an application deadline';
+        }
+        break;
+
+      case 6: // Review - Always valid if we got here
+        break;
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+    // Clear error for this field
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: undefined }));
+    }
+  };
+
+  const handleArrayChange = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const nextStep = () => {
+    if (validateStep()) {
+      setCurrentStep(prev => Math.min(prev + 1, steps.length));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      Swal.fire({
+        icon: 'error',
+        title: 'Validation Error',
+        text: 'Please fix the errors before proceeding.',
+        confirmButtonColor: '#2563eb',
+      });
+    }
+  };
+
+  const previousStep = () => {
+    setCurrentStep(prev => Math.max(prev - 1, 1));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Navigate to a specific step (for review page editing)
+  const navigateToStep = (stepNumber) => {
+    setCurrentStep(stepNumber);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Save as draft (optional feature)
+  const saveAsDraft = () => {
+    Swal.fire({
+      title: 'Save as Draft?',
+      text: 'This feature will save your progress. Coming soon!',
+      icon: 'info',
+      confirmButtonColor: '#2563eb',
     });
   };
 
-  const handleSubmit = (e) => {
-    // Prevent any default form submission
-    e.preventDefault();
-    e.stopPropagation();
+  // Preview job (optional feature)
+  const previewJob = () => {
+    Swal.fire({
+      title: 'Preview Job',
+      text: 'This feature will show a preview of the job listing. Coming soon!',
+      icon: 'info',
+      confirmButtonColor: '#2563eb',
+    });
+  };
 
-    console.log('Form submit triggered, current step:', currentStep);
+  // Final submission - ONLY called when user clicks "Post Job" on review page
+  const handleSubmit = () => {
+    // Prepare data for submission
+    const submitData = {
+      ...formData,
+      salary_min: formData.salary_min ? parseFloat(formData.salary_min) : null,
+      salary_max: formData.salary_max ? parseFloat(formData.salary_max) : null,
+    };
 
-    // Only submit if we're on step 5
-    if (currentStep === 5) {
-      performSubmit();
-    } else {
-      console.warn('Blocked: not on step 5');
-    }
+    Swal.fire({
+      title: 'Post Job Listing?',
+      html: `
+        <div class="text-left">
+          <p class="mb-2">Are you sure you want to post this job?</p>
+          <ul class="list-disc list-inside text-sm text-gray-600">
+            <li>The job will be visible to applicants</li>
+            <li>You can edit or deactivate it later</li>
+            <li>Applications will start coming in once posted</li>
+          </ul>
+        </div>
+      `,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#10b981',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Yes, Post Job',
+      cancelButtonText: 'Review Again',
+      reverseButtons: true,
+    }).then((result) => {
+      if (result.isConfirmed) {
+        setIsSubmitting(true);
 
-    return false;
+        router.post(route('backend.listing.store'), submitData, {
+          preserveScroll: true,
+          onSuccess: () => {
+            Swal.fire({
+              icon: 'success',
+              title: 'Job Posted!',
+              html: `
+                <p>Your job listing has been posted successfully.</p>
+                <p class="text-sm text-gray-500 mt-2">Candidates can now apply.</p>
+              `,
+              timer: 2000,
+              showConfirmButton: false,
+            }).then(() => {
+              router.visit(route('backend.listing.index'));
+            });
+          },
+          onError: (error) => {
+            console.error('Submission error:', error);
+
+            // Handle validation errors from server
+            if (error.response?.data?.errors) {
+              setErrors(error.response.data.errors);
+              // Navigate back to first step to show errors
+              setCurrentStep(1);
+              Swal.fire({
+                icon: 'error',
+                title: 'Validation Error',
+                text: 'Please check the form for errors.',
+                confirmButtonColor: '#2563eb',
+              });
+            } else {
+              Swal.fire({
+                icon: 'error',
+                title: 'Submission Failed',
+                text: error.response?.data?.message || 'Failed to post job listing. Please try again.',
+                confirmButtonColor: '#2563eb',
+              });
+            }
+            setIsSubmitting(false);
+          },
+          onFinish: () => {
+            setIsSubmitting(false);
+          },
+        });
+      }
+    });
   };
 
   const CurrentStepComponent = steps[currentStep - 1].component;
 
-  // Check if we're on the preview step
-  const isPreviewStep = currentStep === 5;
+  // Check if current step is the review step to customize button text
+  const isReviewStep = currentStep === steps.length;
+
+  // Custom submit handler for review step
+  const handleStepSubmit = () => {
+    if (isReviewStep) {
+      handleSubmit();
+    } else {
+      nextStep();
+    }
+  };
 
   return (
     <AuthenticatedLayout>
       <Head title="Create Job Listing" />
 
-      <div className="min-h-screen bg-gray-50 py-8 text-black">
-        <div className="mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Header */}
-          <div className="mb-8">
-            <a
-              href={route('backend.listing.index')}
-              className="inline-flex items-center text-gray-600 hover:text-gray-900 mb-4"
-            >
-              <FaArrowLeft className="mr-2" size={16} />
-              Back to Job Listings
-            </a>
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Create New Job Listing</h1>
-              <p className="text-gray-600 mt-1">Fill in the details to post a new job opportunity</p>
+      <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 py-8 px-4 sm:px-6 lg:px-8">
+        <div className=" mx-auto">
+          {/* Header with Back Button & Actions */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <button
+                onClick={handleBackToListings}
+                className="group flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-all duration-200"
+              >
+                <FaArrowLeft className="group-hover:-translate-x-1 transition-transform duration-200" size={16} />
+                <span className="text-sm font-medium">Back</span>
+              </button>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={saveAsDraft}
+                  className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition flex items-center gap-2"
+                >
+                  <FaSave size={12} />
+                  Draft
+                </button>
+                <button
+                  onClick={previewJob}
+                  className="px-3 py-1.5 text-sm bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition flex items-center gap-2"
+                >
+                  <FaEye size={12} />
+                  Preview
+                </button>
+              </div>
+            </div>
+
+            <div className="text-center">
+              <h1 className="text-2xl font-bold bg-linear-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+                Create Job Listing
+              </h1>
+              <p className="text-xs text-gray-500 mt-1">Fill in the details below to post a new job opportunity</p>
             </div>
           </div>
 
-          {/* Error Summary */}
-          {Object.keys(allErrors).length > 0 && (
-            <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
-              <div className="flex items-start">
-                <div className="shrink-0">
-                  <FaExclamationTriangle className="h-5 w-5 text-red-500" />
-                </div>
-                <div className="ml-3">
-                  <h3 className="text-sm font-medium text-red-800">Please fix the following errors:</h3>
-                  <div className="mt-2 text-sm text-red-700">
-                    <ul className="list-disc list-inside space-y-1">
-                      {Object.entries(allErrors).map(([field, error]) => (
-                        <li key={field}>{error}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              </div>
+          {/* Main Card */}
+          <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+            {/* Step Indicator */}
+            <div className="px-8 pt-8">
+              <StepIndicator currentStep={currentStep} steps={steps} />
             </div>
-          )}
 
-          {/* Progress Steps */}
-          <div className="mb-8">
-            <div className="flex justify-between">
-              {steps.map((step) => {
-                const isActive = currentStep === step.number;
-                const isCompleted = currentStep > step.number;
+            {/* Form Content */}
+            <div className="px-8 py-6">
+              <CurrentStepComponent
+                formData={formData}
+                errors={errors}
+                handleChange={handleChange}
+                handleArrayChange={handleArrayChange}
+                setFormData={setFormData}
+                locations={locations}
+                categories={categories}
+                onNavigateToStep={navigateToStep}
+              />
+            </div>
 
-                return (
-                  <div key={step.number} className="flex-1 text-center">
-                    <div className={`
-                      w-10 h-10 mx-auto rounded-full flex items-center justify-center
-                      ${isActive ? 'bg-blue-600 text-white' :
-                        isCompleted ? 'bg-green-500 text-white' :
-                          'bg-gray-200 text-gray-500'}
-                    `}>
-                      {isCompleted ? <FaCheckCircle size={20} /> : step.number}
-                    </div>
-                    <div className="mt-2">
-                      <div className="text-sm font-medium text-gray-900">{step.title}</div>
-                    </div>
-                  </div>
-                );
-              })}
+            {/* Navigation */}
+            <div className="px-8 pb-8">
+              <StepNavigation
+                currentStep={currentStep}
+                totalSteps={steps.length}
+                onNext={handleStepSubmit}
+                onPrevious={previousStep}
+                onSubmit={handleSubmit}
+                isSubmitting={isSubmitting}
+                isValid={true}
+                isReviewStep={isReviewStep}
+              />
             </div>
           </div>
 
-          {/* Only use form tag for preview step, otherwise use div */}
-          {isPreviewStep ? (
-            <form
-              ref={formRef}
-              onSubmit={handleSubmit}
-              className="relative"
-            >
-              <CurrentStepComponent
-                formData={formData}
-                setFormData={setFormData}
-                description={description}
-                setDescription={setDescription}
-                requirements={requirements}
-                setRequirements={setRequirements}
-                skills={skills}
-                setSkills={setSkills}
-                responsibilities={responsibilities}
-                setResponsibilities={setResponsibilities}
-                benefits={benefits}
-                setBenefits={setBenefits}
-                keywords={keywords}
-                setKeywords={setKeywords}
-                errors={stepErrors}
-                categories={categories}
-                locations={locations}
-                setCurrentStep={setCurrentStep}
-              />
-
-              {/* Navigation Buttons */}
-              <div className="mt-6 flex justify-between">
-                <button
-                  type="button"
-                  onClick={handlePrevStep}
-                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-                >
-                  ← Previous
-                </button>
-
-                <button
-                  type="submit"
-                  ref={submitButtonRef}
-                  disabled={isSubmitting}
-                  className="ml-auto px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
-                >
-                  {isSubmitting && <FaSpinner className="animate-spin" size={16} />}
-                  <FaSave size={16} />
-                  Create Job Listing
-                </button>
-              </div>
-            </form>
-          ) : (
-            <div className="relative">
-              <CurrentStepComponent
-                formData={formData}
-                setFormData={setFormData}
-                description={description}
-                setDescription={setDescription}
-                requirements={requirements}
-                setRequirements={setRequirements}
-                skills={skills}
-                setSkills={setSkills}
-                responsibilities={responsibilities}
-                setResponsibilities={setResponsibilities}
-                benefits={benefits}
-                setBenefits={setBenefits}
-                keywords={keywords}
-                setKeywords={setKeywords}
-                errors={stepErrors}
-                categories={categories}
-                locations={locations}
-                setCurrentStep={setCurrentStep}
-              />
-
-              {/* Navigation Buttons */}
-              <div className="mt-6 flex justify-between">
-                {currentStep > 1 && (
-                  <button
-                    type="button"
-                    onClick={handlePrevStep}
-                    className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-                  >
-                    ← Previous
-                  </button>
-                )}
-
-                <button
-                  type="button"
-                  onClick={handleNextStep}
-                  className="ml-auto px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  Next Step →
-                </button>
-              </div>
+          {/* Progress Indicator */}
+          <div className="mt-6 text-center">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-full shadow-sm">
+              <div className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+              <span className="text-sm text-gray-600">
+                Step {currentStep} of {steps.length}
+              </span>
             </div>
-          )}
+          </div>
         </div>
       </div>
     </AuthenticatedLayout>

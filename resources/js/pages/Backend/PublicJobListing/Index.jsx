@@ -1,6 +1,6 @@
 // resources/js/pages/Backend/PublicJobListing/Index.jsx
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import {
   FaBriefcase,
@@ -11,7 +11,10 @@ import {
   FaFilter,
   FaTimes,
   FaChevronDown,
-  FaChevronUp
+  FaChevronUp,
+  FaDollarSign,
+  FaSort,
+  FaSpinner
 } from 'react-icons/fa';
 import AuthenticatedLayout from '../../../layouts/AuthenticatedLayout';
 
@@ -21,18 +24,37 @@ export default function PublicJobsIndex({
   locations,
   jobTypes,
   experienceLevels,
+  salaryRange,
   filters
 }) {
   const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const normalizeSelectValue = (value, fallback = '') => {
+    if (value === null || value === undefined) return fallback;
+    const str = String(value);
+    return str;
+  };
   const [localFilters, setLocalFilters] = useState({
     search: filters.search || '',
-    category: filters.category || '',
-    location: filters.location || '',
-    job_type: filters.job_type || '',
-    experience_level: filters.experience_level || '',
-    sort: filters.sort || 'latest'
+    category: normalizeSelectValue(filters.category),
+    location: normalizeSelectValue(filters.location),
+    job_type: normalizeSelectValue(filters.job_type),
+    experience_level: normalizeSelectValue(filters.experience_level),
+    salary_min: filters.salary_min ?? '',
+    salary_max: filters.salary_max ?? '',
+    sort: normalizeSelectValue(filters.sort, 'latest')
   });
 
+  // Debounce search input
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (localFilters.search !== filters.search) {
+        applyFilters();
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [localFilters.search]);
 
   const formatDate = (date) => {
     if (!date) return 'N/A';
@@ -41,6 +63,21 @@ export default function PublicJobsIndex({
       month: 'short',
       day: 'numeric'
     });
+  };
+
+  const formatSalary = (min, max) => {
+    if (!min && !max) return 'Salary not specified';
+    const formatter = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    });
+
+    if (min && max) return `${formatter.format(min)} - ${formatter.format(max)}`;
+    if (min) return `From ${formatter.format(min)}`;
+    if (max) return `Up to ${formatter.format(max)}`;
+    return 'Salary not specified';
   };
 
   const getJobTypeBadge = (type) => {
@@ -77,9 +114,20 @@ export default function PublicJobsIndex({
   };
 
   const applyFilters = () => {
-    router.get(route('public.jobs.index'), localFilters, {
+    setIsLoading(true);
+
+    // Clean up filters (remove empty values)
+    const cleanedFilters = Object.entries(localFilters).reduce((acc, [key, value]) => {
+      if (value !== '' && value !== null && value !== undefined) {
+        acc[key] = value;
+      }
+      return acc;
+    }, {});
+
+    router.get(route('backend.public-jobs.index'), cleanedFilters, {
       preserveState: true,
       preserveScroll: true,
+      onFinish: () => setIsLoading(false),
     });
   };
 
@@ -90,12 +138,16 @@ export default function PublicJobsIndex({
       location: '',
       job_type: '',
       experience_level: '',
+      salary_min: '',
+      salary_max: '',
       sort: 'latest'
     };
     setLocalFilters(resetFilters);
-    router.get(route('public.jobs.index'), resetFilters, {
+    setIsLoading(true);
+    router.get(route('backend.public-jobs.index'), resetFilters, {
       preserveState: true,
       preserveScroll: true,
+      onFinish: () => setIsLoading(false),
     });
   };
 
@@ -104,8 +156,18 @@ export default function PublicJobsIndex({
     setLocalFilters(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleSalaryChange = (type, value) => {
+    setLocalFilters(prev => ({ ...prev, [type]: value }));
+  };
+
   const handleSearch = (e) => {
     e.preventDefault();
+    applyFilters();
+  };
+
+  const handleSortChange = (e) => {
+    const newSort = e.target.value;
+    setLocalFilters(prev => ({ ...prev, sort: newSort }));
     applyFilters();
   };
 
@@ -115,14 +177,34 @@ export default function PublicJobsIndex({
       localFilters.location !== '' ||
       localFilters.job_type !== '' ||
       localFilters.experience_level !== '' ||
+      localFilters.salary_min !== '' ||
+      localFilters.salary_max !== '' ||
       localFilters.sort !== 'latest';
+  };
+
+  const getActiveFiltersCount = () => {
+    return Object.entries(localFilters).filter(([key, value]) => {
+      if (key === 'sort') return value !== 'latest';
+      return value !== '' && value !== null && value !== undefined;
+    }).length;
+  };
+
+  // Handle pagination
+  const handlePageChange = (url) => {
+    if (!url) return;
+    setIsLoading(true);
+    router.get(url, {}, {
+      preserveState: true,
+      preserveScroll: true,
+      onFinish: () => setIsLoading(false),
+    });
   };
 
   return (
     <AuthenticatedLayout>
       <Head title="Find Jobs" />
 
-      <div className=" mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
@@ -144,7 +226,7 @@ export default function PublicJobsIndex({
               <span>Filters</span>
               {hasActiveFilters() && (
                 <span className="ml-1 bg-blue-600 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center">
-                  {Object.values(localFilters).filter(v => v !== '' && v !== 'latest').length}
+                  {getActiveFiltersCount()}
                 </span>
               )}
             </div>
@@ -194,6 +276,7 @@ export default function PublicJobsIndex({
                   name="category"
                   value={localFilters.category}
                   onChange={handleInputChange}
+                  onBlur={applyFilters}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">All Categories</option>
@@ -212,6 +295,7 @@ export default function PublicJobsIndex({
                   name="location"
                   value={localFilters.location}
                   onChange={handleInputChange}
+                  onBlur={applyFilters}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">All Locations</option>
@@ -230,12 +314,13 @@ export default function PublicJobsIndex({
                   name="job_type"
                   value={localFilters.job_type}
                   onChange={handleInputChange}
+                  onBlur={applyFilters}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">All Types</option>
                   {jobTypes.map(type => (
                     <option key={type} value={type}>
-                      {type?.replace('-', ' ')}
+                      {type?.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
                     </option>
                   ))}
                 </select>
@@ -248,6 +333,7 @@ export default function PublicJobsIndex({
                   name="experience_level"
                   value={localFilters.experience_level}
                   onChange={handleInputChange}
+                  onBlur={applyFilters}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">All Levels</option>
@@ -259,27 +345,65 @@ export default function PublicJobsIndex({
                 </select>
               </div>
 
+              {/* Salary Range Filter */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Salary Range</label>
+                <div className="space-y-2">
+                  <div className="relative">
+                    <FaDollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={14} />
+                    <input
+                      type="number"
+                      name="salary_min"
+                      value={localFilters.salary_min}
+                      onChange={(e) => handleSalaryChange('salary_min', e.target.value)}
+                      onBlur={applyFilters}
+                      placeholder={`Min ($${salaryRange?.min?.toLocaleString() || 0})`}
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div className="relative">
+                    <FaDollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={14} />
+                    <input
+                      type="number"
+                      name="salary_max"
+                      value={localFilters.salary_max}
+                      onChange={(e) => handleSalaryChange('salary_max', e.target.value)}
+                      onBlur={applyFilters}
+                      placeholder={`Max ($${salaryRange?.max?.toLocaleString() || 1000000})`}
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
               {/* Sort By */}
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Sort By</label>
-                <select
-                  name="sort"
-                  value={localFilters.sort}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="latest">Latest First</option>
-                  <option value="oldest">Oldest First</option>
-                  <option value="deadline_soon">Deadline: Soonest First</option>
-                  <option value="deadline_later">Deadline: Latest First</option>
-                </select>
+                <div className="relative">
+                  <FaSort className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={14} />
+                  <select
+                    name="sort"
+                    value={localFilters.sort}
+                    onChange={handleSortChange}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 appearance-none"
+                  >
+                    <option value="latest">Latest First</option>
+                    <option value="oldest">Oldest First</option>
+                    <option value="deadline_soon">Deadline: Soonest First</option>
+                    <option value="deadline_later">Deadline: Latest First</option>
+                    <option value="salary_high">Salary: High to Low</option>
+                    <option value="salary_low">Salary: Low to High</option>
+                  </select>
+                </div>
               </div>
 
               {/* Apply Filters Button */}
               <button
                 onClick={applyFilters}
-                className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-all duration-200"
+                disabled={isLoading}
+                className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
+                {isLoading && <FaSpinner className="animate-spin" />}
                 Apply Filters
               </button>
             </div>
@@ -287,14 +411,35 @@ export default function PublicJobsIndex({
 
           {/* Job Listings */}
           <div className="flex-1">
-            {/* Results Count */}
-            <div className="mb-4 flex justify-between items-center">
+            {/* Results Count and Sort (Mobile) */}
+            <div className="mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
               <p className="text-gray-600">
                 Found {jobListings.total} job{jobListings.total !== 1 ? 's' : ''}
               </p>
+
+              {/* Mobile Sort */}
+              <div className="sm:hidden w-full">
+                <select
+                  value={localFilters.sort}
+                  onChange={handleSortChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="latest">Latest First</option>
+                  <option value="oldest">Oldest First</option>
+                  <option value="deadline_soon">Deadline: Soonest First</option>
+                  <option value="deadline_later">Deadline: Latest First</option>
+                  <option value="salary_high">Salary: High to Low</option>
+                  <option value="salary_low">Salary: Low to High</option>
+                </select>
+              </div>
             </div>
 
-            {jobListings.data.length === 0 ? (
+            {isLoading ? (
+              <div className="text-center py-12 bg-white rounded-xl shadow-lg">
+                <FaSpinner className="h-12 w-12 text-blue-600 animate-spin mx-auto mb-4" />
+                <p className="text-gray-600">Loading jobs...</p>
+              </div>
+            ) : jobListings.data.length === 0 ? (
               <div className="text-center py-12 bg-white rounded-xl shadow-lg">
                 <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <FaBriefcase className="h-10 w-10 text-gray-400" />
@@ -320,6 +465,7 @@ export default function PublicJobsIndex({
                 {jobListings.data.map((job) => {
                   const daysLeft = daysUntilDeadline(job.application_deadline);
                   const isUrgent = daysLeft <= 7 && daysLeft > 0;
+                  const locationsList = job.locations || (job.location ? [job.location] : []);
 
                   return (
                     <Link
@@ -339,24 +485,29 @@ export default function PublicJobsIndex({
                             <div className="flex flex-wrap items-center gap-4 mb-4">
                               <div className="flex items-center gap-2 text-gray-500 text-sm">
                                 <FaMapMarkerAlt size={14} />
-                                <span>{job.location?.name || 'Remote'}</span>
+                                <span>
+                                  {locationsList.length > 0
+                                    ? locationsList.map(l => l.name).join(', ')
+                                    : 'Remote'
+                                  }
+                                </span>
                               </div>
                               <div className="flex items-center gap-2">
                                 <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getJobTypeBadge(job.job_type)}`}>
-                                  {job.job_type?.replace('-', ' ') || 'N/A'}
+                                  {job.job_type?.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'N/A'}
                                 </span>
-                                {job.salary && (
-                                  <span className="text-sm text-green-600 font-medium">
-                                    {job.salary}
-                                  </span>
-                                )}
                               </div>
                             </div>
-                            <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+                            <div className="mb-4">
+                              <p className="text-green-600 font-medium text-sm">
+                                {formatSalary(job.salary_min, job.salary_max)}
+                              </p>
+                            </div>
+                            <p className="text-gray-600 text-sm line-clamp-2">
                               {job.description?.replace(/<[^>]*>/g, '').substring(0, 150)}...
                             </p>
                           </div>
-                          <div className="text-right">
+                          <div className="text-right ml-4">
                             <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
                               <FaCalendarAlt size={14} />
                               <span>{formatDate(job.application_deadline)}</span>
@@ -379,20 +530,20 @@ export default function PublicJobsIndex({
             {/* Pagination */}
             {jobListings.links && jobListings.links.length > 3 && (
               <div className="mt-8 flex justify-center">
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap justify-center">
                   {jobListings.links.map((link, index) => (
-                    <Link
+                    <button
                       key={index}
-                      href={link.url || '#'}
+                      onClick={() => handlePageChange(link.url)}
+                      disabled={!link.url || link.active}
                       className={`px-3 py-2 rounded-lg transition-all duration-200 ${link.active
-                        ? 'bg-blue-600 text-white'
-                        : link.url
-                          ? 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
-                          : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          ? 'bg-blue-600 text-white cursor-default'
+                          : link.url
+                            ? 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300 cursor-pointer'
+                            : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                         }`}
-                    >
-                      <span dangerouslySetInnerHTML={{ __html: link.label }} />
-                    </Link>
+                      dangerouslySetInnerHTML={{ __html: link.label }}
+                    />
                   ))}
                 </div>
               </div>

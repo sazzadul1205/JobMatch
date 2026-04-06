@@ -28,6 +28,7 @@ class JobListing extends Model
         'category_id',
         'experience_level',
         'education_requirement',
+        'education_details',
         'benefits',
         'skills',
         'responsibilities',

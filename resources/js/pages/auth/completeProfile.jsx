@@ -1,7 +1,14 @@
-import React, { useEffect, useState } from 'react';
-import { Head, router } from '@inertiajs/react';
+// pages/auth/completeProfile.jsx
+
+// React
 import { useForm } from '@inertiajs/react';
+import { useEffect, useState } from 'react';
+import { Head, router } from '@inertiajs/react';
+
+// sweetalert2
 import Swal from 'sweetalert2';
+
+// Icons
 import {
   FaArrowLeft,
   FaArrowRight,
@@ -17,13 +24,15 @@ import {
   FaUser
 } from 'react-icons/fa';
 import { MdWork } from 'react-icons/md';
-import BasicInfo from './Steps/BasicInfo';
-import ProfessionalInfo from './Steps/ProfessionalInfo';
+
+// Step Components
 import CVUpload from './Steps/CVUpload';
-import WorkExperience from './Steps/WorkExperience';
 import Education from './Steps/Education';
-import Achievements from './Steps/Achievements';
+import BasicInfo from './Steps/BasicInfo';
 import ReviewPage from './Steps/ReviewPage';
+import Achievements from './Steps/Achievements';
+import WorkExperience from './Steps/WorkExperience';
+import ProfessionalInfo from './Steps/ProfessionalInfo';
 
 const CompleteProfile = ({ applicantProfile = null }) => {
   const [currentStep, setCurrentStep] = useState(0);

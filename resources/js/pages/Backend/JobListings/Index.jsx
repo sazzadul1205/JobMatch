@@ -1,7 +1,7 @@
 // resources/js/pages/Backend/JobListings/Index.jsx
 
-import { useState, useMemo } from 'react';
-import { Head, router } from '@inertiajs/react';
+import { useState, useMemo, useEffect } from 'react';
+import { Head, router, usePage } from '@inertiajs/react';
 
 // Icons
 import {
@@ -24,10 +24,10 @@ import {
   FaChevronUp,
   FaCheckCircle,
   FaBan,
-  FaUserCheck,
-  FaUserTimes,
-  FaDownload,
   FaCheckDouble,
+  FaChevronLeft,
+  FaChevronRight,
+  FaChartLine,
 } from 'react-icons/fa';
 
 // Layout
@@ -36,165 +36,201 @@ import AuthenticatedLayout from '../../../layouts/AuthenticatedLayout';
 // SweetAlert2
 import Swal from 'sweetalert2';
 
-export default function JobListingsIndex({ jobListings, flash }) {
+export default function JobListingsIndex({ jobListings: initialJobListings, filters: initialFilters = {}, filterOptions = {} }) {
+  const { flash } = usePage().props;
+
+  // States
   const [deletingId, setDeletingId] = useState(null);
-  const [restoringId, setRestoringId] = useState(null);
   const [togglingId, setTogglingId] = useState(null);
-  const [showFilters, setShowFilters] = useState(false);
   const [selectedJobs, setSelectedJobs] = useState([]);
+  const [restoringId, setRestoringId] = useState(null);
+  const [showFilters, setShowFilters] = useState(false);
   const [isBulkProcessing, setIsBulkProcessing] = useState(false);
 
-  // Filter states
+  // Pagination state
+  const [jobListings, setJobListings] = useState(initialJobListings);
+  const [currentPage, setCurrentPage] = useState(initialJobListings?.current_page || 1);
+
+  // Filter states - synced with URL/backend
   const [filters, setFilters] = useState({
-    search: '',
-    status: 'all', // all, active, inactive, deleted
-    jobType: 'all',
-    experienceLevel: 'all',
-    category: 'all',
-    location: 'all',
-    dateRange: 'all' // all, today, week, month
+    search: initialFilters.search || '',
+    status: initialFilters.status || 'all',
+    jobType: initialFilters.job_type || 'all',
+    experienceLevel: initialFilters.experience_level || 'all',
+    category: initialFilters.category || 'all',
+    location: initialFilters.location || 'all',
+    dateRange: initialFilters.date_range || 'all',
   });
 
-  // Get unique values for filters
+  // Get job listings array from paginated response
+  const jobListingItems = useMemo(() => {
+    if (Array.isArray(jobListings)) return jobListings;
+    if (jobListings && Array.isArray(jobListings.data)) return jobListings.data;
+    return [];
+  }, [jobListings]);
+
+  // Pagination info
+  const pagination = useMemo(() => {
+    if (jobListings && typeof jobListings === 'object' && 'current_page' in jobListings) {
+      return {
+        currentPage: jobListings.current_page,
+        lastPage: jobListings.last_page,
+        perPage: jobListings.per_page,
+        total: jobListings.total,
+        from: jobListings.from,
+        to: jobListings.to,
+        links: jobListings.links || [],
+      };
+    }
+    return null;
+  }, [jobListings]);
+
+  // Apply filters whenever filters change (with pagination)
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      router.get(route('backend.listing.index'), {
+        ...filters,
+        page: 1, // Reset to first page when filters change
+      }, {
+        preserveState: true,
+        preserveScroll: true,
+        replace: true,
+        onSuccess: (page) => {
+          setJobListings(page.props.jobListings);
+          setCurrentPage(1);
+        },
+      });
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [filters]);
+
+  // Keep local job listings in sync
+  useEffect(() => {
+    setJobListings(initialJobListings);
+    setCurrentPage(initialJobListings?.current_page || 1);
+  }, [initialJobListings]);
+
+  // Handle page change
+  const handlePageChange = (page) => {
+    if (page === pagination?.currentPage) return;
+    if (page < 1 || page > pagination?.lastPage) return;
+
+    router.get(route('backend.listing.index'), {
+      ...filters,
+      page: page,
+    }, {
+      preserveState: true,
+      preserveScroll: true,
+      replace: true,
+      onSuccess: (page) => {
+        setJobListings(page.props.jobListings);
+        setCurrentPage(page);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      },
+    });
+  };
+
+  // Get unique values for filters from all jobs (not just current page)
   const uniqueJobTypes = useMemo(() => {
     const types = new Set();
-    jobListings.forEach(job => {
+    jobListingItems.forEach(job => {
       if (job.job_type) types.add(job.job_type);
     });
     return Array.from(types);
-  }, [jobListings]);
+  }, [jobListingItems]);
 
   const uniqueExperienceLevels = useMemo(() => {
     const levels = new Set();
-    jobListings.forEach(job => {
+    jobListingItems.forEach(job => {
       if (job.experience_level) levels.add(job.experience_level);
     });
     return Array.from(levels);
-  }, [jobListings]);
+  }, [jobListingItems]);
 
   const uniqueCategories = useMemo(() => {
     const cats = new Set();
-    jobListings.forEach(job => {
+    jobListingItems.forEach(job => {
       if (job.category?.name) cats.add(job.category.name);
     });
     return Array.from(cats);
-  }, [jobListings]);
+  }, [jobListingItems]);
 
   const uniqueLocations = useMemo(() => {
     const locs = new Set();
-    jobListings.forEach(job => {
-      if (job.location?.name) locs.add(job.location.name);
+    jobListingItems.forEach(job => {
+      if (job.locations && Array.isArray(job.locations)) {
+        job.locations.forEach(location => {
+          if (location.name) locs.add(location.name);
+        });
+      }
     });
     return Array.from(locs);
-  }, [jobListings]);
+  }, [jobListingItems]);
 
-  // Filter jobs based on all filters
-  const filteredJobListings = useMemo(() => {
-    let filtered = [...jobListings];
-
-    // Search filter
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase();
-      filtered = filtered.filter(job =>
-        job.title.toLowerCase().includes(searchLower) ||
-        (job.category?.name && job.category.name.toLowerCase().includes(searchLower)) ||
-        (job.location?.name && job.location.name.toLowerCase().includes(searchLower)) ||
-        (job.salary && job.salary.toLowerCase().includes(searchLower))
-      );
-    }
-
-    // Status filter
-    if (filters.status !== 'all') {
-      filtered = filtered.filter(job => {
-        if (filters.status === 'active') return !job.deleted_at && job.is_active;
-        if (filters.status === 'inactive') return !job.deleted_at && !job.is_active;
-        if (filters.status === 'deleted') return job.deleted_at !== null;
-        return true;
-      });
-    }
-
-    // Job type filter
-    if (filters.jobType !== 'all') {
-      filtered = filtered.filter(job => job.job_type === filters.jobType);
-    }
-
-    // Experience level filter
-    if (filters.experienceLevel !== 'all') {
-      filtered = filtered.filter(job => job.experience_level === filters.experienceLevel);
-    }
-
-    // Category filter
-    if (filters.category !== 'all') {
-      filtered = filtered.filter(job => job.category?.name === filters.category);
-    }
-
-    // Location filter
-    if (filters.location !== 'all') {
-      filtered = filtered.filter(job => job.location?.name === filters.location);
-    }
-
-    // Date range filter
-    if (filters.dateRange !== 'all') {
-      const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-      filtered = filtered.filter(job => {
-        if (!job.application_deadline) return false;
-        const deadline = new Date(job.application_deadline);
-
-        if (filters.dateRange === 'today') {
-          return deadline >= today && deadline < new Date(today.getTime() + 86400000);
-        }
-        if (filters.dateRange === 'week') {
-          const weekFromNow = new Date(today.getTime() + 7 * 86400000);
-          return deadline >= today && deadline <= weekFromNow;
-        }
-        if (filters.dateRange === 'month') {
-          const monthFromNow = new Date(today.getTime() + 30 * 86400000);
-          return deadline >= today && deadline <= monthFromNow;
-        }
-        return true;
-      });
-    }
-
-    return filtered;
-  }, [jobListings, filters]);
-
-  // Sort jobs: Active first, then Inactive, then Deleted
+  // Sort jobs for display (client-side sorting on current page)
   const sortedJobListings = useMemo(() => {
-    return [...filteredJobListings].sort((a, b) => {
+    return [...jobListingItems].sort((a, b) => {
       const aIsTrashed = a.deleted_at !== null;
       const bIsTrashed = b.deleted_at !== null;
 
-      // Deleted jobs go to the bottom
       if (aIsTrashed && !bIsTrashed) return 1;
       if (!aIsTrashed && bIsTrashed) return -1;
 
-      // For non-deleted jobs, sort by active status
       if (!aIsTrashed && !bIsTrashed) {
-        // Active jobs first
         if (a.is_active && !b.is_active) return -1;
         if (!a.is_active && b.is_active) return 1;
-
-        // If both active or both inactive, sort by created_at (newest first)
         return new Date(b.created_at) - new Date(a.created_at);
       }
 
-      // For deleted jobs, sort by deleted_at (newest first)
       if (aIsTrashed && bIsTrashed) {
         return new Date(b.deleted_at) - new Date(a.deleted_at);
       }
 
       return 0;
     });
-  }, [filteredJobListings]);
+  }, [jobListingItems]);
 
-  // Count jobs by status
-  const activeCount = jobListings.filter(job => !job.deleted_at && job.is_active).length;
-  const inactiveCount = jobListings.filter(job => !job.deleted_at && !job.is_active).length;
-  const deletedCount = jobListings.filter(job => job.deleted_at).length;
+  // Count jobs by status (from current page only)
+  const activeCount = jobListingItems.filter(job => !job.deleted_at && job.is_active).length;
+  const inactiveCount = jobListingItems.filter(job => !job.deleted_at && !job.is_active).length;
+  const deletedCount = jobListingItems.filter(job => job.deleted_at).length;
 
-  // Bulk selection handlers
+  // Calculate total views across all jobs
+  const totalViewsAll = useMemo(() => {
+    return jobListingItems.reduce((sum, job) => sum + (job.views_count || 0), 0);
+  }, [jobListingItems]);
+
+  // Handle filter change
+  const handleFilterChange = (key, value) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+  };
+
+  // Reset all filters
+  const resetFilters = () => {
+    setFilters({
+      search: '',
+      status: 'all',
+      jobType: 'all',
+      experienceLevel: 'all',
+      category: 'all',
+      location: 'all',
+      dateRange: 'all',
+    });
+  };
+
+  // Check if any filter is active
+  const hasActiveFilters = () => {
+    return filters.search !== '' ||
+      filters.status !== 'all' ||
+      filters.jobType !== 'all' ||
+      filters.experienceLevel !== 'all' ||
+      filters.category !== 'all' ||
+      filters.location !== 'all' ||
+      filters.dateRange !== 'all';
+  };
+
+  // Bulk selection handlers (only for current page)
   const handleSelectAll = () => {
     const nonDeletedJobs = sortedJobListings.filter(job => !job.deleted_at);
     if (selectedJobs.length === nonDeletedJobs.length) {
@@ -212,6 +248,7 @@ export default function JobListingsIndex({ jobListings, flash }) {
     );
   };
 
+  // Bulk actions (same as before)
   const handleBulkActivate = () => {
     if (selectedJobs.length === 0) {
       Swal.fire('No Selection', 'Please select at least one job listing.', 'warning');
@@ -355,50 +392,7 @@ export default function JobListingsIndex({ jobListings, flash }) {
     });
   };
 
-  // Reset all filters
-  const resetFilters = () => {
-    setFilters({
-      search: '',
-      status: 'all',
-      jobType: 'all',
-      experienceLevel: 'all',
-      category: 'all',
-      location: 'all',
-      dateRange: 'all'
-    });
-  };
-
-  // Check if any filter is active
-  const hasActiveFilters = () => {
-    return filters.search !== '' ||
-      filters.status !== 'all' ||
-      filters.jobType !== 'all' ||
-      filters.experienceLevel !== 'all' ||
-      filters.category !== 'all' ||
-      filters.location !== 'all' ||
-      filters.dateRange !== 'all';
-  };
-
-  // Show flash messages
-  if (flash?.success) {
-    Swal.fire({
-      icon: 'success',
-      title: 'Success!',
-      text: flash.success,
-      timer: 2000,
-      showConfirmButton: false,
-    });
-  }
-
-  if (flash?.error) {
-    Swal.fire({
-      icon: 'error',
-      title: 'Error!',
-      text: flash.error,
-      confirmButtonColor: '#2563eb',
-    });
-  }
-
+  // Single job actions
   const handleDelete = (id) => {
     Swal.fire({
       title: 'Delete job listing?',
@@ -423,6 +417,7 @@ export default function JobListingsIndex({ jobListings, flash }) {
               timer: 1500,
               showConfirmButton: false,
             });
+            router.reload();
           },
           onError: (errors) => {
             Swal.fire({
@@ -462,6 +457,7 @@ export default function JobListingsIndex({ jobListings, flash }) {
               timer: 1500,
               showConfirmButton: false,
             });
+            router.reload();
           },
           onError: (errors) => {
             Swal.fire({
@@ -503,7 +499,6 @@ export default function JobListingsIndex({ jobListings, flash }) {
             });
           },
           onError: (error) => {
-            console.error('Toggle error:', error);
             Swal.fire({
               icon: 'error',
               title: 'Update Failed',
@@ -517,6 +512,7 @@ export default function JobListingsIndex({ jobListings, flash }) {
     });
   };
 
+  // Helper functions
   const formatDate = (date) => {
     if (!date) return 'N/A';
     return new Date(date).toLocaleDateString('en-US', {
@@ -531,9 +527,9 @@ export default function JobListingsIndex({ jobListings, flash }) {
       'full-time': 'bg-green-100 text-green-800',
       'part-time': 'bg-yellow-100 text-yellow-800',
       'contract': 'bg-blue-100 text-blue-800',
-      'freelance': 'bg-purple-100 text-purple-800',
       'internship': 'bg-orange-100 text-orange-800',
-      'remote': 'bg-indigo-100 text-indigo-800'
+      'remote': 'bg-indigo-100 text-indigo-800',
+      'hybrid': 'bg-purple-100 text-purple-800'
     };
     return types[type] || 'bg-gray-100 text-gray-800';
   };
@@ -542,18 +538,147 @@ export default function JobListingsIndex({ jobListings, flash }) {
     const levels = {
       'entry': 'bg-blue-100 text-blue-800',
       'junior': 'bg-cyan-100 text-cyan-800',
-      'mid': 'bg-teal-100 text-teal-800',
+      'mid-level': 'bg-teal-100 text-teal-800',
       'senior': 'bg-purple-100 text-purple-800',
       'lead': 'bg-orange-100 text-orange-800',
-      'executive': 'bg-red-100 text-red-800',
-      'intern': 'bg-gray-100 text-gray-800'
+      'executive': 'bg-red-100 text-red-800'
     };
     return levels[level] || 'bg-gray-100 text-gray-800';
   };
 
-  const isTrashed = (job) => {
-    return job.deleted_at !== null;
+  const getSalaryRange = (job) => {
+    if (job.as_per_companies_policy) {
+      return 'As per company policy';
+    }
+    if (job.is_salary_negotiable) {
+      return 'Negotiable';
+    }
+    if (job.salary_min && job.salary_max) {
+      return `${job.salary_min.toLocaleString()} - ${job.salary_max.toLocaleString()} BDT`;
+    }
+    if (job.salary_min) {
+      return `From ${job.salary_min.toLocaleString()} BDT`;
+    }
+    return null;
   };
+
+  const formatLocations = (locations) => {
+    if (!locations || locations.length === 0) return 'N/A';
+    if (locations.length === 1) return locations[0].name;
+    return `${locations[0].name} +${locations.length - 1}`;
+  };
+
+  // Pagination component
+  const Pagination = () => {
+    if (!pagination || pagination.lastPage <= 1) return null;
+
+    const pages = [];
+    const maxVisible = 5;
+    let startPage = Math.max(1, pagination.currentPage - Math.floor(maxVisible / 2));
+    let endPage = Math.min(pagination.lastPage, startPage + maxVisible - 1);
+
+    if (endPage - startPage + 1 < maxVisible) {
+      startPage = Math.max(1, endPage - maxVisible + 1);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
+
+    return (
+      <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 bg-gray-50">
+        <div className="text-sm text-gray-500">
+          Showing <span className="font-medium">{pagination.from || 0}</span> to{' '}
+          <span className="font-medium">{pagination.to || 0}</span> of{' '}
+          <span className="font-medium">{pagination.total}</span> results
+        </div>
+
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => handlePageChange(pagination.currentPage - 1)}
+            disabled={pagination.currentPage === 1}
+            className={`px-3 py-1.5 rounded-lg text-sm flex items-center gap-1 transition ${pagination.currentPage === 1
+              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+              }`}
+          >
+            <FaChevronLeft size={12} />
+            Previous
+          </button>
+
+          {startPage > 1 && (
+            <>
+              <button
+                onClick={() => handlePageChange(1)}
+                className="px-3 py-1.5 rounded-lg text-sm bg-white text-gray-700 hover:bg-gray-100 border border-gray-300 transition"
+              >
+                1
+              </button>
+              {startPage > 2 && <span className="px-2 text-gray-400">...</span>}
+            </>
+          )}
+
+          {pages.map(page => (
+            <button
+              key={page}
+              onClick={() => handlePageChange(page)}
+              className={`px-3 py-1.5 rounded-lg text-sm transition ${page === pagination.currentPage
+                ? 'bg-blue-600 text-white'
+                : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+                }`}
+            >
+              {page}
+            </button>
+          ))}
+
+          {endPage < pagination.lastPage && (
+            <>
+              {endPage < pagination.lastPage - 1 && <span className="px-2 text-gray-400">...</span>}
+              <button
+                onClick={() => handlePageChange(pagination.lastPage)}
+                className="px-3 py-1.5 rounded-lg text-sm bg-white text-gray-700 hover:bg-gray-100 border border-gray-300 transition"
+              >
+                {pagination.lastPage}
+              </button>
+            </>
+          )}
+
+          <button
+            onClick={() => handlePageChange(pagination.currentPage + 1)}
+            disabled={pagination.currentPage === pagination.lastPage}
+            className={`px-3 py-1.5 rounded-lg text-sm flex items-center gap-1 transition ${pagination.currentPage === pagination.lastPage
+              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+              }`}
+          >
+            Next
+            <FaChevronRight size={12} />
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // Show flash messages
+  useEffect(() => {
+    if (flash?.success) {
+      Swal.fire({
+        icon: 'success',
+        title: 'Success!',
+        text: flash.success,
+        timer: 2000,
+        showConfirmButton: false,
+      });
+    }
+    if (flash?.error) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error!',
+        text: flash.error,
+        confirmButtonColor: '#2563eb',
+      });
+    }
+  }, [flash]);
 
   return (
     <AuthenticatedLayout>
@@ -570,8 +695,7 @@ export default function JobListingsIndex({ jobListings, flash }) {
               <p className="text-sm text-gray-500 mt-1">
                 Manage all job postings in one place
               </p>
-              {/* Status counters */}
-              <div className="flex gap-3 mt-2">
+              <div className="flex gap-3 mt-2 flex-wrap">
                 <span className="inline-flex items-center gap-1 text-xs">
                   <span className="w-2 h-2 rounded-full bg-green-500"></span>
                   Active: {activeCount}
@@ -584,10 +708,20 @@ export default function JobListingsIndex({ jobListings, flash }) {
                   <span className="w-2 h-2 rounded-full bg-gray-400"></span>
                   Deleted: {deletedCount}
                 </span>
+                <span className="inline-flex items-center gap-1 text-xs">
+                  <FaEye className="text-blue-500" size={12} />
+                  Total Views: {totalViewsAll.toLocaleString()}
+                </span>
                 {hasActiveFilters() && (
                   <span className="inline-flex items-center gap-1 text-xs text-blue-600">
                     <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                    Filtered: {sortedJobListings.length}
+                    Filtered
+                  </span>
+                )}
+                {pagination && (
+                  <span className="inline-flex items-center gap-1 text-xs text-gray-500">
+                    <span className="w-2 h-2 rounded-full bg-gray-400"></span>
+                    Total: {pagination.total}
                   </span>
                 )}
               </div>
@@ -690,7 +824,7 @@ export default function JobListingsIndex({ jobListings, flash }) {
                     <input
                       type="text"
                       value={filters.search}
-                      onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                      onChange={(e) => handleFilterChange('search', e.target.value)}
                       placeholder="Search by title, category..."
                       className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
@@ -702,7 +836,7 @@ export default function JobListingsIndex({ jobListings, flash }) {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
                   <select
                     value={filters.status}
-                    onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+                    onChange={(e) => handleFilterChange('status', e.target.value)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="all">All Statuses</option>
@@ -717,7 +851,7 @@ export default function JobListingsIndex({ jobListings, flash }) {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Job Type</label>
                   <select
                     value={filters.jobType}
-                    onChange={(e) => setFilters({ ...filters, jobType: e.target.value })}
+                    onChange={(e) => handleFilterChange('jobType', e.target.value)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="all">All Types</option>
@@ -732,7 +866,7 @@ export default function JobListingsIndex({ jobListings, flash }) {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Experience Level</label>
                   <select
                     value={filters.experienceLevel}
-                    onChange={(e) => setFilters({ ...filters, experienceLevel: e.target.value })}
+                    onChange={(e) => handleFilterChange('experienceLevel', e.target.value)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="all">All Levels</option>
@@ -747,7 +881,7 @@ export default function JobListingsIndex({ jobListings, flash }) {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
                   <select
                     value={filters.category}
-                    onChange={(e) => setFilters({ ...filters, category: e.target.value })}
+                    onChange={(e) => handleFilterChange('category', e.target.value)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="all">All Categories</option>
@@ -762,7 +896,7 @@ export default function JobListingsIndex({ jobListings, flash }) {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
                   <select
                     value={filters.location}
-                    onChange={(e) => setFilters({ ...filters, location: e.target.value })}
+                    onChange={(e) => handleFilterChange('location', e.target.value)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="all">All Locations</option>
@@ -777,7 +911,7 @@ export default function JobListingsIndex({ jobListings, flash }) {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Application Deadline</label>
                   <select
                     value={filters.dateRange}
-                    onChange={(e) => setFilters({ ...filters, dateRange: e.target.value })}
+                    onChange={(e) => handleFilterChange('dateRange', e.target.value)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="all">Any Time</option>
@@ -809,10 +943,13 @@ export default function JobListingsIndex({ jobListings, flash }) {
                       Job Details
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Location
+                      Location(s)
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Type & Level
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Views & Apps
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Deadline
@@ -829,7 +966,7 @@ export default function JobListingsIndex({ jobListings, flash }) {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {sortedJobListings.length === 0 && (
                     <tr>
-                      <td colSpan="7" className="text-center py-16">
+                      <td colSpan="8" className="text-center py-16">
                         <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                           <FaBriefcase className="h-10 w-10 text-gray-400" />
                         </div>
@@ -853,8 +990,10 @@ export default function JobListingsIndex({ jobListings, flash }) {
                   )}
 
                   {sortedJobListings.map((job, index) => {
-                    const trashed = isTrashed(job);
+                    const trashed = job.deleted_at !== null;
                     const applicationsCount = job.applications_count || 0;
+                    const viewsCount = job.views_count || 0;
+                    const salaryDisplay = getSalaryRange(job);
 
                     return (
                       <tr
@@ -862,7 +1001,6 @@ export default function JobListingsIndex({ jobListings, flash }) {
                         className={`hover:bg-gray-50 transition-all duration-200 animate-fade-in ${trashed ? 'bg-gray-50 opacity-75' : ''} ${selectedJobs.includes(job.id) ? 'bg-blue-50' : ''}`}
                         style={{ animationDelay: `${index * 50}ms` }}
                       >
-                        {/* Checkbox - Only for non-deleted jobs */}
                         <td className="px-4 py-4">
                           {!trashed && (
                             <input
@@ -887,23 +1025,28 @@ export default function JobListingsIndex({ jobListings, flash }) {
                               <div className={`text-sm mt-1 ${trashed ? 'text-gray-400' : 'text-gray-500'}`}>
                                 {job.category?.name || 'N/A'}
                               </div>
-                              {job.salary && (
+                              {salaryDisplay && (
                                 <div className={`text-xs mt-1 font-medium ${trashed ? 'text-gray-400' : 'text-green-600'}`}>
-                                  {job.salary}
+                                  {salaryDisplay}
                                 </div>
                               )}
                             </div>
                           </div>
                         </td>
 
-                        {/* LOCATION */}
+                        {/* LOCATION(S) */}
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
                             <FaMapMarkerAlt className={trashed ? 'text-gray-400' : 'text-gray-400'} size={14} />
                             <span className={`text-sm ${trashed ? 'text-gray-400' : 'text-gray-700'}`}>
-                              {job.location?.name || 'N/A'}
+                              {formatLocations(job.locations)}
                             </span>
                           </div>
+                          {job.locations && job.locations.length > 1 && (
+                            <div className="text-xs text-gray-400 mt-1">
+                              {job.locations.map(loc => loc.name).join(', ')}
+                            </div>
+                          )}
                         </td>
 
                         {/* TYPE & LEVEL */}
@@ -933,6 +1076,18 @@ export default function JobListingsIndex({ jobListings, flash }) {
                           </div>
                         </td>
 
+                        {/* VIEWS */}
+                        <td className="px-6 py-4">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <FaEye className={`text-sm ${trashed ? 'text-gray-400' : 'text-blue-500'}`} size={14} />
+                              <span className={`text-sm font-medium ${trashed ? 'text-gray-400' : 'text-gray-700'}`}>
+                                {viewsCount.toLocaleString()} views
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+
                         {/* DEADLINE */}
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
@@ -941,7 +1096,7 @@ export default function JobListingsIndex({ jobListings, flash }) {
                               {formatDate(job.application_deadline)}
                             </span>
                           </div>
-                          {!trashed && new Date(job.application_deadline) < new Date() && job.is_active && (
+                          {!trashed && job.application_deadline && new Date(job.application_deadline) < new Date() && job.is_active && (
                             <span className="text-xs text-red-500 mt-1 block">
                               Expired
                             </span>
@@ -983,7 +1138,6 @@ export default function JobListingsIndex({ jobListings, flash }) {
                         {/* ACTIONS */}
                         <td className="px-6 py-4 whitespace-nowrap text-right">
                           <div className="flex justify-end gap-2">
-                            {/* VIEW APPLICATIONS - Only for non-deleted jobs with badge */}
                             {!trashed && (
                               <a
                                 href={route('backend.listing.applications', job.id)}
@@ -999,7 +1153,6 @@ export default function JobListingsIndex({ jobListings, flash }) {
                               </a>
                             )}
 
-                            {/* VIEW DETAILS */}
                             <a
                               href={route('backend.listing.show', job.id)}
                               className={`p-2 rounded-lg transition-all duration-200 ${trashed
@@ -1011,7 +1164,6 @@ export default function JobListingsIndex({ jobListings, flash }) {
                               <FaEye size={18} />
                             </a>
 
-                            {/* EDIT BUTTON - Only for non-deleted jobs */}
                             {!trashed && (
                               <a
                                 href={route('backend.listing.edit', job.id)}
@@ -1022,7 +1174,6 @@ export default function JobListingsIndex({ jobListings, flash }) {
                               </a>
                             )}
 
-                            {/* RESTORE BUTTON - Only for deleted jobs */}
                             {trashed && (
                               <button
                                 onClick={() => handleRestore(job.id)}
@@ -1039,7 +1190,6 @@ export default function JobListingsIndex({ jobListings, flash }) {
                               </button>
                             )}
 
-                            {/* DELETE BUTTON - Only for non-deleted jobs */}
                             {!trashed && (
                               <button
                                 onClick={() => handleDelete(job.id)}
@@ -1063,6 +1213,9 @@ export default function JobListingsIndex({ jobListings, flash }) {
                 </tbody>
               </table>
             </div>
+
+            {/* PAGINATION */}
+            <Pagination />
           </div>
         </div>
       </div>

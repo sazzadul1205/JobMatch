@@ -1,22 +1,27 @@
 <?php
 // app/Http/Controllers/ApplicantProfileController.php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Profile;
 
-use App\Models\ApplicantProfile;
+// Inertia
+use Inertia\Inertia;
+use Illuminate\Support\Str;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Auth;
+use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
+
+// Models
 use App\Models\User;
 use App\Models\JobHistory;
-use App\Models\EducationHistory;
 use App\Models\Achievement;
 use App\Models\ApplicantCv;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
-use Inertia\Inertia;
+use App\Models\ApplicantProfile;
+use App\Models\EducationHistory;
+
 
 class ApplicantProfileController extends Controller
 {

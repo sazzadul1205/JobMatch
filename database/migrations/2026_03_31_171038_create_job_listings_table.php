@@ -31,6 +31,7 @@ return new class extends Migration
             // Education requirement & experience level
             $table->string('experience_level');
             $table->string('education_requirement')->nullable();
+            $table->string("education_details")->nullable();
 
             // JSON fields for multiple items
             $table->json('benefits')->nullable();

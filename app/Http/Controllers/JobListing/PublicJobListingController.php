@@ -1,20 +1,27 @@
 <?php
-// app/Http/Controllers/PublicJobListingController.php
+// app/Http/Controllers/JobListing/PublicJobListingController.php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\JobListing;
 
-use App\Models\JobListing;
-use App\Models\JobCategory;
-use App\Models\Location;
+// Inertia
+use Inertia\Inertia;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Inertia\Inertia;
+use App\Http\Controllers\Controller;
+
+// Models
+use App\Models\JobView;
+use App\Models\Location;
+use App\Models\JobListing;
+use App\Models\JobCategory;
+
 
 class PublicJobListingController extends Controller
 {
     /**
      * Display public job listings for applicants
      * Only shows active, non-deleted jobs with valid deadlines
+     * Fully queryable with filters and sorting
      */
     public function index(Request $request)
     {
@@ -22,32 +29,33 @@ class PublicJobListingController extends Controller
         $query = JobListing::where('is_active', true)
             ->whereNull('deleted_at')
             ->where('application_deadline', '>=', now())
-            ->with(['category', 'location']);
+            ->with(['category', 'locations', 'employer']);
 
         // Search filter
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('title', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%")
                     ->orWhereHas('category', function ($cat) use ($search) {
                         $cat->where('name', 'like', "%{$search}%");
                     })
-                    ->orWhereHas('location', function ($loc) use ($search) {
+                    ->orWhereHas('locations', function ($loc) use ($search) {
                         $loc->where('name', 'like', "%{$search}%");
                     });
             });
         }
 
-        // Category filter
+        // Category filter (by slug)
         if ($request->filled('category')) {
             $query->whereHas('category', function ($q) use ($request) {
                 $q->where('slug', $request->category);
             });
         }
 
-        // Location filter
+        // Location filter (by slug)
         if ($request->filled('location')) {
-            $query->whereHas('location', function ($q) use ($request) {
+            $query->whereHas('locations', function ($q) use ($request) {
                 $q->where('slug', $request->location);
             });
         }
@@ -62,9 +70,12 @@ class PublicJobListingController extends Controller
             $query->where('experience_level', $request->experience_level);
         }
 
-        // Salary filter
+        // Salary range filters
         if ($request->filled('salary_min')) {
-            $query->where('salary', '>=', $request->salary_min);
+            $query->where('salary_min', '>=', $request->salary_min);
+        }
+        if ($request->filled('salary_max')) {
+            $query->where('salary_max', '<=', $request->salary_max);
         }
 
         // Sorting
@@ -81,6 +92,12 @@ class PublicJobListingController extends Controller
                 break;
             case 'deadline_later':
                 $query->orderBy('application_deadline', 'desc');
+                break;
+            case 'salary_high':
+                $query->orderBy('salary_max', 'desc');
+                break;
+            case 'salary_low':
+                $query->orderBy('salary_min', 'asc');
                 break;
             default:
                 $query->orderBy('created_at', 'desc');
@@ -102,19 +119,18 @@ class PublicJobListingController extends Controller
                 ->where('application_deadline', '>=', now());
         }])->active()->orderBy('name')->get();
 
-        // Get unique job types for filter
-        $jobTypes = JobListing::where('is_active', true)
-            ->whereNull('deleted_at')
-            ->where('application_deadline', '>=', now())
-            ->distinct()
-            ->pluck('job_type');
+        // Get unique job types for filter (using the static property from model)
+        $jobTypes = JobListing::$jobTypes;
 
-        // Get unique experience levels for filter
-        $experienceLevels = JobListing::where('is_active', true)
+        // Get unique experience levels for filter (using the static property from model)
+        $experienceLevels = JobListing::$experienceLevels;
+
+        // Get salary range for filtering
+        $salaryStats = JobListing::where('is_active', true)
             ->whereNull('deleted_at')
             ->where('application_deadline', '>=', now())
-            ->distinct()
-            ->pluck('experience_level');
+            ->selectRaw('MIN(salary_min) as min_salary, MAX(salary_max) as max_salary')
+            ->first();
 
         return Inertia::render('Backend/PublicJobListing/Index', [
             'jobListings' => $jobListings,
@@ -122,12 +138,25 @@ class PublicJobListingController extends Controller
             'locations' => $locations,
             'jobTypes' => $jobTypes,
             'experienceLevels' => $experienceLevels,
-            'filters' => $request->only(['search', 'category', 'location', 'job_type', 'experience_level', 'sort'])
+            'salaryRange' => [
+                'min' => $salaryStats->min_salary ?? 0,
+                'max' => $salaryStats->max_salary ?? 1000000,
+            ],
+            'filters' => $request->only([
+                'search',
+                'category',
+                'location',
+                'job_type',
+                'experience_level',
+                'salary_min',
+                'salary_max',
+                'sort'
+            ])
         ]);
     }
 
     /**
-     * Display a single job listing
+     * Display a single job listing and register a view
      */
     public function show($slug)
     {
@@ -135,12 +164,46 @@ class PublicJobListingController extends Controller
             ->where('is_active', true)
             ->whereNull('deleted_at')
             ->where('application_deadline', '>=', now())
-            ->with(['category', 'location', 'user'])
+            ->with(['category', 'locations', 'employer'])
             ->firstOrFail();
 
-        return Inertia::render('Backend/PublicJobListing/Show', [
+        $ipAddress = request()->ip();
+        $alreadyViewed = JobView::where('job_listing_id', $jobListing->id)
+            ->where('ip_address', $ipAddress)
+            ->exists();
+
+        if (!$alreadyViewed) {
+            JobView::recordView($jobListing->id, Auth::id(), $ipAddress);
+            $jobListing->incrementViews();
+        }
+
+        // Check if current user has already applied
+        $hasApplied = false;
+        $existingApplication = null;
+
+        if (Auth::check()) {
+            $existingApplication = $jobListing->applications()
+                ->where('user_id', Auth::id())
+                ->first();
+            $hasApplied = !is_null($existingApplication);
+        }
+
+        // Get related jobs (same category)
+        $relatedJobs = JobListing::where('category_id', $jobListing->category_id)
+            ->where('id', '!=', $jobListing->id)
+            ->where('is_active', true)
+            ->whereNull('deleted_at')
+            ->where('application_deadline', '>=', now())
+            ->with(['category', 'locations'])
+            ->limit(3)
+            ->get();
+
+        return Inertia::render('Public/JobListings/Show', [
             'jobListing' => $jobListing,
             'userData' => Auth::user(),
+            'hasApplied' => $hasApplied,
+            'existingApplication' => $existingApplication,
+            'relatedJobs' => $relatedJobs,
         ]);
     }
 }

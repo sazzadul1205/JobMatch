@@ -1,24 +1,29 @@
 <?php
-// app/Http/Controllers/ProfileCompletionController.php
+// app/Http/Controllers/Profile/ProfileCompletionController.php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Profile;
 
+// inertia
 use Inertia\Inertia;
 use Inertia\Response;
-use App\Models\ApplicantCv;
+use Illuminate\Support\Str;
+use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
+use App\Http\Controllers\Controller;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
+
+// models
 use App\Models\JobHistory;
 use App\Models\Achievement;
-use Illuminate\Http\Request;
+use App\Models\ApplicantCv;
 use App\Models\ApplicantProfile;
 use App\Models\EducationHistory;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
+
 
 class ProfileCompletionController extends Controller
 {
@@ -33,6 +38,10 @@ class ProfileCompletionController extends Controller
     public function show(): Response|RedirectResponse
     {
         $user = Auth::user();
+
+        if ($user && $user->role !== 'job_seeker') {
+            return redirect()->route('dashboard');
+        }
 
         $profile = ApplicantProfile::with(['cvs', 'jobHistories', 'educationHistories', 'achievements'])
             ->where('user_id', $user->id)
@@ -53,6 +62,10 @@ class ProfileCompletionController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $user = Auth::user();
+
+        if ($user && $user->role !== 'job_seeker') {
+            return redirect()->route('dashboard');
+        }
 
         $validated = $request->validate([
             // Basic Info

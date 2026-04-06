@@ -2,18 +2,24 @@
 
 // routes/web.php
 
-
-use App\Http\Controllers\ApplicantProfileController;
-use App\Http\Controllers\ProfileCompletionController;
-use Illuminate\Support\Facades\Route;
+// Inertia
 use Inertia\Inertia;
-use App\Http\Controllers\JobListingController;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Foundation\Auth\EmailVerificationRequest;
+
+// Controllers - Job Listings
+use App\Http\Controllers\JobListing\JobListingController;
+use App\Http\Controllers\JobListing\PublicJobListingController;
+
+// Controllers - Profile
+use App\Http\Controllers\Profile\ApplicantProfileController;
+use App\Http\Controllers\Profile\ProfileCompletionController;
+
+// Controllers
+use App\Http\Controllers\LocationController;
 use App\Http\Controllers\ApplicationController;
 use App\Http\Controllers\JobCategoryController;
-use App\Http\Controllers\LocationController;
-use App\Http\Controllers\PublicJobListingController;
-use Illuminate\Http\Request;
-use Illuminate\Foundation\Auth\EmailVerificationRequest;
 
 /*
 |--------------------------------------------------------------------------
@@ -26,9 +32,9 @@ Route::get('/', function () {
     return Inertia::render('welcome');
 })->name('home');
 
-// Public job listings (no auth)
-Route::get('/jobs', [JobListingController::class, 'publicIndex'])->name('jobs.public');
-Route::get('/jobs/{jobListing}', [JobListingController::class, 'publicShow'])->name('jobs.show.public');
+// Public job listings (no auth) - Using PublicJobListingController
+Route::get('/jobs', [PublicJobListingController::class, 'index'])->name('public.jobs.index');
+Route::get('/jobs/{slug}', [PublicJobListingController::class, 'show'])->name('public.jobs.show');
 
 /*
 |--------------------------------------------------------------------------
@@ -37,20 +43,12 @@ Route::get('/jobs/{jobListing}', [JobListingController::class, 'publicShow'])->n
 */
 
 Route::middleware(['auth'])->group(function () {
-    Route::get('/complete-profile', [ProfileCompletionController::class, 'show'])
-        ->name('profile.complete');
-    Route::get('/profile/photo/{path}', [ApplicantProfileController::class, 'photo'])
-        ->where('path', '.*')
-        ->name('profile.photo');
-    Route::post('/profile/complete', [ProfileCompletionController::class, 'store'])
-        ->name('profile.complete.store');
-    Route::post('/profile/cv', [ProfileCompletionController::class, 'uploadCv'])
-        ->middleware('throttle:profile-cv')
-        ->name('profile.cv.upload');
-    Route::delete('/profile/cv/{cv}', [ProfileCompletionController::class, 'destroyCv'])
-        ->name('profile.cv.destroy');
-    Route::patch('/profile/cv/{cv}/primary', [ProfileCompletionController::class, 'setPrimaryCv'])
-        ->name('profile.cv.primary');
+    Route::get('/complete-profile', [ProfileCompletionController::class, 'show'])->name('profile.complete');
+    Route::get('/profile/photo/{path}', [ApplicantProfileController::class, 'photo'])->where('path', '.*')->name('profile.photo');
+    Route::post('/profile/complete', [ProfileCompletionController::class, 'store'])->name('profile.complete.store');
+    Route::post('/profile/cv', [ProfileCompletionController::class, 'uploadCv'])->middleware('throttle:profile-cv')->name('profile.cv.upload');
+    Route::delete('/profile/cv/{cv}', [ProfileCompletionController::class, 'destroyCv'])->name('profile.cv.destroy');
+    Route::patch('/profile/cv/{cv}/primary', [ProfileCompletionController::class, 'setPrimaryCv'])->name('profile.cv.primary');
 });
 
 
@@ -126,8 +124,6 @@ Route::middleware(['auth', 'verified', 'profile.complete'])->group(function () {
             Route::delete('{jobListing}/force-delete', [JobListingController::class, 'forceDelete'])->name('force-delete');
             Route::get('{jobListing}/applications', [JobListingController::class, 'applications'])->name('applications');
 
-
-
             // Add these routes inside your backend.listing group
             Route::post('/bulk-activate', [JobListingController::class, 'bulkActivate'])->name('bulk-activate');
             Route::post('/bulk-deactivate', [JobListingController::class, 'bulkDeactivate'])->name('bulk-deactivate');
@@ -145,7 +141,7 @@ Route::middleware(['auth', 'verified', 'profile.complete'])->group(function () {
 
         /*
     |--------------------------------------------------------------------------
-    | Public Job Listings Management
+    | Public Job Listings Management (Backend viewing)
     |--------------------------------------------------------------------------
     */
         Route::prefix('public-jobs')->name('public-jobs.')->group(function () {
@@ -160,10 +156,6 @@ Route::middleware(['auth', 'verified', 'profile.complete'])->group(function () {
 */
         Route::prefix('applicant')->name('applicant.')->group(function () {
 
-            Route::get('/profile/create', [ApplicantProfileController::class, 'create'])->name('profile.create');
-            Route::post('/profile', [ApplicantProfileController::class, 'store'])->name('profile.store');
-            Route::get('/profile/{applicantProfile}/edit', [ApplicantProfileController::class, 'edit'])->name('profile.edit');
-            Route::put('/profile/{applicantProfile}', [ApplicantProfileController::class, 'update'])->name('profile.update');
             Route::delete('/profile/{applicantProfile}', [ApplicantProfileController::class, 'destroy'])->name('profile.destroy');
             Route::get('/profile/{applicantProfile}/download-cv', [ApplicantProfileController::class, 'downloadCV'])->name('profile.download-cv');
             Route::post('/profile/{id}/restore', [ApplicantProfileController::class, 'restore'])->name('profile.restore');
@@ -280,8 +272,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/applications/bulk-send-emails', [ApplicationController::class, 'sendBulkEmails'])
         ->name('backend.applications.bulk-send-emails');
 });
-
-
 
 /*
 |--------------------------------------------------------------------------
