@@ -39,6 +39,16 @@ const CVUpload = ({ data, setData }) => {
   const [numPages, setNumPages] = useState(null);
   const [pdfError, setPdfError] = useState(false);
 
+  useEffect(() => {
+    return () => {
+      data.cvs.forEach((cv) => {
+        if (cv.preview_url) {
+          URL.revokeObjectURL(cv.preview_url);
+        }
+      });
+    };
+  }, []);
+
   const handleDrag = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -65,15 +75,6 @@ const CVUpload = ({ data, setData }) => {
     if (files && files[0]) {
       await uploadCV(files[0]);
     }
-  };
-
-  const readFileAsDataURL = (file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
   };
 
   const uploadCV = async (file) => {
@@ -130,20 +131,21 @@ const CVUpload = ({ data, setData }) => {
       }
 
       const result = await response.json();
-
-      const fileData = await readFileAsDataURL(file);
+      const previewUrl = URL.createObjectURL(file);
 
       const newCv = {
         id: result.id,
         name: result.original_name,
         size: result.size,
         type: result.type,
-        data: fileData,
+        preview_url: previewUrl,
         original_name: result.original_name,
         order_position: result.order_position,
         is_primary: result.is_primary,
         upload_date: result.upload_date || new Date().toISOString(),
         status: result.status,
+        cv_path: result.cv_path,
+        url: result.url || null,
       };
 
       setData('cvs', [...data.cvs, newCv]);
@@ -187,6 +189,10 @@ const CVUpload = ({ data, setData }) => {
               'X-Requested-With': 'XMLHttpRequest',
             },
           });
+        }
+
+        if (cvToRemove?.preview_url) {
+          URL.revokeObjectURL(cvToRemove.preview_url);
         }
 
         const newCVs = data.cvs.filter((_, i) => i !== index);
@@ -440,7 +446,7 @@ const CVUpload = ({ data, setData }) => {
             <div className="p-6">
               {!pdfError ? (
                 <Document
-                  file={previewCv.data}
+                  file={previewCv.preview_url || previewCv.url || `/storage/${previewCv.cv_path}`}
                   onLoadSuccess={onDocumentLoadSuccess}
                   onLoadError={onDocumentLoadError}
                   loading={
@@ -458,7 +464,7 @@ const CVUpload = ({ data, setData }) => {
                         onClick={() => {
                           // Create download link
                           const link = document.createElement('a');
-                          link.href = previewCv.data;
+                          link.href = previewCv.url || `/storage/${previewCv.cv_path}`;
                           link.download = previewCv.original_name;
                           link.click();
                         }}
@@ -533,7 +539,7 @@ const CVUpload = ({ data, setData }) => {
                 onClick={() => {
                   // Create download link
                   const link = document.createElement('a');
-                  link.href = previewCv.data;
+                  link.href = previewCv.url || `/storage/${previewCv.cv_path}`;
                   link.download = previewCv.original_name;
                   link.click();
                 }}

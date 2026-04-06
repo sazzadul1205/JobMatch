@@ -43,16 +43,110 @@ class ProfileCompletionController extends Controller
             return redirect()->route('dashboard');
         }
 
-        $profile = ApplicantProfile::with(['cvs', 'jobHistories', 'educationHistories', 'achievements'])
-            ->where('user_id', $user->id)
-            ->first();
+        $profile = ApplicantProfile::where('user_id', $user->id)->first();
 
         if ($profile && method_exists($profile, 'isComplete') && $profile->isComplete()) {
             return redirect()->route('dashboard');
         }
 
+        $profileData = null;
+        if ($profile) {
+            $profile->load([
+                'cvs' => function ($query) {
+                    $query->select([
+                        'id',
+                        'applicant_profile_id',
+                        'original_name',
+                        'status',
+                        'is_primary',
+                        'order_position',
+                        'created_at',
+                        'cv_path',
+                    ])->orderBy('order_position');
+                },
+                'jobHistories' => function ($query) {
+                    $query->select([
+                        'id',
+                        'applicant_profile_id',
+                        'company_name',
+                        'position',
+                        'starting_year',
+                        'ending_year',
+                        'is_current',
+                    ])->orderBy('starting_year', 'desc');
+                },
+                'educationHistories' => function ($query) {
+                    $query->select([
+                        'id',
+                        'applicant_profile_id',
+                        'institution_name',
+                        'degree',
+                        'passing_year',
+                    ])->orderBy('passing_year', 'desc');
+                },
+                'achievements' => function ($query) {
+                    $query->select([
+                        'id',
+                        'applicant_profile_id',
+                        'achievement_name',
+                        'achievement_details',
+                    ])->orderBy('created_at', 'desc');
+                },
+            ]);
+
+            $profileData = [
+                'id' => $profile->id,
+                'first_name' => $profile->first_name,
+                'last_name' => $profile->last_name,
+                'birth_date' => $profile->birth_date?->format('Y-m-d'),
+                'gender' => $profile->gender,
+                'blood_type' => $profile->blood_type,
+                'phone' => $profile->phone,
+                'address' => $profile->address,
+                'social_links' => $profile->social_links ?? [],
+                'experience_years' => $profile->experience_years,
+                'current_job_title' => $profile->current_job_title,
+                'cvs' => $profile->cvs->map(function ($cv) {
+                    return [
+                        'id' => $cv->id,
+                        'original_name' => $cv->original_name,
+                        'status' => $cv->status,
+                        'is_primary' => $cv->is_primary,
+                        'order_position' => $cv->order_position,
+                        'upload_date' => $cv->created_at?->toISOString(),
+                        'cv_path' => $cv->cv_path,
+                    ];
+                })->values(),
+                'job_histories' => $profile->jobHistories->map(function ($job) {
+                    return [
+                        'id' => $job->id,
+                        'company_name' => $job->company_name,
+                        'position' => $job->position,
+                        'starting_year' => $job->starting_year,
+                        'ending_year' => $job->ending_year,
+                        'is_current' => $job->is_current,
+                    ];
+                })->values(),
+                'education_histories' => $profile->educationHistories->map(function ($edu) {
+                    return [
+                        'id' => $edu->id,
+                        'institution_name' => $edu->institution_name,
+                        'degree' => $edu->degree,
+                        'passing_year' => $edu->passing_year,
+                    ];
+                })->values(),
+                'achievements' => $profile->achievements->map(function ($ach) {
+                    return [
+                        'id' => $ach->id,
+                        'achievement_name' => $ach->achievement_name,
+                        'achievement_details' => $ach->achievement_details,
+                    ];
+                })->values(),
+            ];
+        }
+
         return Inertia::render('auth/completeProfile', [
-            'applicantProfile' => $profile,
+            'applicantProfile' => $profileData,
         ]);
     }
 
@@ -280,7 +374,7 @@ class ProfileCompletionController extends Controller
                     if ($cv->cv_path && Storage::disk('public')->exists($cv->cv_path)) {
                         Storage::disk('public')->delete($cv->cv_path);
                     }
-                    $cv->delete();
+                    $cv->forceDelete();
                     $activeCount--;
                 }
                 continue;
@@ -288,12 +382,19 @@ class ProfileCompletionController extends Controller
 
             // Update existing CV
             if (isset($cvData['id'])) {
-                ApplicantCv::where('id', $cvData['id'])
-                    ->where('applicant_profile_id', $profileId)
-                    ->update([
-                        'is_primary' => $cvData['is_primary'] ?? false,
-                        'order_position' => $cvData['order_position'] ?? $index,
-                    ]);
+                $updatePayload = [];
+                if (array_key_exists('is_primary', $cvData)) {
+                    $updatePayload['is_primary'] = (bool) $cvData['is_primary'];
+                }
+                if (array_key_exists('order_position', $cvData) && $cvData['order_position'] !== null) {
+                    $updatePayload['order_position'] = $cvData['order_position'];
+                }
+
+                if (!empty($updatePayload)) {
+                    ApplicantCv::where('id', $cvData['id'])
+                        ->where('applicant_profile_id', $profileId)
+                        ->update($updatePayload);
+                }
                 continue;
             }
 
@@ -326,7 +427,7 @@ class ProfileCompletionController extends Controller
             }
         }
 
-        // Reorder CVs
+        // Reorder CVs after changes
         ApplicantCv::reorderCvs($profileId);
     }
 
@@ -396,7 +497,7 @@ class ProfileCompletionController extends Controller
             Storage::disk('public')->delete($cv->cv_path);
         }
 
-        $cv->delete();
+        $cv->forceDelete();
         ApplicantCv::reorderCvs($cv->applicant_profile_id);
 
         return back()->with('success', 'CV removed successfully.');

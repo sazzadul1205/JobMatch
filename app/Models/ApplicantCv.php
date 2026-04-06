@@ -4,13 +4,13 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\DB;
 
 class ApplicantCv extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory;
 
     const MAX_CVS_PER_PROFILE = 3;
 
@@ -34,7 +34,6 @@ class ApplicantCv extends Model
         'order_position' => 'integer',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
-        'deleted_at' => 'datetime',
     ];
 
     /* ========== RELATIONSHIPS ========== */
@@ -162,13 +161,23 @@ class ApplicantCv extends Model
     public static function reorderCvs($applicantProfileId)
     {
         $cvs = self::where('applicant_profile_id', $applicantProfileId)
-            ->where('status', 'active')
             ->orderBy('order_position')
+            ->orderBy('created_at')
             ->get();
 
-        foreach ($cvs as $index => $cv) {
-            $cv->order_position = $index;
-            $cv->save();
+        if ($cvs->isEmpty()) {
+            return;
         }
+
+        DB::transaction(function () use ($applicantProfileId, $cvs) {
+            // Shift positions out of the unique range to avoid collisions
+            self::where('applicant_profile_id', $applicantProfileId)
+                ->update(['order_position' => DB::raw('order_position + 1000')]);
+
+            foreach ($cvs as $index => $cv) {
+                self::where('id', $cv->id)
+                    ->update(['order_position' => $index]);
+            }
+        });
     }
 }
