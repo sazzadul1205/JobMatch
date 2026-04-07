@@ -446,7 +446,7 @@ export default function Index({ applications: initialApplications, jobs, filters
       <Head title="All Applications" />
 
       <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 p-6">
-        <div className="max-w-7xl mx-auto">
+        <div className=" mx-auto">
           {/* Header */}
           <div className="flex justify-between items-start mb-6">
             <div>
