@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Head, router, usePage, Link } from '@inertiajs/react';
 import AuthenticatedLayout from '../../../layouts/AuthenticatedLayout';
+import EmailModal from '../../../components/EmailModal';
+import useEmailModal from '../../../hooks/useEmailModal';
 
-// Icons
+// Icons (same as before)
 import {
   FaArrowLeft,
   FaBriefcase,
@@ -29,11 +31,19 @@ import {
   FaCheckDouble,
 } from 'react-icons/fa';
 
-// SweetAlert2
 import Swal from 'sweetalert2';
 
 export default function JobApplications({ job, applications: initialApplications, filters }) {
   const { flash } = usePage().props;
+
+  // Use the email modal hook
+  const {
+    isEmailModalOpen,
+    emailRecipients,
+    emailModalTitle,
+    openEmailModal,
+    closeEmailModal,
+  } = useEmailModal();
 
   // States
   const [applications, setApplications] = useState(initialApplications);
@@ -41,7 +51,7 @@ export default function JobApplications({ job, applications: initialApplications
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const [pendingUpdates, setPendingUpdates] = useState({}); // Track pending status updates
+  const [pendingUpdates, setPendingUpdates] = useState({});
   const [localFilters, setLocalFilters] = useState({
     status: filters.status || '',
     search: filters.search || '',
@@ -52,6 +62,16 @@ export default function JobApplications({ job, applications: initialApplications
 
   // Get applications array from paginated response
   const applicationItems = applications?.data || [];
+
+  // Get selected application objects
+  const getSelectedApplicants = () => {
+    return applicationItems.filter(app => selectedApps.includes(app.id));
+  };
+
+  // Get single applicant object
+  const getApplicantById = (id) => {
+    return applicationItems.find(app => app.id === id);
+  };
 
   // Calculate stats from current applications
   const stats = {
@@ -151,6 +171,27 @@ export default function JobApplications({ job, applications: initialApplications
     }
   };
 
+  // Open email modal for bulk
+  const handleOpenBulkEmail = () => {
+    if (selectedApps.length === 0) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'No Applications Selected',
+        text: 'Please select at least one application to send emails.',
+        confirmButtonColor: '#3b82f6',
+      });
+      return;
+    }
+
+    const selectedApplicants = getSelectedApplicants();
+    openEmailModal(selectedApplicants, `Send Email to ${selectedApps.length} Applicant(s)`);
+  };
+
+  // Open email modal for single applicant
+  const handleOpenSingleEmail = (applicant) => {
+    openEmailModal(applicant, `Send Email to ${applicant.name}`);
+  };
+
   // Handle bulk status update with optimistic update
   const handleBulkStatusUpdate = (newStatus) => {
     if (selectedApps.length === 0) {
@@ -165,7 +206,6 @@ export default function JobApplications({ job, applications: initialApplications
 
     // Store original applications state for rollback
     const originalApplications = JSON.parse(JSON.stringify(applications));
-    const originalStats = { ...stats };
 
     // Track which applications are being updated
     const updateKeys = {};
@@ -281,8 +321,6 @@ export default function JobApplications({ job, applications: initialApplications
     const originalApp = applicationItems.find(app => app.id === appId);
     if (!originalApp) return;
 
-    const originalStatus = originalApp.status;
-
     // Store original applications state for rollback
     const originalApplications = JSON.parse(JSON.stringify(applications));
 
@@ -351,7 +389,7 @@ export default function JobApplications({ job, applications: initialApplications
     window.location.href = route('backend.applications.download', appId);
   };
 
-  // Helper functions
+  // Helper functions (same as before)
   const formatDate = (date) => {
     if (!date) return 'N/A';
     return new Date(date).toLocaleDateString('en-US', {
@@ -483,7 +521,7 @@ export default function JobApplications({ job, applications: initialApplications
     }
   }, [flash]);
 
-  // Pagination component
+  // Pagination component (same as before)
   const Pagination = () => {
     if (!pagination || pagination.lastPage <= 1) return null;
 
@@ -580,7 +618,7 @@ export default function JobApplications({ job, applications: initialApplications
 
       <div className="min-h-screen bg-gray-50 p-6">
         <div className="mx-auto">
-          {/* HEADER */}
+          {/* HEADER (same as before) */}
           <div className="flex justify-between items-start mb-6">
             <div>
               <Link
@@ -621,7 +659,7 @@ export default function JobApplications({ job, applications: initialApplications
             </button>
           </div>
 
-          {/* STATS CARDS */}
+          {/* STATS CARDS (same as before) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
             {statsCards.map((card, index) => (
               <div
@@ -660,7 +698,7 @@ export default function JobApplications({ job, applications: initialApplications
             ))}
           </div>
 
-          {/* FILTERS PANEL */}
+          {/* FILTERS PANEL (same as before) */}
           {showFilters && (
             <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
               <div className="flex justify-between items-center mb-4">
@@ -719,7 +757,7 @@ export default function JobApplications({ job, applications: initialApplications
             </div>
           )}
 
-          {/* BULK ACTIONS BAR */}
+          {/* BULK ACTIONS BAR (same as before) */}
           {selectedApps.length > 0 && (
             <div className="bg-blue-50 rounded-xl shadow-lg p-4 mb-6 border border-blue-200">
               <div className="flex items-center justify-between flex-wrap gap-3">
@@ -730,6 +768,13 @@ export default function JobApplications({ job, applications: initialApplications
                   </span>
                 </div>
                 <div className="flex gap-2">
+                  <button
+                    onClick={handleOpenBulkEmail}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm flex items-center gap-2 hover:bg-green-700 transition-all duration-200"
+                  >
+                    <FaEnvelope size={14} />
+                    Send Email
+                  </button>
                   <select
                     onChange={(e) => handleBulkStatusUpdate(e.target.value)}
                     disabled={isUpdatingStatus}
@@ -762,7 +807,7 @@ export default function JobApplications({ job, applications: initialApplications
             </div>
           )}
 
-          {/* APPLICATIONS TABLE */}
+          {/* APPLICATIONS TABLE (same as before) */}
           <div className="bg-white rounded-xl shadow-lg overflow-hidden">
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
@@ -914,6 +959,14 @@ export default function JobApplications({ job, applications: initialApplications
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right">
                           <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => handleOpenSingleEmail(app)}
+                              disabled={isPending}
+                              className="p-2 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all duration-200 disabled:opacity-50"
+                              title="Send Email"
+                            >
+                              <FaEnvelope size={18} />
+                            </button>
                             <Link
                               href={route('backend.applications.show', app.id)}
                               className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
@@ -943,6 +996,19 @@ export default function JobApplications({ job, applications: initialApplications
           </div>
         </div>
       </div>
+
+      {/* Email Modal - Now reusable anywhere */}
+      <EmailModal
+        isOpen={isEmailModalOpen}
+        onClose={closeEmailModal}
+        recipients={emailRecipients}
+        title={emailModalTitle}
+        jobTitle={job.title}
+        onSuccess={() => {
+          // Optional: Refresh data or show success message
+          console.log('Email sent successfully');
+        }}
+      />
     </AuthenticatedLayout>
   );
 }

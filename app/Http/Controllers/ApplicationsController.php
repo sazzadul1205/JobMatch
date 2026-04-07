@@ -2,13 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\ApplicationEmail;
 use App\Models\Application;
 use App\Models\JobListing;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use ZipArchive;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ApplicationsController extends Controller
 {
@@ -270,5 +272,130 @@ class ApplicationsController extends Controller
         }
 
         return response()->download($zipPath, $zipFileName)->deleteFileAfterSend(true);
+    }
+
+    /**
+     * Send email to single applicant with template
+     */
+    public function sendEmail(Request $request, $id)
+    {
+        $request->validate([
+            'subject' => 'required|string|max:255',
+            'content' => 'required|string',
+        ]);
+
+        $application = Application::with(['jobListing', 'applicantProfile'])->findOrFail($id);
+
+        // Get the recipient email - check multiple possible fields
+        $recipientEmail = $application->email ?? $application->applicantProfile?->email ?? $application->user?->email;
+
+        if (!$recipientEmail) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No email address found for this applicant.'
+            ], 400);
+        }
+
+        $jobTitle = $application->jobListing->title ?? null;
+        $companyName = $application->jobListing->employer->name ?? config('app.name');
+
+        try {
+            // IMPORTANT: Use Mail::to() before send()
+            Mail::to($recipientEmail)->send(new ApplicationEmail(
+                $request->subject,
+                $request->content,
+                $application->name,
+                $jobTitle,
+                $companyName,
+                $application->id
+            ));
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Email sent successfully to ' . $application->name
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Email sending failed: ' . $e->getMessage(), [
+                'application_id' => $id,
+                'recipient' => $recipientEmail
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to send email: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Send bulk emails to multiple applicants with template
+     */
+    public function sendBulkEmail(Request $request)
+    {
+        $request->validate([
+            'application_ids' => 'required|array',
+            'application_ids.*' => 'exists:applications,id',
+            'subject' => 'required|string|max:255',
+            'content' => 'required|string',
+        ]);
+
+        $applications = Application::with(['jobListing', 'applicantProfile'])
+            ->whereIn('id', $request->application_ids)
+            ->get();
+
+        if ($applications->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No applications found.'
+            ], 404);
+        }
+
+        $successCount = 0;
+        $failedCount = 0;
+        $failedEmails = [];
+
+        foreach ($applications as $application) {
+            try {
+                // Get the recipient email
+                $recipientEmail = $application->email ?? $application->applicantProfile?->email ?? $application->user?->email;
+
+                if (!$recipientEmail) {
+                    $failedCount++;
+                    $failedEmails[] = $application->name . ' (No email address)';
+                    continue;
+                }
+
+                $jobTitle = $application->jobListing->title ?? null;
+                $companyName = $application->jobListing->employer->name ?? config('app.name');
+
+                // IMPORTANT: Use Mail::to() before send()
+                Mail::to($recipientEmail)->send(new ApplicationEmail(
+                    $request->subject,
+                    $request->content,
+                    $application->name,
+                    $jobTitle,
+                    $companyName,
+                    $application->id
+                ));
+                $successCount++;
+            } catch (\Exception $e) {
+                $failedCount++;
+                $failedEmails[] = $application->email ?? $application->name;
+                Log::error('Bulk email failed for application ' . $application->id . ': ' . $e->getMessage());
+            }
+        }
+
+        if ($failedCount > 0) {
+            return response()->json([
+                'success' => true,
+                'message' => "Sent to {$successCount} applicant(s). Failed: {$failedCount}",
+                'failed_emails' => $failedEmails
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => "Email sent successfully to {$successCount} applicant(s)."
+        ]);
     }
 }

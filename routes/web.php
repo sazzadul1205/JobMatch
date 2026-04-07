@@ -207,10 +207,10 @@ Route::middleware(['auth', 'verified', 'profile.complete'])->group(function () {
         });
 
         /*
-    |--------------------------------------------------------------------------
-    | Applications Management (NEW - Enhanced with Bulk Actions & CV Downloads)
-    |--------------------------------------------------------------------------
-    */
+        |--------------------------------------------------------------------------
+        | Applications Management (NEW - Enhanced with Bulk Actions & CV Downloads)
+        |--------------------------------------------------------------------------
+        */
 
         // Applications Routes
         Route::prefix('applications')->name('applications.')->group(function () {
@@ -226,6 +226,10 @@ Route::middleware(['auth', 'verified', 'profile.complete'])->group(function () {
             // Downloads
             Route::get('/{id}/download', [ApplicationsController::class, 'downloadResume'])->name('download');
             Route::post('/bulk-download', [ApplicationsController::class, 'bulkDownloadResumes'])->name('bulk-download');
+
+            // Email routes - FIXED: removed redundant '/applications/' from URL
+            Route::post('/{id}/send-email', [ApplicationsController::class, 'sendEmail'])->name('send-email');
+            Route::post('/bulk-send-email', [ApplicationsController::class, 'sendBulkEmail'])->name('bulk-send-email');
         });
     });
 
