@@ -14,6 +14,23 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+
+        // Run the database seeds
+        $this->call([
+            LocationSeeder::class,
+            JobCategorySeeder::class,
+            UserSeeder::class,
+            ApplicantProfileSeeder::class,
+            JobHistorySeeder::class,
+            EducationHistorySeeder::class,
+            AchievementSeeder::class,
+            JobListingSeeder::class,
+            JobListingLocationSeeder::class,
+            ApplicationSeeder::class,
+            StatusTimelineSeeder::class,
+            JobViewSeeder::class,
+        ]);
+
         // Clean public storage uploads after migrate:fresh --seed
         Storage::disk('public')->deleteDirectory('cvs');
         Storage::disk('public')->deleteDirectory('profile_photos');
