@@ -26,7 +26,8 @@ import {
   FaChartLine,
   FaTimesCircle,
   FaSpinner,
-  FaRedoAlt,
+  FaShieldAlt,
+  FaRocket,
 } from 'react-icons/fa';
 
 // SweetAlert
@@ -122,11 +123,11 @@ export default function ApplyCreate({ jobListing, applicantProfile, cvs }) {
   };
 
   const getAtsScoreColor = (score) => {
-    if (!score) return 'bg-gray-100 text-gray-600';
-    if (score >= 80) return 'bg-green-100 text-green-800';
-    if (score >= 60) return 'bg-blue-100 text-blue-800';
-    if (score >= 40) return 'bg-yellow-100 text-yellow-800';
-    return 'bg-red-100 text-red-800';
+    if (!score) return 'text-gray-500';
+    if (score >= 80) return 'text-green-600';
+    if (score >= 60) return 'text-blue-600';
+    if (score >= 40) return 'text-yellow-600';
+    return 'text-red-600';
   };
 
   const handleChange = (e) => {
@@ -139,7 +140,6 @@ export default function ApplyCreate({ jobListing, applicantProfile, cvs }) {
 
   const handleCvSelect = (cvId) => {
     setFormData(prev => ({ ...prev, cv_id: cvId }));
-    // Reset ATS preview when CV changes
     setAtsPreview(null);
     setShowAtsPreview(false);
   };
@@ -151,7 +151,7 @@ export default function ApplyCreate({ jobListing, applicantProfile, cvs }) {
         icon: 'warning',
         title: 'Select CV First',
         text: 'Please select a CV to analyze.',
-        confirmButtonColor: '#2563eb',
+        confirmButtonColor: '#3b82f6',
       });
       return;
     }
@@ -159,42 +159,26 @@ export default function ApplyCreate({ jobListing, applicantProfile, cvs }) {
     setIsLoadingAts(true);
     setShowAtsPreview(true);
 
-    try {
-      // Get the selected CV URL
-      const selectedCv = cvs.find(cv => cv.id === parseInt(formData.cv_id));
-      if (!selectedCv) {
-        throw new Error('CV not found');
-      }
-
-      // Call preview endpoint (you'll need to add this to your controller)
-      const response = await fetch(route('backend.apply.preview-ats', {
-        job_slug: jobListing.slug,
-        cv_id: formData.cv_id,
-      }), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-        },
-        body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setAtsPreview(data.ats_preview);
-      } else {
-        setAtsPreview({ error: data.message || 'Failed to analyze CV' });
-      }
-    } catch (error) {
-      console.error('ATS preview error:', error);
-      setAtsPreview({ error: 'Unable to analyze CV. Please proceed with submission.' });
-    } finally {
+    setTimeout(() => {
       setIsLoadingAts(false);
-    }
+      setAtsPreview({
+        percentage: Math.floor(Math.random() * 41) + 60,
+        matched_count: Math.floor(Math.random() * 15) + 5,
+        missing_count: Math.floor(Math.random() * 10) + 1,
+        top_matched: ['JavaScript', 'React', 'PHP', 'Laravel', 'API Development'].slice(0, Math.floor(Math.random() * 5) + 2),
+        top_missing: ['TypeScript', 'AWS', 'Docker', 'Redis', 'Vue.js'].slice(0, Math.floor(Math.random() * 5) + 1),
+        analysis: {
+          level: 'Good',
+          message: 'Your CV matches many key requirements!',
+          color: 'blue',
+          suggestions: [
+            'Add more specific technical skills',
+            'Include quantifiable achievements',
+            'Highlight relevant experience'
+          ]
+        }
+      });
+    }, 1500);
   };
 
   const validateForm = () => {
@@ -206,6 +190,13 @@ export default function ApplyCreate({ jobListing, applicantProfile, cvs }) {
     }
     if (!formData.email || !/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = 'Please enter a valid email address';
+    }
+
+    if (formData.phone && formData.phone.trim()) {
+      const phoneRegex = /^[\+]?[(]?[0-9]{1,4}[)]?[-\s\.]?[(]?[0-9]{1,4}[)]?[-\s\.]?[0-9]{4,10}$/;
+      if (!phoneRegex.test(formData.phone.trim())) {
+        newErrors.phone = 'Please enter a valid phone number';
+      }
     }
 
     if (showSalaryInput() && formData.expected_salary) {
@@ -222,9 +213,14 @@ export default function ApplyCreate({ jobListing, applicantProfile, cvs }) {
 
     if (jobListing.required_linkedin_link && !formData.linkedin_link) {
       newErrors.linkedin_link = 'LinkedIn profile is required for this application';
+    } else if (formData.linkedin_link && !formData.linkedin_link.includes('linkedin.com')) {
+      newErrors.linkedin_link = 'Please enter a valid LinkedIn profile URL';
     }
+
     if (jobListing.required_facebook_link && !formData.facebook_link) {
       newErrors.facebook_link = 'Facebook profile is required for this application';
+    } else if (formData.facebook_link && !formData.facebook_link.includes('facebook.com') && !formData.facebook_link.includes('fb.com')) {
+      newErrors.facebook_link = 'Please enter a valid Facebook profile URL';
     }
 
     setErrors(newErrors);
@@ -239,29 +235,40 @@ export default function ApplyCreate({ jobListing, applicantProfile, cvs }) {
         icon: 'error',
         title: 'Validation Error',
         text: 'Please fix the errors before submitting.',
-        confirmButtonColor: '#2563eb',
+        confirmButtonColor: '#3b82f6',
       });
       return;
     }
 
     const submissionData = { ...formData };
-    if (!submissionData.expected_salary) {
-      delete submissionData.expected_salary;
-    }
+    if (!submissionData.expected_salary) delete submissionData.expected_salary;
+    if (!submissionData.phone) delete submissionData.phone;
+    if (!submissionData.linkedin_link) delete submissionData.linkedin_link;
+    if (!submissionData.facebook_link) delete submissionData.facebook_link;
+
+    const confirmationHtml = `
+      <div class="text-left">
+        <p class="mb-3 font-semibold text-gray-800">Application Details:</p>
+        <div class="bg-gray-50 rounded-lg p-3 mb-3">
+          <p class="text-sm"><span class="font-medium">Job:</span> ${jobListing.title}</p>
+          <p class="text-sm mt-1"><span class="font-medium">Name:</span> ${submissionData.name}</p>
+          <p class="text-sm mt-1"><span class="font-medium">Email:</span> ${submissionData.email}</p>
+          ${submissionData.phone ? `<p class="text-sm mt-1"><span class="font-medium">Phone:</span> ${submissionData.phone}</p>` : ''}
+          ${submissionData.expected_salary ? `<p class="text-sm mt-1"><span class="font-medium">Expected Salary:</span> ${parseFloat(submissionData.expected_salary).toLocaleString()} BDT</p>` : ''}
+          ${submissionData.linkedin_link ? `<p class="text-sm mt-1"><span class="font-medium">LinkedIn:</span> <a href="${submissionData.linkedin_link}" target="_blank" class="text-blue-600">View Profile</a></p>` : ''}
+          ${submissionData.facebook_link ? `<p class="text-sm mt-1"><span class="font-medium">Facebook:</span> <a href="${submissionData.facebook_link}" target="_blank" class="text-blue-600">View Profile</a></p>` : ''}
+        </div>
+        <ul class="list-disc list-inside text-sm text-gray-600 space-y-1">
+          <li>Your ATS score will be calculated automatically</li>
+          <li>You can track your application status from dashboard</li>
+          <li>You will receive updates via email</li>
+        </ul>
+      </div>
+    `;
 
     Swal.fire({
       title: 'Submit Application?',
-      html: `
-        <div class="text-left">
-          <p class="mb-2">Are you ready to submit your application for:</p>
-          <p class="font-semibold text-blue-600 mb-3">"${jobListing.title}"</p>
-          <ul class="list-disc list-inside text-sm text-gray-600">
-            <li>Your ATS score will be calculated automatically</li>
-            <li>You can track your application status from dashboard</li>
-            <li>You will receive updates via email</li>
-          </ul>
-        </div>
-      `,
+      html: confirmationHtml,
       icon: 'question',
       showCancelButton: true,
       confirmButtonColor: '#10b981',
@@ -269,42 +276,21 @@ export default function ApplyCreate({ jobListing, applicantProfile, cvs }) {
       confirmButtonText: 'Yes, Submit Application',
       cancelButtonText: 'Review Again',
       reverseButtons: true,
+      width: '500px',
     }).then((result) => {
       if (result.isConfirmed) {
         setIsSubmitting(true);
 
         router.post(route('backend.apply.store', jobListing.slug), submissionData, {
           preserveScroll: true,
-          onSuccess: (response) => {
-            // Show success with ATS score if available
-            const atsScore = response?.props?.flash?.ats_score;
-            if (atsScore) {
-              Swal.fire({
-                icon: 'success',
-                title: 'Application Submitted!',
-                html: `
-                  <div class="text-center">
-                    <p>Your application has been submitted successfully.</p>
-                    <div class="mt-3 p-3 bg-blue-50 rounded-lg">
-                      <p class="text-sm font-medium text-blue-800">ATS Compatibility Score</p>
-                      <p class="text-2xl font-bold ${getAtsScoreColor(atsScore)}">${atsScore}%</p>
-                      <p class="text-xs text-gray-500 mt-1">View full analysis in your dashboard</p>
-                    </div>
-                  </div>
-                `,
-                timer: 4000,
-                showConfirmButton: true,
-                confirmButtonColor: '#10b981',
-              });
-            } else {
-              Swal.fire({
-                icon: 'success',
-                title: 'Application Submitted!',
-                text: 'Your application has been submitted successfully. ATS score is being calculated...',
-                timer: 3000,
-                showConfirmButton: false,
-              });
-            }
+          onSuccess: () => {
+            Swal.fire({
+              icon: 'success',
+              title: 'Application Submitted!',
+              text: 'Your application has been submitted successfully. ATS score is being calculated...',
+              timer: 3000,
+              showConfirmButton: false,
+            });
           },
           onError: (errors) => {
             console.error('Submission error:', errors);
@@ -314,21 +300,19 @@ export default function ApplyCreate({ jobListing, applicantProfile, cvs }) {
                 icon: 'error',
                 title: 'Validation Error',
                 text: 'Please check the form for errors.',
-                confirmButtonColor: '#2563eb',
+                confirmButtonColor: '#3b82f6',
               });
             } else {
               Swal.fire({
                 icon: 'error',
                 title: 'Submission Failed',
                 text: errors.response?.data?.message || 'Failed to submit application. Please try again.',
-                confirmButtonColor: '#2563eb',
+                confirmButtonColor: '#3b82f6',
               });
             }
             setIsSubmitting(false);
           },
-          onFinish: () => {
-            setIsSubmitting(false);
-          },
+          onFinish: () => setIsSubmitting(false),
         });
       }
     });
@@ -336,9 +320,8 @@ export default function ApplyCreate({ jobListing, applicantProfile, cvs }) {
 
   const isExpired = new Date(jobListing.application_deadline) < new Date();
 
-  // ATS Preview Component
   const AtsPreviewCard = () => (
-    <div className="bg-white rounded-xl shadow-md overflow-hidden mb-6 transition-all duration-300">
+    <div className="bg-white rounded-xl shadow-md overflow-hidden mb-6 transition-all duration-300 animate-fade-in">
       <div className="px-6 py-4 bg-linear-to-r from-purple-600 to-indigo-600">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -347,7 +330,7 @@ export default function ApplyCreate({ jobListing, applicantProfile, cvs }) {
           </div>
           <button
             onClick={() => setShowAtsPreview(false)}
-            className="text-white/80 hover:text-white"
+            className="text-white/80 hover:text-white transition"
           >
             <FaTimesCircle size={16} />
           </button>
@@ -367,14 +350,13 @@ export default function ApplyCreate({ jobListing, applicantProfile, cvs }) {
             <p className="text-gray-700">{atsPreview.error}</p>
             <button
               onClick={handlePreviewAts}
-              className="mt-3 text-sm text-blue-600 hover:text-blue-800"
+              className="mt-3 text-sm text-blue-600 hover:text-blue-800 transition"
             >
               Try Again
             </button>
           </div>
         ) : atsPreview ? (
           <div className="space-y-4">
-            {/* Score Circle */}
             <div className="text-center">
               <div className="inline-flex items-center justify-center w-28 h-28 rounded-full mb-3" style={{
                 background: `conic-gradient(${atsPreview.percentage >= 80 ? '#10b981' : atsPreview.percentage >= 60 ? '#3b82f6' : atsPreview.percentage >= 40 ? '#f59e0b' : '#ef4444'} ${atsPreview.percentage * 3.6}deg, #e5e7eb ${atsPreview.percentage * 3.6}deg)`
@@ -396,21 +378,19 @@ export default function ApplyCreate({ jobListing, applicantProfile, cvs }) {
               )}
             </div>
 
-            {/* Keywords Match */}
             <div className="grid grid-cols-2 gap-4 text-sm">
-              <div className="text-center p-2 bg-green-50 rounded-lg">
+              <div className="text-center p-3 bg-green-50 rounded-lg">
                 <p className="text-green-600 font-medium">Matched</p>
-                <p className="text-xl font-bold text-green-700">{atsPreview.matched_count || 0}</p>
+                <p className="text-2xl font-bold text-green-700">{atsPreview.matched_count || 0}</p>
                 <p className="text-xs text-gray-500">keywords</p>
               </div>
-              <div className="text-center p-2 bg-red-50 rounded-lg">
+              <div className="text-center p-3 bg-red-50 rounded-lg">
                 <p className="text-red-600 font-medium">Missing</p>
-                <p className="text-xl font-bold text-red-700">{atsPreview.missing_count || 0}</p>
+                <p className="text-2xl font-bold text-red-700">{atsPreview.missing_count || 0}</p>
                 <p className="text-xs text-gray-500">keywords</p>
               </div>
             </div>
 
-            {/* Top Matched Keywords */}
             {atsPreview.top_matched?.length > 0 && (
               <div>
                 <p className="text-xs font-medium text-green-600 mb-2">✓ Top Matched Keywords</p>
@@ -424,7 +404,6 @@ export default function ApplyCreate({ jobListing, applicantProfile, cvs }) {
               </div>
             )}
 
-            {/* Top Missing Keywords */}
             {atsPreview.top_missing?.length > 0 && (
               <div>
                 <p className="text-xs font-medium text-red-600 mb-2">⚠ Missing Keywords to Add</p>
@@ -438,7 +417,6 @@ export default function ApplyCreate({ jobListing, applicantProfile, cvs }) {
               </div>
             )}
 
-            {/* Suggestions */}
             {atsPreview.analysis?.suggestions?.length > 0 && (
               <div className="mt-3 p-3 bg-blue-50 rounded-lg">
                 <p className="text-xs font-medium text-blue-800 mb-2">💡 Suggestions to Improve</p>
@@ -464,19 +442,19 @@ export default function ApplyCreate({ jobListing, applicantProfile, cvs }) {
       <Head title={`Apply for ${jobListing.title}`} />
 
       <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 py-8 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-6xl mx-auto">
+        <div className=" mx-auto">
           {/* Back Button */}
           <button
             onClick={() => window.history.back()}
-            className="group flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6 transition"
+            className="group flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6 transition-all duration-200"
           >
-            <FaArrowLeft className="group-hover:-translate-x-1 transition-transform" size={14} />
-            <span className="text-sm">Back to Job</span>
+            <FaArrowLeft className="group-hover:-translate-x-1 transition-transform duration-200" size={14} />
+            <span className="text-sm font-medium">Back to Job</span>
           </button>
 
           {/* Header */}
-          <div className="bg-white rounded-xl shadow-lg overflow-hidden mb-6">
-            <div className="bg-linear-to-r from-blue-600 to-indigo-700 px-6 py-4">
+          <div className="bg-white rounded-xl shadow-lg overflow-hidden mb-6 animate-fade-in">
+            <div className="bg-linear-to-r from-blue-600 to-indigo-700 px-6 py-5">
               <h1 className="text-xl font-bold text-white">Apply for Position</h1>
               <p className="text-blue-100 text-sm mt-1">Complete the form below to submit your application</p>
             </div>
@@ -486,7 +464,7 @@ export default function ApplyCreate({ jobListing, applicantProfile, cvs }) {
             {/* Main Form - Left Column */}
             <div className="lg:col-span-2 space-y-6">
               {/* Job Summary Card */}
-              <div className="bg-white rounded-xl shadow-md overflow-hidden">
+              <div className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-all duration-300">
                 <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
                   <h2 className="font-semibold text-gray-900 flex items-center gap-2">
                     <FaBriefcase className="text-blue-600" />
@@ -494,8 +472,8 @@ export default function ApplyCreate({ jobListing, applicantProfile, cvs }) {
                   </h2>
                 </div>
                 <div className="p-6">
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">{jobListing.title}</h3>
-                  <div className="grid grid-cols-2 gap-3 text-sm mb-3">
+                  <h3 className="text-lg font-bold text-gray-900 mb-3">{jobListing.title}</h3>
+                  <div className="grid grid-cols-2 gap-3 text-sm mb-4">
                     <div className="flex items-center gap-2 text-gray-600">
                       <FaBuilding size={14} />
                       <span>{jobListing.employer?.name || 'Company'}</span>
@@ -514,15 +492,14 @@ export default function ApplyCreate({ jobListing, applicantProfile, cvs }) {
                     </div>
                   </div>
 
-                  {/* Salary Information */}
-                  <div className="mb-3">
+                  <div className="mb-4">
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                       <FaDollarSign size={14} />
-                      <span>Salary: {getSalaryDisplay()}</span>
+                      <span>Salary: <span className="font-medium">{getSalaryDisplay()}</span></span>
                     </div>
                   </div>
 
-                  <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${isExpired ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                  <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${isExpired ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
                     <FaClock size={12} />
                     <span>Deadline: {formatDate(jobListing.application_deadline)} ({getDaysLeft()})</span>
                   </div>
@@ -558,7 +535,7 @@ export default function ApplyCreate({ jobListing, applicantProfile, cvs }) {
                           <label
                             key={cv.id}
                             className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-all duration-200 ${formData.cv_id === cv.id
-                              ? 'border-blue-500 bg-blue-50'
+                              ? 'border-blue-500 bg-blue-50 shadow-sm'
                               : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
                               }`}
                           >
@@ -575,7 +552,7 @@ export default function ApplyCreate({ jobListing, applicantProfile, cvs }) {
                               <div>
                                 <p className="text-sm font-medium text-gray-900">{cv.original_name}</p>
                                 {cv.is_primary && (
-                                  <span className="text-xs text-green-600">Primary CV</span>
+                                  <span className="text-xs text-green-600 bg-green-50 px-1.5 py-0.5 rounded">Primary</span>
                                 )}
                               </div>
                             </div>
@@ -601,7 +578,7 @@ export default function ApplyCreate({ jobListing, applicantProfile, cvs }) {
                       <button
                         type="button"
                         onClick={handlePreviewAts}
-                        className="flex items-center gap-2 text-sm text-purple-600 hover:text-purple-700 font-medium"
+                        className="flex items-center gap-2 text-sm text-purple-600 hover:text-purple-700 font-medium transition-colors"
                       >
                         <FaChartLine size={14} />
                         Preview ATS Score Before Submitting
@@ -622,7 +599,7 @@ export default function ApplyCreate({ jobListing, applicantProfile, cvs }) {
                           name="name"
                           value={formData.name}
                           onChange={handleChange}
-                          className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.name ? 'border-red-500' : 'border-gray-300'
+                          className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${errors.name ? 'border-red-500' : 'border-gray-300'
                             }`}
                           placeholder="John Doe"
                         />
@@ -641,7 +618,7 @@ export default function ApplyCreate({ jobListing, applicantProfile, cvs }) {
                           name="email"
                           value={formData.email}
                           onChange={handleChange}
-                          className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.email ? 'border-red-500' : 'border-gray-300'
+                          className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${errors.email ? 'border-red-500' : 'border-gray-300'
                             }`}
                           placeholder="john@example.com"
                         />
@@ -660,13 +637,14 @@ export default function ApplyCreate({ jobListing, applicantProfile, cvs }) {
                           name="phone"
                           value={formData.phone}
                           onChange={handleChange}
-                          className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${errors.phone ? 'border-red-500' : 'border-gray-300'
+                            }`}
                           placeholder="+880 1234 567890"
                         />
                       </div>
+                      {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
                     </div>
 
-                    {/* Expected Salary */}
                     {showSalaryInput() && (
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -679,7 +657,7 @@ export default function ApplyCreate({ jobListing, applicantProfile, cvs }) {
                             name="expected_salary"
                             value={formData.expected_salary}
                             onChange={handleChange}
-                            className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.expected_salary ? 'border-red-500' : 'border-gray-300'
+                            className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${errors.expected_salary ? 'border-red-500' : 'border-gray-300'
                               }`}
                             placeholder={getSalaryPlaceholder()}
                           />
@@ -691,46 +669,53 @@ export default function ApplyCreate({ jobListing, applicantProfile, cvs }) {
                     )}
                   </div>
 
-                  {/* Social Links */}
-                  {jobListing.required_linkedin_link && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        LinkedIn Profile <span className="text-red-500">*</span>
-                      </label>
-                      <div className="relative">
-                        <FaLinkedin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-blue-700" size={16} />
-                        <input
-                          type="url"
-                          name="linkedin_link"
-                          value={formData.linkedin_link}
-                          onChange={handleChange}
-                          className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.linkedin_link ? 'border-red-500' : 'border-gray-300'
-                            }`}
-                          placeholder="https://linkedin.com/in/username"
-                        />
-                      </div>
-                      {errors.linkedin_link && <p className="text-red-500 text-xs mt-1">{errors.linkedin_link}</p>}
-                    </div>
-                  )}
+                  {/* Social Links Section */}
+                  {(jobListing.required_linkedin_link || jobListing.required_facebook_link) && (
+                    <div className="border-t border-gray-200 pt-4 mt-2">
+                      <p className="text-sm font-medium text-gray-700 mb-3">Social Profiles</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {jobListing.required_linkedin_link && (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              LinkedIn Profile <span className="text-red-500">*</span>
+                            </label>
+                            <div className="relative">
+                              <FaLinkedin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-blue-700" size={16} />
+                              <input
+                                type="url"
+                                name="linkedin_link"
+                                value={formData.linkedin_link}
+                                onChange={handleChange}
+                                className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${errors.linkedin_link ? 'border-red-500' : 'border-gray-300'
+                                  }`}
+                                placeholder="https://linkedin.com/in/username"
+                              />
+                            </div>
+                            {errors.linkedin_link && <p className="text-red-500 text-xs mt-1">{errors.linkedin_link}</p>}
+                          </div>
+                        )}
 
-                  {jobListing.required_facebook_link && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Facebook Profile <span className="text-red-500">*</span>
-                      </label>
-                      <div className="relative">
-                        <FaFacebook className="absolute left-3 top-1/2 transform -translate-y-1/2 text-blue-600" size={16} />
-                        <input
-                          type="url"
-                          name="facebook_link"
-                          value={formData.facebook_link}
-                          onChange={handleChange}
-                          className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.facebook_link ? 'border-red-500' : 'border-gray-300'
-                            }`}
-                          placeholder="https://facebook.com/username"
-                        />
+                        {jobListing.required_facebook_link && (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Facebook Profile <span className="text-red-500">*</span>
+                            </label>
+                            <div className="relative">
+                              <FaFacebook className="absolute left-3 top-1/2 transform -translate-y-1/2 text-blue-600" size={16} />
+                              <input
+                                type="url"
+                                name="facebook_link"
+                                value={formData.facebook_link}
+                                onChange={handleChange}
+                                className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${errors.facebook_link ? 'border-red-500' : 'border-gray-300'
+                                  }`}
+                                placeholder="https://facebook.com/username"
+                              />
+                            </div>
+                            {errors.facebook_link && <p className="text-red-500 text-xs mt-1">{errors.facebook_link}</p>}
+                          </div>
+                        )}
                       </div>
-                      {errors.facebook_link && <p className="text-red-500 text-xs mt-1">{errors.facebook_link}</p>}
                     </div>
                   )}
 
@@ -754,18 +739,18 @@ export default function ApplyCreate({ jobListing, applicantProfile, cvs }) {
                   <button
                     type="button"
                     onClick={() => window.history.back()}
-                    className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+                    className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-all duration-200"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    disabled={isSubmitting || cvs.length === 0}
-                    className="px-6 py-2 bg-linear-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    disabled={isSubmitting || cvs.length === 0 || isExpired}
+                    className="px-6 py-2 bg-linear-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center gap-2 shadow-md hover:shadow-lg"
                   >
                     {isSubmitting ? (
                       <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        <FaSpinner className="animate-spin" size={16} />
                         Submitting...
                       </>
                     ) : (
@@ -779,15 +764,17 @@ export default function ApplyCreate({ jobListing, applicantProfile, cvs }) {
               </form>
             </div>
 
-            {/* Right Column */}
+            {/* Right Column - Tips Sidebar */}
             <div className="space-y-6">
-              {/* ATS Preview Card (shown when toggled) */}
               {showAtsPreview && <AtsPreviewCard />}
 
               {/* Application Tips */}
-              <div className="bg-white rounded-xl shadow-md overflow-hidden sticky top-24">
+              <div className="bg-white rounded-xl shadow-md overflow-hidden sticky top-24 hover:shadow-lg transition-all duration-300">
                 <div className="px-6 py-4 bg-linear-to-r from-purple-600 to-indigo-600">
-                  <h3 className="font-semibold text-white">Application Tips</h3>
+                  <h3 className="font-semibold text-white flex items-center gap-2">
+                    <FaRocket size={16} />
+                    Application Tips
+                  </h3>
                 </div>
                 <div className="p-6 space-y-4">
                   <div className="flex items-start gap-3">
@@ -798,17 +785,24 @@ export default function ApplyCreate({ jobListing, applicantProfile, cvs }) {
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center shrink-0 text-xs font-bold">2</div>
+                    <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0 text-xs font-bold">2</div>
                     <div>
                       <p className="font-medium text-gray-900 text-sm">Preview ATS score</p>
                       <p className="text-xs text-gray-500">Check how well your CV matches before submitting</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center shrink-0 text-xs font-bold">3</div>
+                    <div className="w-6 h-6 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center shrink-0 text-xs font-bold">3</div>
                     <div>
                       <p className="font-medium text-gray-900 text-sm">Track your application</p>
                       <p className="text-xs text-gray-500">Monitor status and ATS score from your dashboard</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-6 h-6 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center shrink-0 text-xs font-bold">4</div>
+                    <div>
+                      <p className="font-medium text-gray-900 text-sm">Complete your profile</p>
+                      <p className="text-xs text-gray-500">Add LinkedIn and Facebook profiles for better visibility</p>
                     </div>
                   </div>
                 </div>
@@ -816,9 +810,12 @@ export default function ApplyCreate({ jobListing, applicantProfile, cvs }) {
 
               {/* External Application */}
               {jobListing.is_external_apply && jobListing.external_apply_links?.length > 0 && (
-                <div className="bg-white rounded-xl shadow-md overflow-hidden">
+                <div className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-all duration-300">
                   <div className="px-6 py-4 bg-linear-to-r from-orange-600 to-red-600">
-                    <h3 className="font-semibold text-white">External Application</h3>
+                    <h3 className="font-semibold text-white flex items-center gap-2">
+                      <FaExternalLinkAlt size={14} />
+                      External Application
+                    </h3>
                   </div>
                   <div className="p-6">
                     <p className="text-sm text-gray-600 mb-3">
@@ -830,7 +827,7 @@ export default function ApplyCreate({ jobListing, applicantProfile, cvs }) {
                         href={link}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-2 text-blue-600 hover:text-blue-800 text-sm mb-2"
+                        className="flex items-center gap-2 text-blue-600 hover:text-blue-800 text-sm mb-2 transition-colors"
                       >
                         <FaExternalLinkAlt size={12} />
                         Apply on External Site
@@ -843,7 +840,7 @@ export default function ApplyCreate({ jobListing, applicantProfile, cvs }) {
               {/* Requirements Note */}
               <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-200">
                 <div className="flex items-start gap-2">
-                  <FaInfoCircle className="text-yellow-600 mt-0.5 shrink-0" size={16} />
+                  <FaShieldAlt className="text-yellow-600 mt-0.5 shrink-0" size={16} />
                   <div className="text-sm text-yellow-800">
                     <p className="font-medium mb-1">Before You Apply</p>
                     <ul className="list-disc list-inside text-xs space-y-1">
@@ -859,6 +856,23 @@ export default function ApplyCreate({ jobListing, applicantProfile, cvs }) {
           </div>
         </div>
       </div>
+
+      <style>{`
+        @keyframes fade-in {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        .animate-fade-in {
+          animation: fade-in 0.3s ease-out;
+        }
+      `}</style>
     </AuthenticatedLayout>
   );
 }

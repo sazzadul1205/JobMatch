@@ -31,66 +31,51 @@ class ApplyController extends Controller
 
 
     /**
-     * List all applications for the authenticated user
+     * List all applications for the authenticated user (including soft-deleted)
      */
     public function index(Request $request)
     {
         $user = Auth::user();
 
-        $query = Application::where('user_id', $user->id)
-            ->whereNull('deleted_at')
+        // Get all applications (active and soft-deleted) with pagination
+        $applications = Application::withTrashed()
+            ->where('user_id', $user->id)
             ->with(['jobListing', 'jobListing.employer'])
-            ->orderBy('created_at', 'desc');
-
-        // Filter by status
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
-        }
-
-        // Filter by ATS score range
-        if ($request->filled('min_ats_score')) {
-            $query->whereRaw('JSON_EXTRACT(ats_score, "$.percentage") >= ?', [$request->min_ats_score]);
-        }
-
-        // Search by job title
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->whereHas('jobListing', function ($q) use ($search) {
-                $q->where('title', 'like', "%{$search}%");
-            });
-        }
-
-        $applications = $query->paginate(10)->through(function ($application) {
-            // Extract ATS score percentage correctly
-            $atsPercentage = null;
-            if ($application->ats_score) {
-                if (is_array($application->ats_score)) {
-                    $atsPercentage = $application->ats_score['percentage'] ?? null;
-                } elseif (is_string($application->ats_score)) {
-                    $atsData = json_decode($application->ats_score, true);
-                    $atsPercentage = $atsData['percentage'] ?? null;
+            ->orderBy('created_at', 'desc')
+            ->paginate(10)
+            ->through(function ($application) {
+                // Extract ATS score percentage correctly
+                $atsPercentage = null;
+                if ($application->ats_score) {
+                    if (is_array($application->ats_score)) {
+                        $atsPercentage = $application->ats_score['percentage'] ?? null;
+                    } elseif (is_string($application->ats_score)) {
+                        $atsData = json_decode($application->ats_score, true);
+                        $atsPercentage = $atsData['percentage'] ?? null;
+                    }
                 }
-            }
 
-            // Also try the accessor method
-            if (!$atsPercentage) {
-                $atsPercentage = $application->getAtsScorePercentageAttribute();
-            }
+                // Also try the accessor method
+                if (!$atsPercentage) {
+                    $atsPercentage = $application->getAtsScorePercentageAttribute();
+                }
 
-            return [
-                'id' => $application->id,
-                'job_title' => $application->jobListing->title,
-                'job_slug' => $application->jobListing->slug,
-                'employer_name' => $application->jobListing->employer->name ?? 'Unknown',
-                'status' => $application->status,
-                'expected_salary' => $application->expected_salary,
-                'created_at' => $application->created_at,
-                'updated_at' => $application->updated_at,
-                'ats_score' => $atsPercentage,
-                'ats_calculation_status' => $application->ats_calculation_status,
-            ];
-        });
+                return [
+                    'id' => $application->id,
+                    'job_title' => $application->jobListing->title,
+                    'job_slug' => $application->jobListing->slug,
+                    'employer_name' => $application->jobListing->employer->name ?? 'Unknown',
+                    'status' => $application->status,
+                    'expected_salary' => $application->expected_salary,
+                    'created_at' => $application->created_at,
+                    'updated_at' => $application->updated_at,
+                    'deleted_at' => $application->deleted_at,
+                    'ats_score' => $atsPercentage,
+                    'ats_calculation_status' => $application->ats_calculation_status,
+                ];
+            });
 
+        // Calculate stats
         $stats = [
             'total' => Application::where('user_id', $user->id)->whereNull('deleted_at')->count(),
             'total_deleted' => Application::onlyTrashed()->where('user_id', $user->id)->count(),
@@ -108,8 +93,6 @@ class ApplyController extends Controller
         return Inertia::render('Backend/Apply/Index', [
             'applications' => $applications,
             'stats' => $stats,
-            'filters' => $request->only(['status', 'min_ats_score', 'search']),
-            'showTrashed' => false,
         ]);
     }
 

@@ -1,6 +1,10 @@
 // resources/js/Components/Sidebar.jsx
-import React, { useState, useEffect } from 'react';
+
+// React
+import { useState, useEffect } from 'react';
 import { Link, usePage } from '@inertiajs/react';
+
+// Icons
 import {
   FiHome,
   FiBriefcase,
@@ -20,10 +24,13 @@ import { FaSearchLocation } from "react-icons/fa";
 const Sidebar = () => {
   const { url, props } = usePage();
   const { auth } = props;
-  const user = auth?.user;
-  const userRole = user?.role || 'job_seeker';
-  const userName = user?.name || 'User';
 
+  // Get user role
+  const user = auth?.user;
+  const userName = user?.name || 'User';
+  const userRole = user?.role || 'job_seeker';
+
+  // State to track open menus
   const [openMenus, setOpenMenus] = useState({
     jobs: false,
     applications: false,
@@ -151,7 +158,7 @@ const Sidebar = () => {
     },
     {
       name: 'My Applications',
-      routeName: 'backend.application.my-applications',
+      routeName: 'backend.apply.index',
       icon: FiFileText,
     },
 
@@ -325,8 +332,10 @@ const Sidebar = () => {
     return [];
   };
 
+  // Get menu items
   const menuItems = getMenuItems();
 
+  // Render menu item
   const renderMenuItem = (item) => {
     if (item.isDropdown) {
       const isOpen = openMenus[item.dropdownKey];
@@ -392,11 +401,6 @@ const Sidebar = () => {
     const isMenuItemActive = item.routeName
       ? isRouteActive(item.routeName, item.routeParams || {}, item.activeAliases || [])
       : isPathActive(item.href);
-
-    // Debug for profile item
-    if (item.name === 'Applicant Profile') {
-      console.log('Profile Item Active:', isMenuItemActive);
-    }
 
     return (
       <Link
