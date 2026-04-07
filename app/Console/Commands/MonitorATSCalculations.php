@@ -3,7 +3,6 @@
 namespace App\Console\Commands;
 
 use App\Models\Application;
-use App\Jobs\CalculateAtsScore;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
@@ -14,7 +13,7 @@ class MonitorATSCalculations extends Command
      *
      * @var string
      */
-    protected $signature = 'ats:monitor {--timeout=30 : Timeout in minutes for stuck calculations (default: 30)} {--auto-retry : Automatically retry stuck calculations} {--inline : Use inline calculation for stuck items}';
+    protected $signature = 'ats:monitor {--timeout=30 : Timeout in minutes for stuck calculations (default: 30)} {--auto-retry : Automatically retry stuck calculations}';
 
     /**
      * The console command description.
@@ -30,7 +29,6 @@ class MonitorATSCalculations extends Command
     {
         $timeout = $this->option('timeout') ?? 30;
         $autoRetry = $this->option('auto-retry') ?? false;
-        $inline = $this->option('inline') ?? false;
 
         $this->info("🔍 Monitoring ATS calculations (timeout: {$timeout} minutes)...");
 
@@ -79,24 +77,14 @@ class MonitorATSCalculations extends Command
 
         foreach ($stuckCalculations as $application) {
             try {
-                if ($inline) {
-                    if ($application->recalculateAtsScoreInline()) {
-                        $retryCount++;
-                        Log::info('Successfully recovered stuck ATS calculation (inline)', [
-                            'application_id' => $application->id
-                        ]);
-                    } else {
-                        $failedCount++;
-                        Log::warning('Failed to recover stuck ATS calculation (inline)', [
-                            'application_id' => $application->id
-                        ]);
-                    }
-                } else {
-                    $application->update(['ats_calculation_status' => 'pending']);
-                    \App\Jobs\CalculateAtsScore::dispatch($application->id);
+                if ($application->recalculateAtsScoreInline()) {
                     $retryCount++;
-                    
-                    Log::info('Requeued stuck ATS calculation', [
+                    Log::info('Successfully recovered stuck ATS calculation (inline)', [
+                        'application_id' => $application->id
+                    ]);
+                } else {
+                    $failedCount++;
+                    Log::warning('Failed to recover stuck ATS calculation (inline)', [
                         'application_id' => $application->id
                     ]);
                 }

@@ -6,7 +6,6 @@ namespace App\Http\Controllers;
 use App\Models\Application;
 use App\Models\JobListing;
 use App\Services\ATSService;
-use App\Jobs\CalculateAtsScore;
 use App\Mail\ShortlistedMail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -379,64 +378,13 @@ class ApplicationController extends Controller
             return redirect()->back()->with('error', 'Unable to submit application. Please try again later.');
         }
 
-        // Queue ATS score calculation
-        $atsQueued = false;
-        try {
-            $application->update(['ats_calculation_status' => 'processing']);
-            CalculateAtsScore::dispatch($application->id);
-            $atsQueued = true;
-
-            Log::info('ATS calculation queued successfully', [
-                'application_id' => $application->id
-            ]);
-        } catch (\Throwable $e) {
-            Log::warning('ATS queue dispatch failed, attempting inline calculation: ' . $e->getMessage(), [
-                'application_id' => $application->id
-            ]);
-
-            // Run inline if queue fails
-            try {
-                $application->calculateATSScore();
-                Log::info('ATS calculated inline successfully', [
-                    'application_id' => $application->id
-                ]);
-            } catch (\Throwable $inner) {
-                Log::error('ATS calculation failed completely: ' . $inner->getMessage(), [
-                    'application_id' => $application->id,
-                    'trace' => $inner->getTraceAsString()
-                ]);
-
-                // Mark as failed
-                $application->update([
-                    'ats_calculation_status' => 'failed',
-                    'ats_score' => [
-                        'percentage' => 0,
-                        'error' => 'Failed to calculate ATS score',
-                        'status' => 'failed',
-                        'analysis' => [
-                            'level' => 'Error',
-                            'message' => 'We are having trouble calculating the ATS score. Please try recalculating later.',
-                            'color' => 'red',
-                            'matched_count' => 0,
-                            'missing_count' => 0,
-                            'top_matched' => [],
-                            'top_missing' => [],
-                            'suggestions' => [
-                                'Our system encountered an error while calculating your ATS score.',
-                                'Please try uploading a different resume format (PDF, DOC, or DOCX).',
-                                'Contact support if the issue persists.'
-                            ]
-                        ]
-                    ]
-                ]);
-            }
-        }
+        $atsCalculated = $application->calculateATSScore();
 
         $message = 'Application submitted successfully!';
-        if ($atsQueued) {
-            $message .= ' Your ATS score is being calculated...';
+        if ($atsCalculated) {
+            $message .= ' Your ATS score was calculated.';
         } else {
-            $message .= ' Your application has been received.';
+            $message .= ' ATS score calculation failed. You can retry later.';
         }
 
         // Redirect job seekers to their applications list
@@ -604,18 +552,7 @@ class ApplicationController extends Controller
 
         // Recalculate ATS score if resume was changed
         if ($request->hasFile('resume') || $request->input('remove_resume') === '1') {
-            try {
-                $application->update(['ats_calculation_status' => 'processing']);
-                CalculateAtsScore::dispatch($application->id);
-
-                Log::info('ATS recalculation queued on update', [
-                    'application_id' => $application->id
-                ]);
-            } catch (\Throwable $e) {
-                Log::error('ATS dispatch failed on update: ' . $e->getMessage(), [
-                    'application_id' => $application->id
-                ]);
-            }
+            $application->recalculateAtsScoreInline();
         }
 
         return redirect()->route('backend.applications.show', $application->id)
@@ -950,28 +887,16 @@ class ApplicationController extends Controller
 
         try {
             // Check if calculation is stuck and handle it
-            if ($application->isAtsCalculationStuck()) {
-                Log::warning('ATS calculation detected as stuck, attempting inline recalculation', [
-                    'application_id' => $application->id
-                ]);
+            Log::info('ATS recalculation requested (inline)', [
+                'application_id' => $application->id
+            ]);
 
-                $inlineSuccess = $application->recalculateAtsScoreInline();
+            $inlineSuccess = $application->recalculateAtsScoreInline();
 
-                if ($inlineSuccess) {
-                    $message = 'ATS score recalculated successfully!';
-                } else {
-                    $message = 'ATS score recalculation encountered an error. Please try again later.';
-                }
+            if ($inlineSuccess) {
+                $message = 'ATS score recalculated successfully!';
             } else {
-                // Queue the recalculation
-                $application->update(['ats_calculation_status' => 'pending']);
-                CalculateAtsScore::dispatch($application->id);
-
-                $message = 'ATS score recalculation queued successfully. Please check back in a moment.';
-
-                Log::info('ATS recalculation queued', [
-                    'application_id' => $application->id
-                ]);
+                $message = 'ATS score recalculation encountered an error. Please try again later.';
             }
 
             if (request()->wantsJson()) {

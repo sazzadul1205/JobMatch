@@ -19,6 +19,7 @@ use App\Http\Controllers\Profile\ProfileCompletionController;
 // Controllers
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\ApplicationController;
+use App\Http\Controllers\ApplyController;
 use App\Http\Controllers\JobCategoryController;
 
 /*
@@ -78,6 +79,7 @@ Route::middleware(['auth', 'verified', 'profile.complete'])->group(function () {
     | Locations Management
     |--------------------------------------------------------------------------
     */
+
         Route::prefix('locations')->name('locations.')->group(function () {
             // Custom routes first
             Route::patch('{location}/toggle', [LocationController::class, 'toggleActive'])->name('toggle');
@@ -92,12 +94,12 @@ Route::middleware(['auth', 'verified', 'profile.complete'])->group(function () {
             Route::delete('{location}', [LocationController::class, 'destroy'])->name('destroy');
         });
 
-
         /*
     |--------------------------------------------------------------------------
     | Job Categories Management
     |--------------------------------------------------------------------------
     */
+
         Route::prefix('categories')->name('categories.')->group(function () {
             // Custom routes first
             Route::patch('{category}/toggle', [JobCategoryController::class, 'toggleActive'])->name('toggle');
@@ -117,6 +119,7 @@ Route::middleware(['auth', 'verified', 'profile.complete'])->group(function () {
     | Job Listings Management
     |--------------------------------------------------------------------------
     */
+
         Route::prefix('listing')->name('listing.')->group(function () {
             // Custom routes first
             Route::patch('{jobListing}/toggle-active', [JobListingController::class, 'toggleActive'])->name('toggle-active');
@@ -144,16 +147,40 @@ Route::middleware(['auth', 'verified', 'profile.complete'])->group(function () {
     | Public Job Listings Management (Backend viewing)
     |--------------------------------------------------------------------------
     */
+
         Route::prefix('public-jobs')->name('public-jobs.')->group(function () {
             Route::get('/', [PublicJobListingController::class, 'index'])->name('index');
             Route::get('{slug}', [PublicJobListingController::class, 'show'])->name('show');
         });
 
         /*
-|--------------------------------------------------------------------------
-| Applicant Profile Routes
-|--------------------------------------------------------------------------
-*/
+    |--------------------------------------------------------------------------
+    | Apply To Job Routes
+    |--------------------------------------------------------------------------
+    */
+
+        Route::prefix('apply')->name('apply.')->group(function () {
+            // Regular routes
+            Route::get('/', [ApplyController::class, 'index'])->name('index');
+            Route::get('/create/{slug}', [ApplyController::class, 'create'])->name('create');
+            Route::post('/store/{slug}', [ApplyController::class, 'store'])->name('store');
+            Route::get('/{id}', [ApplyController::class, 'show'])->name('show');
+            Route::get('/{id}/edit', [ApplyController::class, 'edit'])->name('edit');
+            Route::put('/{id}', [ApplyController::class, 'update'])->name('update');
+            Route::delete('/{id}', [ApplyController::class, 'destroy'])->name('destroy');
+
+            // Soft delete management routes
+            Route::get('/trashed', [ApplyController::class, 'trashed'])->name('trashed');
+            Route::post('/{id}/restore', [ApplyController::class, 'restore'])->name('restore');
+            Route::delete('/{id}/force-delete', [ApplyController::class, 'forceDelete'])->name('force-delete');
+        });
+        
+        /*
+    |--------------------------------------------------------------------------
+    | Applicant Profile Routes
+    |--------------------------------------------------------------------------
+    */
+
         Route::prefix('applicant')->name('applicant.')->group(function () {
 
             Route::delete('/profile/{applicantProfile}', [ApplicantProfileController::class, 'destroy'])->name('profile.destroy');
@@ -176,6 +203,7 @@ Route::middleware(['auth', 'verified', 'profile.complete'])->group(function () {
     | Applications Management
     |--------------------------------------------------------------------------
     */
+
         Route::prefix('applications')->name('applications.')->group(function () {
             // Job-specific applications
             Route::get('/job/{jobListing}', [ApplicationController::class, 'index'])->name('job.index');
@@ -272,6 +300,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/applications/bulk-send-emails', [ApplicationController::class, 'sendBulkEmails'])
         ->name('backend.applications.bulk-send-emails');
 });
+
+Route::post('/apply/{id}/recalculate-ats', [ApplyController::class, 'recalculateAts'])
+    ->name('backend.apply.recalculate-ats')
+    ->middleware(['auth']);
 
 /*
 |--------------------------------------------------------------------------

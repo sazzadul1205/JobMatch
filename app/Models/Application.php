@@ -187,6 +187,26 @@ class Application extends Model
     }
 
     /**
+     * Get the actual resume path for ATS parsing
+     */
+    public function getActualResumePath(): ?string
+    {
+        if (!empty($this->resume_path)) {
+            return $this->resume_path;
+        }
+
+        $profile = $this->relationLoaded('applicantProfile')
+            ? $this->applicantProfile
+            : $this->applicantProfile()->with('primaryCv')->first();
+
+        if ($profile && $profile->primaryCv) {
+            return $profile->primaryCv->cv_path;
+        }
+
+        return null;
+    }
+
+    /**
      * Check if ATS calculation is completed
      */
     public function isAtsCompleted()
@@ -195,10 +215,111 @@ class Application extends Model
     }
 
     /**
+     * Check if ATS calculation is stuck (no update for a while)
+     */
+    public function isAtsCalculationStuck(int $minutes = 30): bool
+    {
+        if (!in_array($this->ats_calculation_status, [self::ATS_PENDING, self::ATS_PROCESSING])) {
+            return false;
+        }
+
+        $cutoff = now()->subMinutes($minutes);
+
+        if ($this->ats_last_attempted_at) {
+            return $this->ats_last_attempted_at < $cutoff;
+        }
+
+        return $this->created_at < $cutoff;
+    }
+
+    /**
+     * Calculate ATS score inline using ATSService
+     */
+    public function calculateATSScore(): bool
+    {
+        try {
+            /** @var \App\Services\ATSService $atsService */
+            $atsService = app(\App\Services\ATSService::class);
+
+            $this->loadMissing('jobListing', 'applicantProfile');
+
+            if (!$this->jobListing) {
+                throw new \Exception('Job listing not found for ATS calculation');
+            }
+
+            $this->update([
+                'ats_calculation_status' => self::ATS_PROCESSING,
+            ]);
+
+            $result = $atsService->calculateScore($this, $this->jobListing);
+
+            $this->update([
+                'ats_score' => $result,
+                'matched_keywords' => $result['matched_keywords'] ?? [],
+                'missing_keywords' => $result['missing_keywords'] ?? [],
+                'ats_calculation_status' => self::ATS_COMPLETED,
+                'ats_last_attempted_at' => now(),
+                'ats_attempt_count' => ($this->ats_attempt_count ?? 0) + 1,
+            ]);
+
+            return true;
+        } catch (\Throwable $e) {
+            $this->update([
+                'ats_calculation_status' => self::ATS_FAILED,
+                'ats_score' => [
+                    'percentage' => 0,
+                    'error' => $e->getMessage(),
+                    'status' => 'failed',
+                    'analysis' => [
+                        'level' => 'Error',
+                        'message' => 'We are having trouble calculating the ATS score. Please try again later.',
+                        'color' => 'red',
+                        'matched_count' => 0,
+                        'missing_count' => 0,
+                        'top_matched' => [],
+                        'top_missing' => [],
+                        'suggestions' => [
+                            'Please try uploading a different resume format (PDF, DOC, or DOCX).'
+                        ]
+                    ]
+                ],
+                'ats_last_attempted_at' => now(),
+                'ats_attempt_count' => ($this->ats_attempt_count ?? 0) + 1,
+            ]);
+
+            return false;
+        }
+    }
+
+    /**
+     * Recalculate ATS score inline
+     */
+    public function recalculateAtsScoreInline(): bool
+    {
+        $this->update([
+            'ats_calculation_status' => self::ATS_PENDING,
+            'ats_score' => null,
+            'matched_keywords' => null,
+            'missing_keywords' => null,
+            'ats_attempt_count' => 0,
+        ]);
+
+        return $this->calculateATSScore();
+    }
+
+    /**
      * Check if application can be updated
      */
     public function canBeUpdated()
     {
         return !in_array($this->status, [self::STATUS_HIRED, self::STATUS_REJECTED]);
+    }
+
+    /**
+     * Get resume URL
+     */
+    public function getResumeUrlAttribute()
+    {
+        return $this->resume_path ? asset('storage/' . $this->resume_path) : null;
     }
 }

@@ -195,7 +195,7 @@ export default function PublicJobListingShow({
       return;
     }
 
-    router.visit(route('public.applications.create', jobListing.slug));
+    router.visit(route('backend.apply.create', jobListing.slug));
   };
 
   const handleShare = () => {
