@@ -287,7 +287,7 @@ export default function Show({ profile }) {
               ) : (
                 <>
                   <Link
-                    href={route('backend.applications.my-applications')}
+                    href={route('backend.apply.index')}
                     className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
                   >
                     <FaFileAlt size={16} />

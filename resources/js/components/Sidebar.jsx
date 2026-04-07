@@ -177,65 +177,9 @@ const Sidebar = () => {
       icon: FiBriefcase,
     },
     {
-      name: 'Job Management',
-      icon: FiBriefcase,
-      isDropdown: true,
-      dropdownKey: 'jobs',
-      subItems: [
-        {
-          name: 'All Jobs',
-          routeName: 'backend.listing.index',
-          icon: FiBriefcase,
-        },
-        {
-          name: 'Create New Job',
-          routeName: 'backend.listing.create',
-          icon: FiPlusCircle,
-        },
-        {
-          name: 'Job Locations',
-          routeName: 'backend.locations.index',
-          icon: FaSearchLocation,
-        },
-        {
-          name: 'Job Categories',
-          routeName: 'backend.categories.index',
-          icon: MdCategory,
-        },
-      ],
-    },
-    {
-      name: 'Applications',
+      name: 'All Applications',
+      routeName: 'backend.applications.index',
       icon: FiFileText,
-      isDropdown: true,
-      dropdownKey: 'applications',
-      subItems: [
-        {
-          name: 'All Applications',
-          routeName: 'backend.application.index',
-          routeParams: {},
-        },
-        {
-          name: 'Pending',
-          routeName: 'backend.application.index',
-          routeParams: { status: 'pending' },
-        },
-        {
-          name: 'Reviewed',
-          routeName: 'backend.application.index',
-          routeParams: { status: 'reviewed' },
-        },
-        {
-          name: 'Shortlisted',
-          routeName: 'backend.application.index',
-          routeParams: { status: 'shortlisted' },
-        },
-        {
-          name: 'Rejected',
-          routeName: 'backend.application.index',
-          routeParams: { status: 'rejected' },
-        },
-      ],
     },
     {
       name: 'Profile Settings',

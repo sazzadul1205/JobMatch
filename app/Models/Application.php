@@ -3,6 +3,8 @@
 
 namespace App\Models;
 
+use App\Models\User;
+
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -322,4 +324,5 @@ class Application extends Model
     {
         return $this->resume_path ? asset('storage/' . $this->resume_path) : null;
     }
+
 }

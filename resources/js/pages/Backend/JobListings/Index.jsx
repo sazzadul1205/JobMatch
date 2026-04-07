@@ -1140,7 +1140,7 @@ export default function JobListingsIndex({ jobListings: initialJobListings, filt
                           <div className="flex justify-end gap-2">
                             {!trashed && (
                               <a
-                                href={route('backend.listing.applications', job.id)}
+                                href={route('backend.applications.job', job.id)}
                                 className="relative p-2 text-purple-600 hover:text-purple-900 hover:bg-purple-50 rounded-lg transition-all duration-200"
                                 title="View Applications"
                               >

@@ -1,56 +1,49 @@
-// resources/js/pages/Backend/JobListings/Show.jsx
+// resources/js/Pages/Backend/Applications/Show.jsx
 
 import { useState } from 'react';
-import { Head, router } from '@inertiajs/react';
+import { Head, router, Link } from '@inertiajs/react';
 import AuthenticatedLayout from '../../../layouts/AuthenticatedLayout';
 
 // Icons
 import {
   FaArrowLeft,
-  FaEdit,
-  FaTrash,
-  FaSpinner,
   FaBriefcase,
-  FaMapMarkerAlt,
+  FaBuilding,
   FaCalendarAlt,
-  FaClock,
-  FaGraduationCap,
-  FaUsers,
-  FaEye,
-  FaToggleOn,
-  FaToggleOff,
-  FaUser,
-  FaEnvelope,
-  FaGlobe,
-  FaFacebook,
-  FaLinkedin,
-  FaExternalLinkAlt,
+  FaChartLine,
+  FaCheck,
   FaCheckCircle,
-  FaTimesCircle,
+  FaClock,
+  FaDollarSign,
+  FaDownload,
+  FaEnvelope,
+  FaEye,
+  FaFacebook,
+  FaFilePdf,
   FaHourglassHalf,
   FaInfoCircle,
-  FaChartLine,
+  FaLightbulb,
+  FaLinkedin,
+  FaPhone,
+  FaSpinner,
   FaStar,
+  FaThumbsUp,
+  FaTimesCircle,
+  FaTrash,
+  FaUser,
+  FaUserCheck,
+  FaUserSlash,
+  FaUsers,
 } from 'react-icons/fa';
-import { FaListCheck } from "react-icons/fa6";
 
-// SweetAlert
+// SweetAlert2
 import Swal from 'sweetalert2';
 
-export default function Show({ jobListing, applicationStats, averageAtsScore, totalViews, recentApplications }) {
-  const [togglingId, setTogglingId] = useState(null);
-  const [deletingId, setDeletingId] = useState(null);
+export default function ApplicationsShow({ application, atsAnalysis, timelineData, similarApplications, statuses }) {
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
 
   const formatDate = (date) => {
-    if (!date) return 'N/A';
-    return new Date(date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  };
-
-  const formatDateTime = (date) => {
     if (!date) return 'N/A';
     return new Date(date).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -61,645 +54,752 @@ export default function Show({ jobListing, applicationStats, averageAtsScore, to
     });
   };
 
-  const getJobTypeLabel = (type) => {
-    const types = {
-      'full-time': 'Full Time',
-      'part-time': 'Part Time',
-      'contract': 'Contract',
-      'internship': 'Internship',
-      'remote': 'Remote',
-      'hybrid': 'Hybrid',
+  const formatShortDate = (date) => {
+    if (!date) return 'N/A';
+    return new Date(date).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
+
+  const getStatusBadge = (status) => {
+    const badges = {
+      pending: 'bg-yellow-100 text-yellow-800',
+      shortlisted: 'bg-blue-100 text-blue-800',
+      rejected: 'bg-red-100 text-red-800',
+      hired: 'bg-green-100 text-green-800'
     };
-    return types[type] || type;
+    return badges[status] || 'bg-gray-100 text-gray-800';
   };
 
-  const getJobTypeBadge = (type) => {
-    const types = {
-      'full-time': 'bg-green-100 text-green-800',
-      'part-time': 'bg-yellow-100 text-yellow-800',
-      'contract': 'bg-blue-100 text-blue-800',
-      'internship': 'bg-orange-100 text-orange-800',
-      'remote': 'bg-indigo-100 text-indigo-800',
-      'hybrid': 'bg-purple-100 text-purple-800',
+  const getStatusIcon = (status) => {
+    const icons = {
+      pending: <FaHourglassHalf className="text-yellow-500" size={24} />,
+      shortlisted: <FaUserCheck className="text-blue-500" size={24} />,
+      rejected: <FaUserSlash className="text-red-500" size={24} />,
+      hired: <FaCheckCircle className="text-green-500" size={24} />
     };
-    return types[type] || 'bg-gray-100 text-gray-800';
+    return icons[status] || <FaBriefcase className="text-gray-500" size={24} />;
   };
 
-  const getExperienceLabel = (level) => {
-    const levels = {
-      'entry': 'Entry Level',
-      'junior': 'Junior',
-      'mid-level': 'Mid Level',
-      'senior': 'Senior',
-      'lead': 'Lead',
-      'executive': 'Executive',
+  const getStatusText = (status) => {
+    const texts = {
+      pending: 'Pending Review',
+      shortlisted: 'Shortlisted',
+      rejected: 'Rejected',
+      hired: 'Hired'
     };
-    return levels[level] || level;
-  };
-
-  const getExperienceBadge = (level) => {
-    const levels = {
-      'entry': 'bg-blue-100 text-blue-800',
-      'junior': 'bg-cyan-100 text-cyan-800',
-      'mid-level': 'bg-teal-100 text-teal-800',
-      'senior': 'bg-purple-100 text-purple-800',
-      'lead': 'bg-orange-100 text-orange-800',
-      'executive': 'bg-red-100 text-red-800',
-    };
-    return levels[level] || 'bg-gray-100 text-gray-800';
-  };
-
-  const getSalaryDisplay = () => {
-    if (jobListing.as_per_companies_policy) {
-      return 'As per company policy';
-    }
-    if (jobListing.is_salary_negotiable) {
-      return 'Negotiable';
-    }
-    if (jobListing.salary_min && jobListing.salary_max) {
-      return `${jobListing.salary_min.toLocaleString()} - ${jobListing.salary_max.toLocaleString()} BDT`;
-    }
-    if (jobListing.salary_min) {
-      return `From ${jobListing.salary_min.toLocaleString()} BDT`;
-    }
-    return 'Not specified';
-  };
-
-  const getStatusBadge = () => {
-    const isExpired = jobListing.application_deadline && new Date(jobListing.application_deadline) < new Date();
-
-    if (jobListing.deleted_at) {
-      return { text: 'Deleted', color: 'bg-gray-100 text-gray-600', icon: <FaTimesCircle size={14} /> };
-    }
-    if (!jobListing.is_active) {
-      return { text: 'Inactive', color: 'bg-red-100 text-red-800', icon: <FaTimesCircle size={14} /> };
-    }
-    if (isExpired) {
-      return { text: 'Expired', color: 'bg-orange-100 text-orange-800', icon: <FaHourglassHalf size={14} /> };
-    }
-    return { text: 'Active', color: 'bg-green-100 text-green-800', icon: <FaCheckCircle size={14} /> };
+    return texts[status] || status;
   };
 
   const getAtsScoreColor = (score) => {
-    if (!score) return 'bg-gray-100 text-gray-600';
-    if (score >= 80) return 'bg-green-100 text-green-800';
-    if (score >= 60) return 'bg-blue-100 text-blue-800';
-    if (score >= 40) return 'bg-yellow-100 text-yellow-800';
-    return 'bg-red-100 text-red-800';
+    if (!score) return 'text-gray-500';
+    if (score >= 80) return 'text-green-600';
+    if (score >= 60) return 'text-blue-600';
+    if (score >= 40) return 'text-yellow-600';
+    return 'text-red-600';
   };
 
-  const status = getStatusBadge();
-
-  const handleBack = () => {
-    if (window.history.length > 1) {
-      window.history.back();
-    } else {
-      router.visit(route('backend.listing.index'));
-    }
+  const getAtsScoreBg = (score) => {
+    if (!score) return 'bg-gray-100';
+    if (score >= 80) return 'bg-green-100';
+    if (score >= 60) return 'bg-blue-100';
+    if (score >= 40) return 'bg-yellow-100';
+    return 'bg-red-100';
   };
 
-  const handleToggle = () => {
+  const getAtsScoreMessage = (score) => {
+    if (!score) return 'Not calculated yet';
+    if (score >= 80) return 'Excellent match! This candidate\'s CV aligns very well with the position.';
+    if (score >= 60) return 'Good match! The candidate meets most requirements.';
+    if (score >= 40) return 'Fair match. Consider reviewing the CV for relevant keywords.';
+    return 'Low match. The candidate may need to customize their CV for this position.';
+  };
+
+  const formatSalary = (salary) => {
+    if (!salary) return 'Not specified';
+    return new Intl.NumberFormat('en-US').format(salary) + ' BDT';
+  };
+
+  const handleStatusUpdate = () => {
     Swal.fire({
-      title: 'Change status?',
-      text: `This will ${jobListing.is_active ? 'deactivate' : 'activate'} this job listing.`,
+      title: 'Update Application Status',
+      html: `
+        <div class="text-left">
+          <p class="mb-3">Change status for <strong>${application.name}</strong></p>
+          <select id="status-select" class="swal2-select w-full px-3 py-2 border rounded-lg">
+            ${statuses.map(status => `
+              <option value="${status}" ${status === application.status ? 'selected' : ''}>
+                ${getStatusText(status)}
+              </option>
+            `).join('')}
+          </select>
+          <textarea id="notes-input" class="swal2-textarea mt-3 w-full px-3 py-2 border rounded-lg" 
+            placeholder="Optional: Add notes for this status change..." rows="3"></textarea>
+        </div>
+      `,
       icon: 'question',
       showCancelButton: true,
-      confirmButtonColor: '#2563eb',
+      confirmButtonColor: '#10b981',
       cancelButtonColor: '#d33',
-      confirmButtonText: 'Yes, continue',
+      confirmButtonText: 'Update Status',
+      cancelButtonText: 'Cancel',
+      preConfirm: () => {
+        const status = document.getElementById('status-select').value;
+        const notes = document.getElementById('notes-input').value;
+        return { status, notes };
+      }
     }).then((result) => {
       if (result.isConfirmed) {
-        setTogglingId(jobListing.id);
+        setUpdatingStatus(true);
 
-        router.patch(route('backend.listing.toggle-active', jobListing.id), {}, {
+        router.post(route('backend.applications.update-status', application.id), {
+          status: result.value.status,
+          notes: result.value.notes || null,
+        }, {
           preserveScroll: true,
           onSuccess: () => {
-            router.reload();
             Swal.fire({
               icon: 'success',
-              title: 'Status Updated!',
-              text: `Job listing has been ${!jobListing.is_active ? 'activated' : 'deactivated'}.`,
+              title: 'Updated!',
+              text: 'Application status updated successfully.',
               timer: 1500,
               showConfirmButton: false,
             });
+            router.reload();
           },
-          onError: (error) => {
+          onError: (errors) => {
             Swal.fire({
               icon: 'error',
               title: 'Update Failed',
-              text: error?.response?.data?.message || 'Failed to update job status.',
-              confirmButtonColor: '#2563eb',
+              text: errors?.message || 'Failed to update status.',
+              confirmButtonColor: '#d33',
             });
           },
-          onFinish: () => setTogglingId(null),
+          onFinish: () => setUpdatingStatus(false),
         });
       }
     });
   };
 
-  const handleDelete = () => {
-    const applicationsCount = jobListing.applications_count || 0;
-
-    if (applicationsCount > 0) {
-      Swal.fire({
-        title: 'Cannot Delete',
-        text: `This job has ${applicationsCount} application(s). Please deactivate it instead.`,
-        icon: 'warning',
-        confirmButtonColor: '#2563eb',
-      });
-      return;
-    }
-
+  const handleRecalculateAts = () => {
     Swal.fire({
-      title: 'Delete job listing?',
-      text: 'This will move it to trash. This action can be undone.',
+      title: 'Recalculate ATS Score?',
+      text: 'This will re-analyze the candidate\'s CV against the job requirements.',
+      icon: 'info',
+      showCancelButton: true,
+      confirmButtonColor: '#3b82f6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Yes, recalculate',
+      cancelButtonText: 'Cancel',
+    }).then((result) => {
+      if (result.isConfirmed) {
+        setRecalculating(true);
+
+        router.post(route('backend.applications.recalculate-ats', application.id), {}, {
+          preserveScroll: true,
+          onSuccess: () => {
+            Swal.fire({
+              icon: 'success',
+              title: 'Recalculated!',
+              text: 'ATS score has been updated.',
+              timer: 1500,
+              showConfirmButton: false,
+            });
+            router.reload();
+          },
+          onError: (errors) => {
+            Swal.fire({
+              icon: 'error',
+              title: 'Recalculation Failed',
+              text: errors?.message || 'Failed to recalculate ATS score.',
+              confirmButtonColor: '#d33',
+            });
+          },
+          onFinish: () => setRecalculating(false),
+        });
+      }
+    });
+  };
+
+  const handleDownloadCv = () => {
+    window.location.href = route('backend.applications.download-cv', application.id);
+  };
+
+  const handleDelete = () => {
+    Swal.fire({
+      title: 'Delete Application?',
+      html: `Are you sure you want to delete the application from <strong>${application.name}</strong>?<br><br>This action cannot be undone.`,
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#d33',
       cancelButtonColor: '#3085d6',
-      confirmButtonText: 'Yes, delete',
+      confirmButtonText: 'Yes, Delete',
       cancelButtonText: 'Cancel',
     }).then((result) => {
       if (result.isConfirmed) {
-        setDeletingId(jobListing.id);
-
-        router.delete(route('backend.listing.destroy', jobListing.id), {
+        router.delete(route('backend.applications.destroy', application.id), {
           preserveScroll: true,
           onSuccess: () => {
             Swal.fire({
               icon: 'success',
               title: 'Deleted!',
-              text: 'Job listing has been moved to trash.',
+              text: 'Application has been deleted.',
               timer: 1500,
               showConfirmButton: false,
-            }).then(() => {
-              router.visit(route('backend.listing.index'));
             });
+            router.get(route('backend.applications.index'));
           },
           onError: (errors) => {
             Swal.fire({
               icon: 'error',
               title: 'Delete Failed',
-              text: errors?.message || 'Failed to delete job listing.',
-              confirmButtonColor: '#2563eb',
+              text: errors?.message || 'Failed to delete application.',
+              confirmButtonColor: '#d33',
             });
           },
-          onFinish: () => setDeletingId(null),
         });
       }
     });
   };
 
-  const InfoSection = ({ title, icon: Icon, children, badge }) => (
-    <div className="bg-white rounded-xl shadow-md overflow-hidden mb-6 transition-all duration-300 hover:shadow-lg">
-      <div className="flex items-center justify-between px-6 py-4 bg-linear-to-r from-gray-50 to-white border-b border-gray-200">
-        <div className="flex items-center gap-2">
-          <Icon className="text-blue-600" size={18} />
-          <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
-        </div>
-        {badge && badge}
-      </div>
-      <div className="p-6">{children}</div>
-    </div>
-  );
-
-  const InfoRow = ({ label, value, isHtml = false }) => (
-    <div className="py-3 border-b border-gray-100 last:border-0">
-      <dt className="text-sm font-medium text-gray-500 mb-1">{label}</dt>
-      <dd className="text-gray-900">
-        {isHtml ? (
-          <div dangerouslySetInnerHTML={{ __html: value }} className="prose prose-sm max-w-none" />
-        ) : (
-          value || <span className="text-gray-400 italic">Not provided</span>
-        )}
-      </dd>
-    </div>
-  );
-
-  const TagList = ({ items, color = 'blue' }) => (
-    <div className="flex flex-wrap gap-2">
-      {items?.length > 0 ? (
-        items.map((item, index) => (
-          <span
-            key={index}
-            className={`inline-flex px-3 py-1 text-sm font-medium rounded-full bg-${color}-100 text-${color}-800`}
-          >
-            {item}
-          </span>
-        ))
-      ) : (
-        <span className="text-gray-400 italic text-sm">None provided</span>
-      )}
-    </div>
-  );
-
-  const StatCard = ({ title, value, color, icon: Icon, subtitle }) => (
-    <div className="bg-white rounded-xl shadow-md p-6 text-center transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
-      <div className={`inline-flex items-center justify-center w-12 h-12 rounded-full bg-${color}-100 mb-3`}>
-        <Icon className={`text-${color}-600`} size={24} />
-      </div>
-      <h3 className="text-2xl font-bold text-gray-900">{value}</h3>
-      <p className="text-sm text-gray-500 mt-1">{title}</p>
-      {subtitle && <p className="text-xs text-gray-400 mt-1">{subtitle}</p>}
-    </div>
-  );
+  // Get timeline for display
+  const statusTimeline = application.status_timelines || [];
 
   return (
     <AuthenticatedLayout>
-      <Head title={`Job Details: ${jobListing.title}`} />
+      <Head title={`Application: ${application.name} - ${application.job_listing?.title}`} />
 
       <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 py-8 px-4 sm:px-6 lg:px-8">
-        <div className=" mx-auto">
-          {/* Header */}
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-4">
+        <div className="max-w-7xl mx-auto">
+          {/* Back Button */}
+          <div className="flex justify-between items-center mb-6">
+            <button
+              onClick={() => router.get(route('backend.applications.index'))}
+              className="group flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-all duration-200"
+            >
+              <FaArrowLeft className="group-hover:-translate-x-1 transition-transform duration-200" size={14} />
+              <span className="text-sm font-medium">Back to Applications</span>
+            </button>
+
+            <div className="flex gap-2">
               <button
-                onClick={handleBack}
-                className="group flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-all duration-200"
+                onClick={handleDownloadCv}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg flex items-center gap-2 hover:bg-purple-700 transition-all duration-200"
               >
-                <FaArrowLeft className="group-hover:-translate-x-1 transition-transform duration-200" size={14} />
-                <span className="text-sm font-medium">Back to Listings</span>
+                <FaDownload size={14} />
+                Download CV
               </button>
-
-              <div className="flex gap-2">
-                {!jobListing.deleted_at && (
-                  <>
-                    <a
-                      href={route('backend.listing.edit', jobListing.id)}
-                      className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 flex items-center gap-2 shadow-sm hover:shadow-md"
-                    >
-                      <FaEdit size={12} />
-                      Edit Job
-                    </a>
-                    <button
-                      onClick={handleToggle}
-                      disabled={togglingId === jobListing.id}
-                      className={`px-4 py-2 text-sm rounded-lg transition-all duration-200 flex items-center gap-2 shadow-sm ${jobListing.is_active
-                        ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
-                        : 'bg-green-100 text-green-700 hover:bg-green-200'
-                        } ${togglingId === jobListing.id ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    >
-                      {togglingId === jobListing.id ? (
-                        <FaSpinner className="animate-spin" size={12} />
-                      ) : jobListing.is_active ? (
-                        <FaToggleOff size={14} />
-                      ) : (
-                        <FaToggleOn size={14} />
-                      )}
-                      {jobListing.is_active ? 'Deactivate' : 'Activate'}
-                    </button>
-                    <button
-                      onClick={handleDelete}
-                      disabled={deletingId === jobListing.id}
-                      className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-200 flex items-center gap-2 shadow-sm"
-                    >
-                      {deletingId === jobListing.id ? (
-                        <FaSpinner className="animate-spin" size={12} />
-                      ) : (
-                        <FaTrash size={12} />
-                      )}
-                      Delete
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-3 mb-2 flex-wrap">
-                <h1 className="text-3xl font-bold bg-linear-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
-                  {jobListing.title}
-                </h1>
-                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${status.color}`}>
-                  {status.icon}
-                  {status.text}
-                </span>
-              </div>
-              <p className="text-sm text-gray-500">
-                Posted by {jobListing.employer?.name || 'Unknown Employer'} • {formatDateTime(jobListing.created_at)}
-              </p>
+              <button
+                onClick={handleDelete}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg flex items-center gap-2 hover:bg-red-700 transition-all duration-200"
+              >
+                <FaTrash size={14} />
+                Delete
+              </button>
             </div>
           </div>
 
-          {/* Stats Cards Row */}
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6">
-            <StatCard title="Total Applications" value={applicationStats.total} color="blue" icon={FaUsers} />
-            <StatCard title="Pending" value={applicationStats.pending} color="yellow" icon={FaHourglassHalf} />
-            <StatCard title="Shortlisted" value={applicationStats.shortlisted} color="green" icon={FaCheckCircle} />
-            <StatCard title="Rejected" value={applicationStats.rejected} color="red" icon={FaTimesCircle} />
-            <StatCard title="Hired" value={applicationStats.hired} color="purple" icon={FaBriefcase} />
-            <StatCard
-              title="Average ATS Score"
-              value={averageAtsScore ? `${averageAtsScore}%` : 'N/A'}
-              color="indigo"
-              icon={FaChartLine}
-              subtitle={averageAtsScore ? `Based on ${applicationStats.total} applications` : 'No ATS data yet'}
-            />
-          </div>
-
-          {/* Views Card - Special */}
-          <div className="bg-linear-to-r from-blue-500 to-indigo-600 rounded-xl shadow-lg mb-6 overflow-hidden">
-            <div className="px-6 py-4 flex items-center justify-between text-white">
-              <div className="flex items-center gap-3">
-                <div className="bg-white/20 p-2 rounded-lg">
-                  <FaEye size={20} />
-                </div>
+          {/* Header Card */}
+          <div className="bg-white rounded-xl shadow-lg overflow-hidden mb-6 animate-fade-in">
+            <div className="bg-linear-to-r from-blue-600 to-indigo-700 px-6 py-5">
+              <div className="flex justify-between items-start">
                 <div>
-                  <p className="text-sm opacity-90">Total Views</p>
-                  <p className="text-2xl font-bold">{totalViews || 0}</p>
+                  <h1 className="text-xl font-bold text-white">Application Details</h1>
+                  <p className="text-blue-100 text-sm mt-1">
+                    {application.job_listing?.title} at {application.job_listing?.employer?.name || 'Company'}
+                  </p>
                 </div>
-              </div>
-              <div className="text-right">
-                <p className="text-xs opacity-75">Last 30 days</p>
-                <p className="text-sm font-medium">Unique visitors tracked</p>
+                <div className="flex items-center gap-3">
+                  {getStatusIcon(application.status)}
+                  <span className={`inline-flex px-3 py-1 rounded-full text-sm font-semibold ${getStatusBadge(application.status)}`}>
+                    {getStatusText(application.status)}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Main Content Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Left Column - Main Content */}
+            {/* Main Content - Left Column */}
             <div className="lg:col-span-2 space-y-6">
-              {/* Description */}
-              <InfoSection title="Job Description" icon={FaBriefcase}>
-                <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: jobListing.description }} />
-              </InfoSection>
-
-              {/* Requirements */}
-              <InfoSection title="Requirements & Qualifications" icon={FaListCheck}>
-                <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: jobListing.requirements }} />
-              </InfoSection>
-
-              {/* Responsibilities */}
-              {jobListing.responsibilities?.length > 0 && (
-                <InfoSection title="Key Responsibilities" icon={FaListCheck}>
-                  <ul className="space-y-2">
-                    {jobListing.responsibilities.map((resp, idx) => (
-                      <li key={idx} className="flex items-start gap-2 text-gray-700">
-                        <span className="text-blue-500 mt-1">•</span>
-                        <span>{resp}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </InfoSection>
-              )}
-
-              {/* Benefits */}
-              {jobListing.benefits?.length > 0 && (
-                <InfoSection title="Benefits & Perks" icon={FaCheckCircle}>
-                  <TagList items={jobListing.benefits} color="green" />
-                </InfoSection>
-              )}
-            </div>
-
-            {/* Right Column - Sidebar */}
-            <div className="space-y-6">
-              {/* Basic Info Card */}
-              <InfoSection title="Basic Information" icon={FaInfoCircle}>
-                <dl className="space-y-3">
-                  <InfoRow label="Job Type" value={
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getJobTypeBadge(jobListing.job_type)}`}>
-                      {getJobTypeLabel(jobListing.job_type)}
-                    </span>
-                  } />
-                  <InfoRow label="Experience Level" value={
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getExperienceBadge(jobListing.experience_level)}`}>
-                      {getExperienceLabel(jobListing.experience_level)}
-                    </span>
-                  } />
-                  <InfoRow label="Category" value={jobListing.category?.name || 'N/A'} />
-                  <InfoRow label="Salary" value={getSalaryDisplay()} />
-                </dl>
-              </InfoSection>
-
-              {/* Location Card */}
-              <InfoSection title="Location(s)" icon={FaMapMarkerAlt}>
-                {jobListing.locations?.length > 0 ? (
-                  <div className="space-y-3">
-                    {jobListing.locations.map((location, idx) => (
-                      <div key={idx} className="flex items-start gap-2">
-                        <FaMapMarkerAlt className="text-gray-400 mt-0.5 shrink-0" size={14} />
-                        <div>
-                          <p className="text-gray-900 font-medium">{location.name}</p>
-                          {location.address && <p className="text-sm text-gray-500">{location.address}</p>}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500 italic">No location specified</p>
-                )}
-              </InfoSection>
-
-              {/* Dates Card */}
-              <InfoSection title="Dates & Deadlines" icon={FaCalendarAlt}>
-                <dl className="space-y-3">
-                  <InfoRow
-                    label="Application Deadline"
-                    value={
-                      <div className={`flex items-center gap-2 ${new Date(jobListing.application_deadline) < new Date() ? 'text-red-600' : 'text-gray-900'}`}>
-                        <FaCalendarAlt size={14} />
-                        <span className="font-medium">{formatDate(jobListing.application_deadline)}</span>
-                        {new Date(jobListing.application_deadline) < new Date() && (
-                          <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">Passed</span>
+              {/* Applicant Information Card */}
+              <div className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-all duration-300">
+                <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                  <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+                    <FaUser className="text-blue-600" />
+                    Applicant Information
+                  </h2>
+                </div>
+                <div className="p-6">
+                  <div className="flex items-start gap-4 mb-6">
+                    <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xl">
+                      {application.name?.charAt(0)?.toUpperCase() || '?'}
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900">{application.name}</h3>
+                      <div className="flex flex-wrap gap-3 mt-1">
+                        <span className="text-sm text-gray-500 flex items-center gap-1">
+                          <FaEnvelope size={12} />
+                          {application.email}
+                        </span>
+                        {application.phone && (
+                          <span className="text-sm text-gray-500 flex items-center gap-1">
+                            <FaPhone size={12} />
+                            {application.phone}
+                          </span>
                         )}
                       </div>
-                    }
-                  />
-                  <InfoRow
-                    label="Publish Date"
-                    value={
-                      jobListing.publish_at ? (
-                        <div className="flex items-center gap-2">
-                          <FaClock className="text-blue-500" size={14} />
-                          <span>{formatDate(jobListing.publish_at)}</span>
-                        </div>
-                      ) : 'Immediately'
-                    }
-                  />
-                  <InfoRow label="Created At" value={formatDateTime(jobListing.created_at)} />
-                  <InfoRow label="Last Updated" value={formatDateTime(jobListing.updated_at)} />
-                </dl>
-              </InfoSection>
+                    </div>
+                  </div>
 
-              {/* Skills Card */}
-              {jobListing.skills?.length > 0 && (
-                <InfoSection title="Required Skills" icon={FaListCheck}>
-                  <TagList items={jobListing.skills} color="blue" />
-                </InfoSection>
-              )}
-
-              {/* Education Card */}
-              {(jobListing.education_requirement || jobListing.education_details) && (
-                <InfoSection title="Education Requirements" icon={FaGraduationCap}>
-                  {jobListing.education_requirement && (
-                    <p className="text-gray-900 font-medium mb-2">{jobListing.education_requirement}</p>
-                  )}
-                  {jobListing.education_details && (
-                    <p className="text-sm text-gray-500">{jobListing.education_details}</p>
-                  )}
-                </InfoSection>
-              )}
-
-              {/* Keywords Card */}
-              {jobListing.keywords?.length > 0 && (
-                <InfoSection title="ATS Keywords" icon={FaStar}>
-                  <TagList items={jobListing.keywords} color="purple" />
-                </InfoSection>
-              )}
-
-              {/* Social Requirements */}
-              {(jobListing.required_linkedin_link || jobListing.required_facebook_link) && (
-                <InfoSection title="Social Requirements" icon={FaGlobe}>
-                  <div className="space-y-2">
-                    {jobListing.required_linkedin_link && (
-                      <div className="flex items-center gap-2 p-2 bg-blue-50 rounded-lg">
-                        <FaLinkedin className="text-blue-700" size={18} />
-                        <span className="text-sm text-gray-700">Requires LinkedIn profile</span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-500">Applied on</p>
+                      <p className="font-medium text-gray-900">{formatShortDate(application.created_at)}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Last Updated</p>
+                      <p className="font-medium text-gray-900">{formatShortDate(application.updated_at)}</p>
+                    </div>
+                    {application.years_of_experience && (
+                      <div>
+                        <p className="text-sm text-gray-500">Years of Experience</p>
+                        <p className="font-medium text-gray-900">{application.years_of_experience} years</p>
                       </div>
                     )}
-                    {jobListing.required_facebook_link && (
-                      <div className="flex items-center gap-2 p-2 bg-blue-50 rounded-lg">
-                        <FaFacebook className="text-blue-600" size={18} />
-                        <span className="text-sm text-gray-700">Requires Facebook profile</span>
+                    {application.expected_salary && (
+                      <div>
+                        <p className="text-sm text-gray-500">Expected Salary</p>
+                        <p className="font-medium text-green-600">{formatSalary(application.expected_salary)}</p>
                       </div>
                     )}
                   </div>
-                </InfoSection>
+
+                  {/* Social Links */}
+                  {(application.linkedin_link || application.facebook_link) && (
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <p className="text-sm font-medium text-gray-700 mb-2">Social Profiles</p>
+                      <div className="flex gap-4">
+                        {application.linkedin_link && (
+                          <a
+                            href={application.linkedin_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 text-blue-600 hover:text-blue-800 transition-colors"
+                          >
+                            <FaLinkedin size={18} />
+                            <span className="text-sm">LinkedIn</span>
+                          </a>
+                        )}
+                        {application.facebook_link && (
+                          <a
+                            href={application.facebook_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 text-blue-600 hover:text-blue-800 transition-colors"
+                          >
+                            <FaFacebook size={18} />
+                            <span className="text-sm">Facebook</span>
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* CV/Resume */}
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <button
+                      onClick={handleDownloadCv}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 transition-all duration-200"
+                    >
+                      <FaFilePdf size={16} />
+                      <span className="text-sm font-medium">Download Resume/CV</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Job Details Card */}
+              <div className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-all duration-300">
+                <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                  <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+                    <FaBriefcase className="text-blue-600" />
+                    Job Details
+                  </h2>
+                </div>
+                <div className="p-6">
+                  <h3 className="text-lg font-bold text-gray-900 mb-3">{application.job_listing?.title}</h3>
+                  <div className="grid grid-cols-2 gap-3 text-sm mb-4">
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <FaBuilding size={14} />
+                      <span>{application.job_listing?.employer?.name || 'Company'}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <FaCalendarAlt size={14} />
+                      <span>{application.job_listing?.job_type}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <FaStar size={14} />
+                      <span>{application.job_listing?.experience_level}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <FaClock size={14} />
+                      <span>Deadline: {formatShortDate(application.job_listing?.application_deadline)}</span>
+                    </div>
+                  </div>
+
+                  {application.job_listing?.description && (
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <p className="text-sm font-medium text-gray-700 mb-2">Job Description</p>
+                      <div
+                        className="text-sm text-gray-600 prose prose-sm max-w-none"
+                        dangerouslySetInnerHTML={{
+                          __html: application.job_listing.description.length > 500
+                            ? application.job_listing.description.substring(0, 500) + '...'
+                            : application.job_listing.description
+                        }}
+                      />
+                      {application.job_listing.description.length > 500 && (
+                        <Link
+                          href={route('backend.jobs.show', application.job_listing.id)}
+                          className="text-blue-600 text-sm mt-2 inline-block hover:underline"
+                        >
+                          View full job description →
+                        </Link>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Status Timeline */}
+              {statusTimeline.length > 0 && (
+                <div className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-all duration-300">
+                  <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                    <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+                      <FaClock className="text-blue-600" />
+                      Status Timeline
+                    </h2>
+                  </div>
+                  <div className="p-6">
+                    <div className="space-y-4">
+                      {statusTimeline.map((timeline, index) => (
+                        <div key={index} className="flex gap-3">
+                          <div className="flex flex-col items-center">
+                            <div className="w-2 h-2 rounded-full bg-blue-500 mt-2"></div>
+                            {index < statusTimeline.length - 1 && (
+                              <div className="w-0.5 h-full bg-gray-200"></div>
+                            )}
+                          </div>
+                          <div className="flex-1 pb-4">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${getStatusBadge(timeline.status)}`}>
+                                {getStatusText(timeline.status)}
+                              </span>
+                              <span className="text-xs text-gray-500">{formatDate(timeline.created_at)}</span>
+                            </div>
+                            {timeline.notes && (
+                              <p className="text-sm text-gray-600 mt-1">{timeline.notes}</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Right Column - ATS Score & Actions */}
+            <div className="space-y-6">
+              {/* ATS Score Card */}
+              <div className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-all duration-300 sticky top-24">
+                <div className="px-6 py-4 bg-linear-to-r from-purple-600 to-indigo-600">
+                  <h3 className="font-semibold text-white flex items-center gap-2">
+                    <FaChartLine size={18} />
+                    ATS Compatibility Score
+                  </h3>
+                </div>
+                <div className="p-6">
+                  {atsAnalysis ? (
+                    <div className="text-center">
+                      <div className="inline-flex items-center justify-center w-32 h-32 rounded-full mb-4" style={{
+                        background: `conic-gradient(${atsAnalysis.percentage >= 80 ? '#10b981' : atsAnalysis.percentage >= 60 ? '#3b82f6' : atsAnalysis.percentage >= 40 ? '#f59e0b' : '#ef4444'} ${atsAnalysis.percentage * 3.6}deg, #e5e7eb ${atsAnalysis.percentage * 3.6}deg)`
+                      }}>
+                        <div className="w-28 h-28 rounded-full bg-white flex items-center justify-center">
+                          <div className="text-center">
+                            <span className={`text-3xl font-bold ${getAtsScoreColor(atsAnalysis.percentage)}`}>
+                              {atsAnalysis.percentage}%
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <p className={`text-sm font-medium mb-3 ${getAtsScoreColor(atsAnalysis.percentage)}`}>
+                        {getAtsScoreMessage(atsAnalysis.percentage)}
+                      </p>
+
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div className="text-center p-3 bg-green-50 rounded-lg">
+                          <p className="text-green-600 font-medium text-sm">Matched Keywords</p>
+                          <p className="text-2xl font-bold text-green-700">{atsAnalysis.matched_keywords?.length || 0}</p>
+                        </div>
+                        <div className="text-center p-3 bg-red-50 rounded-lg">
+                          <p className="text-red-600 font-medium text-sm">Missing Keywords</p>
+                          <p className="text-2xl font-bold text-red-700">{atsAnalysis.missing_keywords?.length || 0}</p>
+                        </div>
+                      </div>
+
+                      {atsAnalysis.matched_keywords && atsAnalysis.matched_keywords.length > 0 && (
+                        <div className="mb-4">
+                          <p className="text-xs font-medium text-green-600 mb-2 text-left">✓ Matched Keywords</p>
+                          <div className="flex flex-wrap gap-1">
+                            {atsAnalysis.matched_keywords.slice(0, 8).map((keyword, idx) => (
+                              <span key={idx} className="px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded-full">
+                                {keyword}
+                              </span>
+                            ))}
+                            {atsAnalysis.matched_keywords.length > 8 && (
+                              <span className="px-2 py-0.5 text-xs text-gray-500">+{atsAnalysis.matched_keywords.length - 8} more</span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {atsAnalysis.missing_keywords && atsAnalysis.missing_keywords.length > 0 && (
+                        <div className="mb-4">
+                          <p className="text-xs font-medium text-red-600 mb-2 text-left">⚠ Missing Keywords</p>
+                          <div className="flex flex-wrap gap-1">
+                            {atsAnalysis.missing_keywords.slice(0, 8).map((keyword, idx) => (
+                              <span key={idx} className="px-2 py-0.5 text-xs bg-red-100 text-red-700 rounded-full">
+                                {keyword}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {atsAnalysis.analysis?.suggestions && atsAnalysis.analysis.suggestions.length > 0 && (
+                        <div className="mt-4 p-3 bg-blue-50 rounded-lg text-left">
+                          <div className="flex items-center gap-2 mb-2">
+                            <FaLightbulb className="text-blue-600" size={14} />
+                            <p className="text-xs font-medium text-blue-800">Suggestions for Candidate</p>
+                          </div>
+                          <ul className="text-xs text-blue-700 space-y-1 list-disc list-inside">
+                            {atsAnalysis.analysis.suggestions.slice(0, 3).map((suggestion, idx) => (
+                              <li key={idx}>{suggestion}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      <button
+                        onClick={handleRecalculateAts}
+                        disabled={recalculating}
+                        className="w-full mt-4 px-4 py-2 bg-linear-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50"
+                      >
+                        {recalculating ? (
+                          <>
+                            <FaSpinner className="animate-spin" size={14} />
+                            Recalculating...
+                          </>
+                        ) : (
+                          <>
+                            <FaChartLine size={14} />
+                            Recalculate ATS Score
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      {application.ats_calculation_status === 'pending' || application.ats_calculation_status === 'processing' ? (
+                        <>
+                          <FaSpinner className="animate-spin text-purple-600 text-3xl mx-auto mb-3" />
+                          <p className="text-gray-600">ATS score is being calculated...</p>
+                          <p className="text-xs text-gray-400 mt-2">This may take a few moments</p>
+                        </>
+                      ) : application.ats_calculation_status === 'failed' ? (
+                        <>
+                          <FaTimesCircle className="text-red-500 text-3xl mx-auto mb-3" />
+                          <p className="text-gray-600">ATS calculation failed</p>
+                          <button
+                            onClick={handleRecalculateAts}
+                            className="mt-3 text-sm text-purple-600 hover:text-purple-700"
+                          >
+                            Try recalculating
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <FaChartLine className="text-gray-400 text-3xl mx-auto mb-3" />
+                          <p className="text-gray-600">ATS score not available</p>
+                          <button
+                            onClick={handleRecalculateAts}
+                            className="mt-3 px-4 py-2 bg-purple-600 text-white rounded-lg text-sm"
+                          >
+                            Calculate ATS Score
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Status Update Card */}
+              <div className="bg-white rounded-xl shadow-md overflow-hidden">
+                <div className="px-6 py-4 bg-linear-to-r from-gray-700 to-gray-800">
+                  <h3 className="font-semibold text-white flex items-center gap-2">
+                    <FaThumbsUp size={16} />
+                    Update Status
+                  </h3>
+                </div>
+                <div className="p-4">
+                  <div className="mb-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Current Status</label>
+                    <div className="flex items-center gap-2">
+                      {getStatusIcon(application.status)}
+                      <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${getStatusBadge(application.status)}`}>
+                        {getStatusText(application.status)}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleStatusUpdate}
+                    disabled={updatingStatus}
+                    className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {updatingStatus ? (
+                      <>
+                        <FaSpinner className="animate-spin" size={14} />
+                        Updating...
+                      </>
+                    ) : (
+                      <>
+                        <FaCheck size={14} />
+                        Change Status
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Quick Actions Card */}
+              <div className="bg-white rounded-xl shadow-md overflow-hidden">
+                <div className="px-6 py-4 bg-linear-to-r from-indigo-600 to-purple-600">
+                  <h3 className="font-semibold text-white flex items-center gap-2">
+                    <FaInfoCircle size={16} />
+                    Quick Actions
+                  </h3>
+                </div>
+                <div className="p-4 space-y-2">
+                  <Link
+                    href={route('backend.applications.job', application.job_listing_id)}
+                    className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all duration-200"
+                  >
+                    <FaUsers className="text-gray-600" size={16} />
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">View All Applications</p>
+                      <p className="text-xs text-gray-500">See all applicants for this job</p>
+                    </div>
+                  </Link>
+
+                  <Link
+                    href={route('backend.jobs.show', application.job_listing_id)}
+                    className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all duration-200"
+                  >
+                    <FaBriefcase className="text-gray-600" size={16} />
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">View Job Posting</p>
+                      <p className="text-xs text-gray-500">Review the job details</p>
+                    </div>
+                  </Link>
+
+                  <a
+                    href={`mailto:${application.email}`}
+                    className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all duration-200"
+                  >
+                    <FaEnvelope className="text-gray-600" size={16} />
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">Send Email</p>
+                      <p className="text-xs text-gray-500">Contact the candidate</p>
+                    </div>
+                  </a>
+                </div>
+              </div>
+
+              {/* Employer Notes */}
+              {application.employer_notes && (
+                <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-200">
+                  <div className="flex items-start gap-2">
+                    <FaInfoCircle className="text-yellow-600 mt-0.5 shrink-0" size={16} />
+                    <div>
+                      <p className="text-sm font-medium text-yellow-800 mb-1">Previous Note</p>
+                      <p className="text-sm text-yellow-700">{application.employer_notes}</p>
+                    </div>
+                  </div>
+                </div>
               )}
 
-              {/* External Apply Links */}
-              {jobListing.is_external_apply && jobListing.external_apply_links?.length > 0 && (
-                <InfoSection title="External Application Links" icon={FaExternalLinkAlt}>
-                  <div className="space-y-2">
-                    {jobListing.external_apply_links.map((link, idx) => (
-                      <a
+              {/* Similar Applications */}
+              {similarApplications && similarApplications.length > 0 && (
+                <div className="bg-white rounded-xl shadow-md overflow-hidden">
+                  <div className="px-6 py-4 bg-linear-to-r from-teal-600 to-green-600">
+                    <h3 className="font-semibold text-white flex items-center gap-2">
+                      <FaUsers size={16} />
+                      Other Applicants
+                    </h3>
+                  </div>
+                  <div className="p-4 space-y-3">
+                    {similarApplications.map((similar, idx) => (
+                      <Link
                         key={idx}
-                        href={link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 text-blue-600 hover:text-blue-800 text-sm break-all p-2 hover:bg-blue-50 rounded-lg transition"
+                        href={route('backend.applications.show', similar.id)}
+                        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all duration-200"
                       >
-                        <FaExternalLinkAlt size={12} />
-                        {link}
-                      </a>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{similar.name}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className={`inline-flex px-1.5 py-0.5 rounded-full text-xs ${getStatusBadge(similar.status)}`}>
+                              {getStatusText(similar.status)}
+                            </span>
+                            {similar.ats_score && (
+                              <span className={`text-xs ${getAtsScoreColor(similar.ats_score)}`}>
+                                ATS: {similar.ats_score}%
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <FaEye className="text-gray-400" size={14} />
+                      </Link>
                     ))}
                   </div>
-                </InfoSection>
-              )}
-
-              {/* Employer Info */}
-              {jobListing.employer && (
-                <InfoSection title="Posted By" icon={FaUser}>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <FaUser className="text-gray-400" size={14} />
-                      <span className="text-gray-900 font-medium">{jobListing.employer.name}</span>
-                    </div>
-                    {jobListing.employer.email && (
-                      <div className="flex items-center gap-2">
-                        <FaEnvelope className="text-gray-400" size={14} />
-                        <a href={`mailto:${jobListing.employer.email}`} className="text-blue-600 hover:underline text-sm">
-                          {jobListing.employer.email}
-                        </a>
-                      </div>
-                    )}
-                  </div>
-                </InfoSection>
+                </div>
               )}
             </div>
           </div>
-
-          {/* Recent Applications Section */}
-          {!jobListing.deleted_at && recentApplications && recentApplications.length > 0 && (
-            <div className="mt-6">
-              <div className="bg-white rounded-xl shadow-md overflow-hidden">
-                <div className="flex items-center justify-between px-6 py-4 bg-linear-to-r from-gray-50 to-white border-b border-gray-200">
-                  <div className="flex items-center gap-2">
-                    <FaUsers className="text-purple-600" size={18} />
-                    <h2 className="text-lg font-semibold text-gray-900">Recent Applications</h2>
-                  </div>
-                  <a
-                    href={route('backend.listing.applications', jobListing.id)}
-                    className="text-sm text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1"
-                  >
-                    View All ({applicationStats.total})
-                    <FaArrowLeft className="rotate-180" size={12} />
-                  </a>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Applicant</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ATS Score</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Applied On</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {recentApplications.map((app, idx) => (
-                        <tr key={idx} className="hover:bg-gray-50 transition">
-                          <td className="px-6 py-4">
-                            <div>
-                              <p className="font-medium text-gray-900">{app.name}</p>
-                              <p className="text-sm text-gray-500">{app.email}</p>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${app.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                app.status === 'shortlisted' ? 'bg-green-100 text-green-800' :
-                                  app.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                                    'bg-purple-100 text-purple-800'
-                              }`}>
-                              {app.status}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4">
-                            {app.ats_score ? (
-                              <div className="flex items-center gap-2">
-                                <div className="w-16 bg-gray-200 rounded-full h-2">
-                                  <div
-                                    className={`h-2 rounded-full ${app.ats_score >= 80 ? 'bg-green-500' :
-                                        app.ats_score >= 60 ? 'bg-blue-500' :
-                                          app.ats_score >= 40 ? 'bg-yellow-500' : 'bg-red-500'
-                                      }`}
-                                    style={{ width: `${app.ats_score}%` }}
-                                  />
-                                </div>
-                                <span className="text-sm font-medium">{app.ats_score}%</span>
-                              </div>
-                            ) : (
-                              <span className="text-sm text-gray-400 italic">Pending</span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-500">
-                            {formatDate(app.created_at)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* View All Applications Button */}
-          {!jobListing.deleted_at && applicationStats.total > 0 && (
-            <div className="mt-6 text-center">
-              <a
-                href={route('backend.listing.applications', jobListing.id)}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-linear-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 shadow-md hover:shadow-lg"
-              >
-                <FaUsers size={16} />
-                View All Applications ({applicationStats.total})
-                <FaArrowLeft className="rotate-180" size={12} />
-              </a>
-            </div>
-          )}
         </div>
       </div>
+
+      <style>{`
+        @keyframes fade-in {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        .animate-fade-in {
+          animation: fade-in 0.3s ease-out;
+        }
+      `}</style>
     </AuthenticatedLayout>
   );
 }

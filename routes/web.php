@@ -21,6 +21,7 @@ use App\Http\Controllers\LocationController;
 use App\Http\Controllers\ApplicationController;
 use App\Http\Controllers\ApplyController;
 use App\Http\Controllers\JobCategoryController;
+use App\Http\Controllers\ApplicationsController; // Add this for the new Applications Controller
 
 /*
 |--------------------------------------------------------------------------
@@ -207,51 +208,27 @@ Route::middleware(['auth', 'verified', 'profile.complete'])->group(function () {
 
         /*
     |--------------------------------------------------------------------------
-    | Applications Management
+    | Applications Management (NEW - Enhanced with Bulk Actions & CV Downloads)
     |--------------------------------------------------------------------------
     */
 
+        // Applications Routes
         Route::prefix('applications')->name('applications.')->group(function () {
-            // Job-specific applications
-            Route::get('/job/{jobListing}', [ApplicationController::class, 'index'])->name('job.index');
-
-            // User-specific applications
-            Route::get('/my-applications', [ApplicationController::class, 'myApplications'])->name('my-applications');
-
-            // Create/Store
-            Route::get('/create/{jobListing}', [ApplicationController::class, 'create'])->name('create');
-            Route::post('/store/{jobListing}', [ApplicationController::class, 'store'])->name('store');
-
-            // Single application CRUD
-            Route::get('/{application}', [ApplicationController::class, 'show'])->name('show');
-            Route::get('/{application}/edit', [ApplicationController::class, 'edit'])->name('edit');
-            Route::put('/{application}', [ApplicationController::class, 'update'])->name('update');
-            Route::delete('/{application}', [ApplicationController::class, 'destroy'])->name('destroy');
+            // Index pages
+            Route::get('/', [ApplicationsController::class, 'index'])->name('index');
+            Route::get('/job/{jobId}', [ApplicationsController::class, 'jobApplications'])->name('job');
+            Route::get('/{id}', [ApplicationsController::class, 'show'])->name('show');
 
             // Status updates
-            Route::patch('/{application}/status', [ApplicationController::class, 'updateStatus'])->name('update-status');
-            Route::post('/batch/status', [ApplicationController::class, 'batchUpdateStatus'])->name('batch-status');
+            Route::put('/{id}/status', [ApplicationsController::class, 'updateStatus'])->name('update-status');
+            Route::post('/bulk-status', [ApplicationsController::class, 'bulkUpdateStatus'])->name('bulk-status');
 
-            // Delete operations
-            Route::post('/batch/delete', [ApplicationController::class, 'batchDelete'])->name('batch-delete');
-
-            // Resume downloads
-            Route::get('/{application}/resume', [ApplicationController::class, 'downloadResume'])->name('download-resume');
-            Route::post('/batch/download', [ApplicationController::class, 'batchDownloadResumes'])->name('batch-download');
-
-            // ATS
-            Route::post('/{application}/recalculate-score', [ApplicationController::class, 'recalculateScore'])->name('recalculate-score');
+            // Downloads
+            Route::get('/{id}/download', [ApplicationsController::class, 'downloadResume'])->name('download');
+            Route::post('/bulk-download', [ApplicationsController::class, 'bulkDownloadResumes'])->name('bulk-download');
         });
     });
 
-    /*
-    | Job Applications (Job Seekers)
-    */
-    Route::get('applications/{jobListing}/create', [ApplicationController::class, 'create'])
-        ->name('applications.create');
-
-    Route::post('applications/{jobListing}', [ApplicationController::class, 'store'])
-        ->name('applications.store');
 
     /*
     | Settings
@@ -293,20 +270,6 @@ Route::post('/email/verification-notification', function (Request $request) {
     ]);
 })->middleware(['auth', 'throttle:6,1'])->name('verification.send');
 
-// Email routes - API endpoints for sending emails
-Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('/applications/{application}/email-modal', [ApplicationController::class, 'showEmailModal'])
-        ->name('backend.applications.email-modal');
-
-    Route::post('/applications/{application}/send-email', [ApplicationController::class, 'sendEmail'])
-        ->name('backend.applications.send-email');
-
-    Route::post('/applications/bulk-email-modal', [ApplicationController::class, 'showBulkEmailModal'])
-        ->name('backend.applications.bulk-email-modal');
-
-    Route::post('/applications/bulk-send-emails', [ApplicationController::class, 'sendBulkEmails'])
-        ->name('backend.applications.bulk-send-emails');
-});
 
 Route::post('/apply/{id}/recalculate-ats', [ApplyController::class, 'recalculateAts'])
     ->name('backend.apply.recalculate-ats')

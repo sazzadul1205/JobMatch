@@ -1,54 +1,108 @@
-// resources/js/pages/Backend/Applications/Show.jsx
-
 import { useState } from 'react';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, router, Link } from '@inertiajs/react';
+import AuthenticatedLayout from '../../../layouts/AuthenticatedLayout';
 
 // Icons
 import {
   FaArrowLeft,
-  FaEnvelope,
-  FaPhone,
-  FaFilePdf,
   FaBriefcase,
-  FaMapMarkerAlt,
-  FaCalendarAlt,
-  FaMoneyBillWave,
   FaBuilding,
+  FaCalendarAlt,
+  FaChartLine,
+  FaCheck,
   FaCheckCircle,
-  FaTimesCircle,
   FaClock,
+  FaDownload,
+  FaEnvelope,
   FaEye,
-  FaEdit,
-  FaTrash,
-  FaSpinner,
+  FaFilePdf,
+  FaGraduationCap,
+  FaHistory,
+  FaHourglassHalf,
+  FaMapMarkerAlt,
+  FaMoneyBillWave,
+  FaPhone,
   FaStar,
+  FaTimesCircle,
+  FaTrophy,
+  FaUser,
+  FaUserCheck,
+  FaUserSlash,
+  FaAward,
+  FaCertificate,
+  FaRegBuilding,
+  FaRegCalendarAlt,
+  FaLink,
+  FaFacebook,
+  FaLinkedin,
+  FaSpinner,
   FaUserCircle,
-  FaSync,
-  FaExclamationTriangle,
+  FaFileAlt,
+  FaIdCard,
 } from 'react-icons/fa';
-
-// Layouts
-import AuthenticatedLayout from '../../../layouts/AuthenticatedLayout';
 
 // SweetAlert2
 import Swal from 'sweetalert2';
 
-export default function Show({ application, userRole }) {
-  const [updatingStatus, setUpdatingStatus] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [recalculating, setRecalculating] = useState(false);
-  const [employerNotes, setEmployerNotes] = useState(application.employer_notes || '');
-  const [isEditingNotes, setIsEditingNotes] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
+export default function Show({ application, atsAnalysis }) {
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState(application.status);
+  const [isDownloadingCv, setIsDownloadingCv] = useState(false);
 
-  console.log(application);
+  const statuses = ['pending', 'shortlisted', 'rejected', 'hired'];
+
+  const getStatusBadge = (status) => {
+    const badges = {
+      pending: 'bg-yellow-100 text-yellow-800',
+      shortlisted: 'bg-blue-100 text-blue-800',
+      rejected: 'bg-red-100 text-red-800',
+      hired: 'bg-green-100 text-green-800'
+    };
+    return badges[status] || 'bg-gray-100 text-gray-800';
+  };
+
+  const getStatusIcon = (status) => {
+    const icons = {
+      pending: <FaHourglassHalf className="text-yellow-500" size={20} />,
+      shortlisted: <FaUserCheck className="text-blue-500" size={20} />,
+      rejected: <FaUserSlash className="text-red-500" size={20} />,
+      hired: <FaCheckCircle className="text-green-500" size={20} />
+    };
+    return icons[status] || <FaBriefcase className="text-gray-500" size={20} />;
+  };
+
+  const getStatusText = (status) => {
+    const texts = {
+      pending: 'Pending',
+      shortlisted: 'Shortlisted',
+      rejected: 'Rejected',
+      hired: 'Hired'
+    };
+    return texts[status] || status;
+  };
+
+  const getAtsScoreColor = (score) => {
+    if (score === undefined || score === null) return 'text-gray-500';
+    if (score >= 80) return 'text-green-600';
+    if (score >= 60) return 'text-blue-600';
+    if (score >= 40) return 'text-yellow-600';
+    return 'text-red-600';
+  };
+
+  const getAtsScoreBg = (score) => {
+    if (score === undefined || score === null) return 'bg-gray-100';
+    if (score >= 80) return 'bg-green-100';
+    if (score >= 60) return 'bg-blue-100';
+    if (score >= 40) return 'bg-yellow-100';
+    return 'bg-red-100';
+  };
 
   const formatDate = (date) => {
     if (!date) return 'N/A';
     return new Date(date).toLocaleDateString('en-US', {
       year: 'numeric',
-      month: 'long',
-      day: 'numeric'
+      month: 'short',
+      day: 'numeric',
     });
   };
 
@@ -56,684 +110,631 @@ export default function Show({ application, userRole }) {
     if (!date) return 'N/A';
     return new Date(date).toLocaleDateString('en-US', {
       year: 'numeric',
-      month: 'long',
+      month: 'short',
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     });
   };
 
-  const getStatusBadge = (status) => {
-    const statuses = {
-      pending: { bg: 'bg-yellow-100', text: 'text-yellow-800', icon: FaClock, label: 'Pending' },
-      reviewed: { bg: 'bg-blue-100', text: 'text-blue-800', icon: FaEye, label: 'Reviewed' },
-      shortlisted: { bg: 'bg-green-100', text: 'text-green-800', icon: FaCheckCircle, label: 'Shortlisted' },
-      rejected: { bg: 'bg-red-100', text: 'text-red-800', icon: FaTimesCircle, label: 'Rejected' },
-      hired: { bg: 'bg-purple-100', text: 'text-purple-800', icon: FaStar, label: 'Hired' }
-    };
-    const s = statuses[status] || statuses.pending;
-    const Icon = s.icon;
-    return (
-      <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${s.bg} ${s.text}`}>
-        <Icon size={14} />
-        {s.label}
-      </span>
-    );
+  const formatSalary = (salary) => {
+    if (!salary) return 'Not specified';
+    return new Intl.NumberFormat('en-US').format(salary) + ' BDT';
   };
 
-  const getATSScoreColor = (score) => {
-    if (!score) return 'text-gray-500';
-    if (score >= 80) return 'text-green-600';
-    if (score >= 60) return 'text-blue-600';
-    if (score >= 40) return 'text-yellow-600';
-    return 'text-red-600';
-  };
+  const handleStatusUpdate = () => {
+    if (selectedStatus === application.status) return;
 
-  const handleStatusUpdate = (newStatus) => {
     Swal.fire({
-      title: 'Update Status',
-      text: `Are you sure you want to change status to ${newStatus}?`,
+      title: 'Update Status?',
+      text: `Change application status from ${getStatusText(application.status)} to ${getStatusText(selectedStatus)}?`,
       icon: 'question',
       showCancelButton: true,
-      confirmButtonColor: '#3085d6',
+      confirmButtonColor: '#3b82f6',
       cancelButtonColor: '#d33',
-      confirmButtonText: 'Yes, update',
-      cancelButtonText: 'Cancel'
+      confirmButtonText: 'Yes, Update',
+      cancelButtonText: 'Cancel',
     }).then((result) => {
       if (result.isConfirmed) {
-        setUpdatingStatus(true);
+        setIsUpdatingStatus(true);
 
-        const submitData = new FormData();
-        submitData.append('status', newStatus);
-        if (employerNotes !== application.employer_notes) {
-          submitData.append('employer_notes', employerNotes);
-        }
-
-        router.patch(route('backend.applications.update-status', application.id), submitData, {
+        router.put(route('backend.applications.update-status', application.id), {
+          status: selectedStatus,
+          notes: `Status updated to ${selectedStatus} from application details page`,
+        }, {
+          preserveScroll: true,
           onSuccess: () => {
             Swal.fire({
               icon: 'success',
               title: 'Updated!',
-              text: `Application status changed to ${newStatus}`,
+              text: 'Application status has been updated.',
               timer: 1500,
-              showConfirmButton: false
+              showConfirmButton: false,
             });
-            setUpdatingStatus(false);
+            router.reload({ preserveScroll: true });
           },
-          onError: () => {
+          onError: (error) => {
             Swal.fire({
               icon: 'error',
-              title: 'Error!',
-              text: 'Failed to update status. Please try again.',
+              title: 'Update Failed',
+              text: error?.message || 'Failed to update status.',
+              confirmButtonColor: '#d33',
             });
-            setUpdatingStatus(false);
-          }
+            setSelectedStatus(application.status);
+          },
+          onFinish: () => setIsUpdatingStatus(false),
         });
+      } else {
+        setSelectedStatus(application.status);
       }
     });
   };
 
-  const handleDeleteClick = () => {
-    setShowDeleteModal(true);
+  const handleDownloadResume = () => {
+    window.location.href = route('backend.applications.download', application.id);
   };
 
-  const confirmDelete = () => {
-    setDeleting(true);
-    setShowDeleteModal(false);
-
-    router.delete(route('backend.applications.destroy', application.id), {
-      onSuccess: () => {
-        Swal.fire({
-          icon: 'success',
-          title: 'Deleted!',
-          text: 'Application has been deleted successfully.',
-          timer: 1500,
-          showConfirmButton: false
-        });
-
-        // Redirect based on user role
-        if (userRole === 'job_seeker') {
-          router.get(route('backend.applications.my-applications'));
-        } else if (userRole === 'employer' || userRole === 'admin') {
-          router.get(route('backend.applications.job. ', application.job_listing_id));
-        } else {
-          router.get(route('dashboard'));
-        }
-      },
-      onError: (error) => {
-        Swal.fire({
-          icon: 'error',
-          title: 'Error!',
-          text: error.response?.data?.message || 'Failed to delete application. Please try again.',
-        });
-        setDeleting(false);
-      }
-    });
+  const handleDownloadSpecificCv = (cvId, cvName) => {
+    setIsDownloadingCv(true);
+    // You'll need to create this route or use the existing download with CV ID
+    window.location.href = route('backend.applications.download-cv', { application_id: application.id, cv_id: cvId });
+    setTimeout(() => setIsDownloadingCv(false), 1000);
   };
 
-  const cancelDelete = () => {
-    setShowDeleteModal(false);
-  };
-
-  const downloadResume = () => {
-    // Use the CV URL from applicant_profile if available
-    if (application.applicant_profile?.cv_url) {
-      window.open(application.applicant_profile.cv_url, '_blank');
-    } else {
-      // Fallback to the download route
-      window.open(route('backend.applications.download-resume', application.id), '_blank');
-    }
-  };
-
-  const handleSaveNotes = () => {
-    const submitData = new FormData();
-    submitData.append('employer_notes', employerNotes);
-    submitData.append('status', application.status);
-
-    router.patch(route('backend.applications.update-status', application.id), submitData, {
-      onSuccess: () => {
-        Swal.fire({
-          icon: 'success',
-          title: 'Saved!',
-          text: 'Notes saved successfully.',
-          timer: 1500,
-          showConfirmButton: false
-        });
-        setIsEditingNotes(false);
-      },
-      onError: () => {
-        Swal.fire({
-          icon: 'error',
-          title: 'Error!',
-          text: 'Failed to save notes. Please try again.',
-        });
-      }
-    });
-  };
-
-  const handleRecalculateScore = () => {
+  const handleRecalculateAts = () => {
     Swal.fire({
       title: 'Recalculate ATS Score?',
-      text: 'This will analyze the resume again against the job requirements.',
-      icon: 'question',
+      text: 'This will re-analyze the resume against the job requirements.',
+      icon: 'info',
       showCancelButton: true,
-      confirmButtonColor: '#3085d6',
+      confirmButtonColor: '#3b82f6',
       cancelButtonColor: '#d33',
-      confirmButtonText: 'Yes, recalculate',
-      cancelButtonText: 'Cancel'
+      confirmButtonText: 'Yes, Recalculate',
+      cancelButtonText: 'Cancel',
     }).then((result) => {
       if (result.isConfirmed) {
-        setRecalculating(true);
+        Swal.fire({
+          title: 'Processing...',
+          text: 'Please wait while we analyze the resume.',
+          allowOutsideClick: false,
+          didOpen: () => {
+            Swal.showLoading();
+          },
+        });
 
-        router.post(route('backend.applications.recalculate-score', application.id), {}, {
+        router.post(route('backend.applications.recalculate-ats', application.id), {}, {
+          preserveScroll: true,
           onSuccess: () => {
             Swal.fire({
               icon: 'success',
-              title: 'Queued!',
-              text: 'ATS score recalculation has been queued. Please refresh in a moment.',
-              timer: 2000,
-              showConfirmButton: false
+              title: 'Recalculated!',
+              text: 'ATS score has been updated.',
+              timer: 1500,
+              showConfirmButton: false,
             });
-            setRecalculating(false);
-            // Refresh the page after 2 seconds
-            setTimeout(() => {
-              router.reload();
-            }, 2000);
+            router.reload({ preserveScroll: true });
           },
-          onError: () => {
+          onError: (error) => {
             Swal.fire({
               icon: 'error',
-              title: 'Error!',
-              text: 'Failed to queue recalculation. Please try again.',
+              title: 'Calculation Failed',
+              text: error?.message || 'Failed to recalculate ATS score.',
+              confirmButtonColor: '#d33',
             });
-            setRecalculating(false);
-          }
+          },
         });
       }
     });
   };
 
-  // Parse ATS data if it exists (it might be stored as JSON)
-  const atsData = application.ats_score ?
-    (typeof application.ats_score === 'string' ? JSON.parse(application.ats_score) : application.ats_score) :
-    null;
+  const job = application.job_listing;
+  const profile = application.applicant_profile;
+  const user = profile?.user;
 
-  const atsScore = atsData?.percentage || atsData?.total || null;
-  const matchedKeywords = atsData?.matched_keywords || application.matched_keywords || [];
-  const missingKeywords = atsData?.missing_keywords || application.missing_keywords || [];
-  const isPending = application.status === 'pending';
-
-  // Get applicant name from either the direct fields or the profile
-  const applicantName = application.name || application.applicant_profile?.full_name || `${application.applicant_profile?.first_name || ''} ${application.applicant_profile?.last_name || ''}`.trim() || 'N/A';
-  const applicantEmail = application.email || application.applicant_profile?.email || 'N/A';
-  const applicantPhone = application.phone || application.applicant_profile?.phone || 'Not provided';
+  // Get profile photo URL (adjust based on your storage structure)
+  const getProfilePhoto = () => {
+    if (profile?.photo_path) {
+      return `/storage/${profile.photo_path}`;
+    }
+    return null;
+  };
 
   return (
     <AuthenticatedLayout>
-      <Head title={`Application - ${applicantName}`} />
+      <Head title={`Application: ${application.name} - ${job?.title}`} />
 
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 p-6">
+        <div className=" mx-auto">
           {/* Header */}
-          <div className="mb-6 flex justify-between items-center">
-            <button
-              onClick={() => window.history.back()}
-              className="inline-flex items-center text-gray-600 hover:text-gray-900"
-            >
-              <FaArrowLeft className="mr-2" size={16} />
-              Back
-            </button>
-
-            <div className="flex gap-3">
-              {userRole === 'job_seeker' && isPending && (
-                <Link
-                  href={route('backend.applications.edit', application.id)}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200"
-                >
-                  <FaEdit size={16} />
-                  Edit Application
-                </Link>
-              )}
-
-              {/* Delete button for job seekers (only pending applications) */}
-              {userRole === 'job_seeker' && isPending && (
-                <button
-                  onClick={handleDeleteClick}
-                  disabled={deleting}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-200 disabled:opacity-50"
-                >
-                  {deleting ? <FaSpinner className="animate-spin" size={16} /> : <FaTrash size={16} />}
-                  Withdraw Application
-                </button>
-              )}
-
-              {/* Delete button for employers/admins */}
-              {(userRole === 'employer' || userRole === 'admin') && (
-                <button
-                  onClick={handleDeleteClick}
-                  disabled={deleting}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-200 disabled:opacity-50"
-                >
-                  {deleting ? <FaSpinner className="animate-spin" size={16} /> : <FaTrash size={16} />}
-                  Delete Application
-                </button>
-              )}
+          <div className="flex justify-between items-start mb-6">
+            <div>
+              <Link
+                onClick={() => window.history.back()}
+                className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-3 transition-colors group"
+              >
+                <FaArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform" />
+                <span className="text-sm">Back to Applications</span>
+              </Link>
+              <h1 className="text-3xl font-bold bg-linear-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+                Application Details
+              </h1>
+              <p className="text-sm text-gray-500 mt-1">
+                {application.name} - {job?.title}
+              </p>
             </div>
+
+            <button
+              onClick={handleDownloadResume}
+              className="px-5 py-2.5 bg-linear-to-r from-purple-600 to-purple-700 text-white rounded-xl flex items-center gap-2 hover:from-purple-700 hover:to-purple-800 transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg"
+            >
+              <FaDownload size={14} />
+              Download Resume
+            </button>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Main Content */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Applicant Profile Card */}
-              <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-                <div className="bg-linear-to-r from-blue-600 to-blue-700 px-6 py-4">
-                  <h2 className="text-xl font-semibold text-white">Applicant Information</h2>
-                </div>
-                <div className="p-6">
-                  <div className="flex items-center gap-4 mb-6">
-                    {application.applicant_profile?.photo_url ? (
-                      <img
-                        src={application.applicant_profile.photo_url}
-                        alt={applicantName}
-                        className="w-20 h-20 rounded-full object-cover border-2 border-blue-500"
-                      />
-                    ) : (
-                      <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center">
-                        <FaUserCircle className="text-gray-400 text-5xl" />
-                      </div>
-                    )}
+          {/* Two Column Layout - 80/20 */}
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            {/* LEFT COLUMN - 80% (3/4 of grid) */}
+            <div className="lg:col-span-3 space-y-6">
+              {/* Job Summary Card - Enhanced */}
+              <div className="bg-white rounded-2xl shadow-lg p-5 border border-gray-100 hover:shadow-xl transition-shadow">
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 bg-linear-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-md">
+                      <FaBriefcase className="text-white" size={24} />
+                    </div>
                     <div>
-                      <h3 className="text-2xl font-bold text-gray-900">{applicantName}</h3>
-                      <p className="text-gray-500">Applicant</p>
+                      <h3 className="font-bold text-gray-900 text-lg">{job?.title}</h3>
+                      <p className="text-sm text-gray-500 flex items-center gap-1">
+                        <FaBuilding size={12} />
+                        {job?.employer?.name || 'Company'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1 text-sm text-gray-500 bg-gray-100 px-3 py-1.5 rounded-full">
+                      <FaMapMarkerAlt size={12} className="text-red-500" />
+                      <span>{job?.locations?.[0]?.name || 'Location not specified'}</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-sm text-gray-500 bg-gray-100 px-3 py-1.5 rounded-full">
+                      <FaCalendarAlt size={12} className="text-blue-500" />
+                      <span>{formatDate(job?.created_at)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Applicant Information Card - Enhanced with Photo and CV Download */}
+              <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+                <h2 className="text-xl font-bold text-gray-900 mb-5 flex items-center gap-2 border-b border-gray-100 pb-3">
+                  <FaUserCircle size={22} className="text-blue-500" />
+                  Applicant Information
+                </h2>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Left Column - Profile Image & Basic Info */}
+                  <div className="md:col-span-1">
+                    <div className="flex flex-col items-center text-center">
+                      {getProfilePhoto() ? (
+                        <img
+                          src={getProfilePhoto()}
+                          alt={application.name}
+                          className="w-32 h-32 rounded-full object-cover border-4 border-blue-100 shadow-lg"
+                        />
+                      ) : (
+                        <div className="w-32 h-32 rounded-full bg-linear-to-br from-blue-400 to-blue-600 flex items-center justify-center shadow-lg">
+                          <span className="text-white text-4xl font-bold">
+                            {application.name?.charAt(0)?.toUpperCase() || '?'}
+                          </span>
+                        </div>
+                      )}
+                      <h3 className="font-bold text-gray-900 text-lg mt-3">{application.name}</h3>
+                      <p className="text-sm text-gray-500">{user?.email || application.email}</p>
+
+                      {/* Download CV Button - Visible and Working */}
+                      <div className="mt-4 w-full">
+                        <button
+                          onClick={handleDownloadResume}
+                          className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-linear-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white rounded-xl transition-all duration-200 group shadow-md hover:shadow-lg"
+                        >
+                          <FaFilePdf size={18} />
+                          <span className="font-medium">Download CV</span>
+                          <FaDownload size={14} className="group-hover:translate-y-0.5 transition-transform" />
+                        </button>
+                        <p className="text-xs text-gray-400 text-center mt-2">
+                          CV submitted with this application
+                        </p>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                      <FaEnvelope className="text-blue-600" size={18} />
-                      <div>
-                        <p className="text-xs text-gray-500">Email</p>
-                        <p className="text-sm font-medium text-gray-900">{applicantEmail}</p>
+                  {/* Right Column - Contact & Professional Info */}
+                  <div className="md:col-span-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Contact Information */}
+                      <div className="bg-linear-to-r from-blue-50 to-indigo-50 rounded-xl p-4">
+                        <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                          <FaEnvelope size={14} className="text-blue-500" />
+                          Contact Information
+                        </h4>
+                        <div className="space-y-2">
+                          <p className="flex items-center gap-2 text-sm">
+                            <FaEnvelope className="text-gray-400" size={14} />
+                            <a href={`mailto:${application.email}`} className="text-blue-600 hover:underline truncate">
+                              {application.email}
+                            </a>
+                          </p>
+                          {application.phone && (
+                            <p className="flex items-center gap-2 text-sm">
+                              <FaPhone className="text-gray-400" size={14} />
+                              <a href={`tel:${application.phone}`} className="text-gray-700 hover:text-blue-600">
+                                {application.phone}
+                              </a>
+                            </p>
+                          )}
+                          {application.expected_salary && (
+                            <p className="flex items-center gap-2 text-sm">
+                              <FaMoneyBillWave className="text-gray-400" size={14} />
+                              <span className="text-gray-700">Expected: <span className="font-semibold text-green-600">{formatSalary(application.expected_salary)}</span></span>
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Professional Information */}
+                      <div className="bg-linear-to-r from-green-50 to-teal-50 rounded-xl p-4">
+                        <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                          <FaBriefcase size={14} className="text-green-500" />
+                          Professional Information
+                        </h4>
+                        <div className="space-y-2">
+                          {profile?.current_job_title && (
+                            <div>
+                              <p className="text-xs text-gray-500">Current Position</p>
+                              <p className="text-sm font-medium text-gray-900">{profile.current_job_title}</p>
+                            </div>
+                          )}
+                          {profile?.experience_years && (
+                            <div>
+                              <p className="text-xs text-gray-500">Years of Experience</p>
+                              <p className="text-sm font-medium text-gray-900">{profile.experience_years} years</p>
+                            </div>
+                          )}
+                          {application.education_level && (
+                            <div>
+                              <p className="text-xs text-gray-500">Education Level</p>
+                              <p className="text-sm font-medium text-gray-900">{application.education_level}</p>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                      <FaPhone className="text-blue-600" size={18} />
-                      <div>
-                        <p className="text-xs text-gray-500">Phone</p>
-                        <p className="text-sm font-medium text-gray-900">{applicantPhone}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                      <FaCalendarAlt className="text-blue-600" size={18} />
-                      <div>
-                        <p className="text-xs text-gray-500">Applied On</p>
-                        <p className="text-sm font-medium text-gray-900">{formatDateTime(application.created_at)}</p>
-                      </div>
-                    </div>
-                    {application.expected_salary && (
-                      <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                        <FaMoneyBillWave className="text-blue-600" size={18} />
-                        <div>
-                          <p className="text-xs text-gray-500">Expected Salary</p>
-                          <p className="text-sm font-medium text-gray-900">${parseFloat(application.expected_salary).toLocaleString()}</p>
+
+                    {/* Social Links */}
+                    {(application.facebook_link || application.linkedin_link) && (
+                      <div className="mt-4 pt-4 border-t border-gray-100">
+                        <div className="flex gap-3">
+                          {application.facebook_link && (
+                            <a
+                              href={application.facebook_link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 hover:bg-blue-100 rounded-lg transition-all text-sm text-gray-700 hover:text-blue-600"
+                            >
+                              <FaFacebook size={14} /> Facebook
+                            </a>
+                          )}
+                          {application.linkedin_link && (
+                            <a
+                              href={application.linkedin_link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 hover:bg-blue-100 rounded-lg transition-all text-sm text-gray-700 hover:text-blue-600"
+                            >
+                              <FaLinkedin size={14} /> LinkedIn
+                            </a>
+                          )}
                         </div>
                       </div>
                     )}
                   </div>
-
-                  {/* Resume Download */}
-                  {(application.applicant_profile?.cv_url || application.resume_path) && (
-                    <div className="mt-4 pt-4 border-t">
-                      <button
-                        onClick={downloadResume}
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition-all duration-200"
-                      >
-                        <FaFilePdf size={18} />
-                        Download Resume
-                      </button>
-                    </div>
-                  )}
                 </div>
               </div>
 
-
-              {/* ATS Score Card */}
-              <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
-
-                {/* Header */}
-                <div className="relative bg-linear-to-r from-purple-600 via-indigo-600 to-blue-600 px-6 py-5 flex justify-between items-center">
-                  <div>
-                    <h2 className="text-xl font-semibold text-white">ATS Analysis</h2>
-                    <p className="text-xs text-purple-100 mt-1">Smart resume-job matching score</p>
-                  </div>
-
-                  {(userRole === 'employer' || userRole === 'admin') && (
+              {/* ATS Score Card - MAIN HIGHLIGHT - Enhanced */}
+              {application.ats_score ? (
+                <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+                  <div className="flex justify-between items-start mb-6">
+                    <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                      <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center">
+                        <FaChartLine size={16} className="text-indigo-600" />
+                      </div>
+                      ATS Score Analysis
+                    </h2>
                     <button
-                      onClick={handleRecalculateScore}
-                      disabled={recalculating}
-                      className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/20 backdrop-blur text-white rounded-lg hover:bg-white/30 transition text-sm disabled:opacity-50"
+                      onClick={handleRecalculateAts}
+                      className="text-sm text-indigo-600 hover:text-indigo-800 flex items-center gap-1 px-3 py-1.5 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-all"
                     >
-                      {recalculating ? (
-                        <FaSpinner className="animate-spin" size={14} />
-                      ) : (
-                        <FaSync size={14} />
-                      )}
+                      <FaSpinner size={12} />
                       Recalculate
                     </button>
-                  )}
-                </div>
+                  </div>
 
-                {/* Body */}
-                <div className="p-8">
-                  {atsScore ? (
-                    <>
-                      {/* Score Circle */}
-                      <div className="flex flex-col items-center justify-center mb-8">
-                        <div className="relative w-36 h-36">
-                          <svg className="w-full h-full transform -rotate-90">
-                            <circle
-                              cx="72"
-                              cy="72"
-                              r="60"
-                              stroke="#E5E7EB"
-                              strokeWidth="10"
-                              fill="none"
-                            />
-                            <circle
-                              cx="72"
-                              cy="72"
-                              r="60"
-                              stroke="url(#gradient)"
-                              strokeWidth="10"
-                              fill="none"
-                              strokeDasharray={`${(atsScore / 100) * 377} 377`}
-                              strokeLinecap="round"
-                            />
-                            <defs>
-                              <linearGradient id="gradient">
-                                <stop offset="0%" stopColor="#7C3AED" />
-                                <stop offset="100%" stopColor="#2563EB" />
-                              </linearGradient>
-                            </defs>
-                          </svg>
-
-                          {/* Center Text */}
-                          <div className="absolute inset-0 flex flex-col items-center justify-center">
-                            <span className={`text-3xl font-bold ${getATSScoreColor(atsScore)}`}>
-                              {atsScore}%
+                  {/* Score Display - Enhanced */}
+                  <div className="flex flex-col md:flex-row items-center gap-8 mb-6">
+                    <div className="relative">
+                      <div className="w-44 h-44">
+                        <div className={`w-full h-full rounded-full ${getAtsScoreBg(application.ats_score.percentage)} flex items-center justify-center shadow-inner`}>
+                          <div className="text-center">
+                            <span className={`text-5xl font-bold ${getAtsScoreColor(application.ats_score.percentage)}`}>
+                              {application.ats_score.percentage}%
                             </span>
-                            <span className="text-xs text-gray-500">Match</span>
+                            <p className="text-xs text-gray-500 mt-1">Match Score</p>
                           </div>
                         </div>
+                      </div>
+                    </div>
 
-                        {/* Label */}
-                        <div className="mt-4 px-3 py-1 rounded-full text-xs font-medium bg-gray-100">
-                          {atsScore >= 75 && <span className="text-green-600">Excellent Match</span>}
-                          {atsScore >= 50 && atsScore < 75 && <span className="text-yellow-600">Moderate Match</span>}
-                          {atsScore < 50 && <span className="text-red-600">Low Match</span>}
+                    <div className="flex-1 grid grid-cols-2 gap-4">
+                      <div className="bg-green-50 p-4 rounded-xl border border-green-200">
+                        <div className="flex items-center gap-2 mb-2">
+                          <FaCheckCircle className="text-green-600" size={16} />
+                          <p className="text-sm font-semibold text-green-700">Matched Keywords</p>
                         </div>
-                      </div>
-
-                      {/* Insight Bar */}
-                      <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 text-center">
-                        <p className="text-sm text-gray-600">
-                          Your resume matches <strong>{atsScore}%</strong> of the job requirements.
+                        <p className="text-3xl font-bold text-green-700">
+                          {application.matched_keywords?.length || 0}
                         </p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Improve your score by aligning your skills with job keywords.
-                        </p>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {matchedKeywords && matchedKeywords.length > 0 && (
-                          <div>
-                            <h3 className="font-semibold text-green-700 mb-2 flex items-center gap-2">
-                              <FaCheckCircle size={16} /> Matched Keywords ({matchedKeywords.length})
-                            </h3>
-                            <div className="flex flex-wrap gap-2">
-                              {matchedKeywords.map((keyword, idx) => (
-                                <span key={idx} className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">
-                                  {keyword}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {missingKeywords && missingKeywords.length > 0 && (
-                          <div>
-                            <h3 className="font-semibold text-red-700 mb-2 flex items-center gap-2">
-                              <FaTimesCircle size={16} /> Missing Keywords ({missingKeywords.length})
-                            </h3>
-                            <div className="flex flex-wrap gap-2">
-                              {missingKeywords.map((keyword, idx) => (
-                                <span key={idx} className="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs">
-                                  {keyword}
-                                </span>
-                              ))}
-                            </div>
+                        {application.matched_keywords && application.matched_keywords.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-3">
+                            {application.matched_keywords.slice(0, 5).map((keyword, i) => (
+                              <span key={i} className="text-xs bg-green-200 text-green-800 px-2 py-0.5 rounded-full">
+                                {keyword}
+                              </span>
+                            ))}
+                            {application.matched_keywords.length > 5 && (
+                              <span className="text-xs text-green-600">+{application.matched_keywords.length - 5}</span>
+                            )}
                           </div>
                         )}
                       </div>
-                    </>
-                  ) : (
-                    <div className="text-center py-10">
-                      {/* Animated Loader */}
-                      <div className="relative inline-flex items-center justify-center mb-6">
-                        <div className="w-16 h-16 rounded-full border-4 border-gray-200"></div>
-                        <div className="absolute w-16 h-16 rounded-full border-4 border-purple-600 border-t-transparent animate-spin"></div>
-                      </div>
-
-                      <h3 className="text-lg font-semibold text-gray-800 mb-2">
-                        Analyzing Resume
-                      </h3>
-
-                      <p className="text-sm text-gray-500 max-w-sm mx-auto">
-                        Our ATS engine is scanning your resume against job requirements.
-                        This usually takes a few seconds.
-                      </p>
-
-                      {/* Info Box */}
-                      <div className="mt-6 bg-purple-50 border border-purple-100 rounded-xl p-4 text-left max-w-sm mx-auto">
-                        <p className="text-xs text-purple-800 leading-relaxed">
-                          <strong>ATS Insight:</strong><br />
-                          The system evaluates keywords, skills, and experience relevance.
-                          Higher scores increase your chances of being shortlisted.
+                      <div className="bg-red-50 p-4 rounded-xl border border-red-200">
+                        <div className="flex items-center gap-2 mb-2">
+                          <FaTimesCircle className="text-red-600" size={16} />
+                          <p className="text-sm font-semibold text-red-700">Missing Keywords</p>
+                        </div>
+                        <p className="text-3xl font-bold text-red-700">
+                          {application.missing_keywords?.length || 0}
                         </p>
+                        {application.missing_keywords && application.missing_keywords.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-3">
+                            {application.missing_keywords.slice(0, 5).map((keyword, i) => (
+                              <span key={i} className="text-xs bg-red-200 text-red-800 px-2 py-0.5 rounded-full">
+                                {keyword}
+                              </span>
+                            ))}
+                            {application.missing_keywords.length > 5 && (
+                              <span className="text-xs text-red-600">+{application.missing_keywords.length - 5}</span>
+                            )}
+                          </div>
+                        )}
                       </div>
+                    </div>
+                  </div>
 
-                      {(userRole === 'employer' || userRole === 'admin') && (
-                        <button
-                          onClick={handleRecalculateScore}
-                          disabled={recalculating}
-                          className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 bg-linear-to-r from-purple-600 to-indigo-600 text-white text-sm rounded-lg shadow hover:scale-[1.03] active:scale-[0.97] transition"
-                        >
-                          {recalculating ? (
-                            <FaSpinner className="animate-spin" size={14} />
-                          ) : (
-                            <FaSync size={14} />
+                  {/* Analysis Message - Enhanced */}
+                  {atsAnalysis && (
+                    <div className={`p-5 rounded-xl ${atsAnalysis.color === 'red' ? 'bg-red-50 border border-red-200' : atsAnalysis.color === 'green' ? 'bg-green-50 border border-green-200' : 'bg-blue-50 border border-blue-200'} mt-4`}>
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm">
+                          {atsAnalysis.color === 'red' ? <FaTimesCircle className="text-red-500" size={14} /> : atsAnalysis.color === 'green' ? <FaCheckCircle className="text-green-500" size={14} /> : <FaChartLine className="text-blue-500" size={14} />}
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-semibold text-gray-900">{atsAnalysis.level}</p>
+                          <p className="text-sm text-gray-600 mt-1">{atsAnalysis.message}</p>
+                          {atsAnalysis.suggestions && atsAnalysis.suggestions.length > 0 && (
+                            <div className="mt-3">
+                              <p className="text-xs font-semibold text-gray-700 mb-2">Suggestions to Improve:</p>
+                              <ul className="list-disc list-inside text-xs text-gray-600 space-y-1">
+                                {atsAnalysis.suggestions.slice(0, 3).map((suggestion, i) => (
+                                  <li key={i}>{suggestion}</li>
+                                ))}
+                              </ul>
+                            </div>
                           )}
-                          Calculate Now
-                        </button>
-                      )}
+                        </div>
+                      </div>
                     </div>
                   )}
+
+                  {application.ats_attempt_count > 0 && (
+                    <p className="text-xs text-gray-400 text-center mt-4">
+                      Calculated {application.ats_attempt_count} time(s) • Last: {formatDateTime(application.ats_last_attempted_at)}
+                    </p>
+                  )}
                 </div>
-              </div>
+              ) : (
+                <div className="bg-white rounded-2xl shadow-lg p-8 text-center border border-gray-100">
+                  <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <FaChartLine className="text-gray-400 text-3xl" />
+                  </div>
+                  <p className="text-gray-500">ATS score not calculated yet</p>
+                  <button
+                    onClick={handleRecalculateAts}
+                    className="mt-4 px-5 py-2.5 bg-linear-to-r from-indigo-600 to-indigo-700 text-white rounded-xl text-sm hover:from-indigo-700 hover:to-indigo-800 transition-all transform hover:scale-105"
+                  >
+                    Calculate ATS Score
+                  </button>
+                </div>
+              )}
             </div>
 
-            {/* Sidebar */}
-            <div className="space-y-6">
-              {/* Status Card */}
-              <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-                <div className="bg-linear-to-r from-gray-700 to-gray-800 px-6 py-4">
-                  <h2 className="text-xl font-semibold text-white">Application Status</h2>
-                </div>
-                <div className="p-6">
-                  <div className="flex justify-center mb-4">
-                    {getStatusBadge(application.status)}
+            {/* RIGHT COLUMN - 20% (1/4 of grid) */}
+            <div className="lg:col-span-1 space-y-6">
+              {/* Status Update Card - Enhanced */}
+              <div className="bg-white rounded-2xl shadow-lg p-6 sticky top-6 border border-gray-100">
+                <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2 border-b border-gray-100 pb-3">
+                  <div className="w-6 h-6 bg-yellow-100 rounded-lg flex items-center justify-center">
+                    <FaClock size={12} className="text-yellow-600" />
                   </div>
+                  Application Status
+                </h2>
 
-                  {(userRole === 'employer' || userRole === 'admin') && (
-                    <div className="mt-4">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Update Status</label>
-                      <select
-                        value={application.status}
-                        onChange={(e) => handleStatusUpdate(e.target.value)}
-                        disabled={updatingStatus}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="pending">Pending</option>
-                        <option value="reviewed">Reviewed</option>
-                        <option value="shortlisted">Shortlisted</option>
-                        <option value="rejected">Rejected</option>
-                        <option value="hired">Hired</option>
-                      </select>
+                <div className="mb-4 p-4 bg-linear-to-r from-gray-50 to-gray-100 rounded-xl">
+                  <p className="text-xs text-gray-500 mb-2">Current Status</p>
+                  <div className="flex items-center gap-2">
+                    <div className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center">
+                      {getStatusIcon(application.status)}
                     </div>
-                  )}
+                    <span className={`px-3 py-1.5 rounded-full text-sm font-medium ${getStatusBadge(application.status)}`}>
+                      {getStatusText(application.status)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <label className="block text-sm font-semibold text-gray-700">Change Status</label>
+                  <select
+                    value={selectedStatus}
+                    onChange={(e) => setSelectedStatus(e.target.value)}
+                    disabled={isUpdatingStatus}
+                    className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                  >
+                    {statuses.map(status => (
+                      <option key={status} value={status}>
+                        {getStatusText(status)}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={handleStatusUpdate}
+                    disabled={selectedStatus === application.status || isUpdatingStatus}
+                    className="w-full px-4 py-2.5 bg-linear-to-r from-blue-600 to-blue-700 text-white rounded-xl text-sm font-medium hover:from-blue-700 hover:to-blue-800 transition-all duration-200 disabled:opacity-50 transform hover:scale-[1.02]"
+                  >
+                    {isUpdatingStatus ? <FaSpinner className="animate-spin inline mr-2" size={14} /> : null}
+                    Update Status
+                  </button>
+                </div>
+
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  <p className="text-xs text-gray-400 flex items-center gap-1">
+                    <FaCalendarAlt size={10} />
+                    Applied: {formatDateTime(application.created_at)}
+                  </p>
                 </div>
               </div>
 
-              {/* Employer Notes Card */}
-              {(userRole === 'employer' || userRole === 'admin') && (
-                <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-                  <div className="bg-linear-to-r from-gray-700 to-gray-800 px-6 py-4">
-                    <h2 className="text-xl font-semibold text-white">Employer Notes</h2>
-                  </div>
-                  <div className="p-6">
-                    {isEditingNotes ? (
-                      <div>
-                        <textarea
-                          value={employerNotes}
-                          onChange={(e) => setEmployerNotes(e.target.value)}
-                          rows={4}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                          placeholder="Add notes about this candidate..."
-                        />
-                        <div className="flex gap-2 mt-3">
-                          <button
-                            onClick={handleSaveNotes}
-                            className="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
-                          >
-                            Save
-                          </button>
-                          <button
-                            onClick={() => {
-                              setIsEditingNotes(false);
-                              setEmployerNotes(application.employer_notes || '');
-                            }}
-                            className="px-3 py-1 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm"
-                          >
-                            Cancel
-                          </button>
-                        </div>
+              {/* Work Experience - Compact */}
+              {profile?.job_histories && profile.job_histories.length > 0 && (
+                <div className="bg-white rounded-2xl shadow-lg p-5 border border-gray-100">
+                  <h3 className="text-md font-bold text-gray-900 mb-3 flex items-center gap-2">
+                    <div className="w-6 h-6 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <FaBriefcase size={12} className="text-blue-600" />
+                    </div>
+                    Work Experience
+                    <span className="text-xs text-gray-400 ml-1">({profile.job_histories.length})</span>
+                  </h3>
+                  <div className="space-y-3 max-h-80 overflow-y-auto">
+                    {profile.job_histories.map((job, index) => (
+                      <div key={index} className="border-l-2 border-blue-300 pl-3 pb-2 hover:bg-gray-50 rounded-r-lg transition-colors">
+                        <p className="text-sm font-semibold text-gray-900">{job.position}</p>
+                        <p className="text-xs text-gray-600">{job.company_name}</p>
+                        <p className="text-xs text-gray-400">{job.duration}</p>
+                        {job.is_current && (
+                          <span className="inline-block text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full mt-1">
+                            Current
+                          </span>
+                        )}
                       </div>
-                    ) : (
-                      <div>
-                        <p className="text-gray-600 text-sm whitespace-pre-wrap">
-                          {application.employer_notes || 'No notes added yet.'}
-                        </p>
-                        <button
-                          onClick={() => setIsEditingNotes(true)}
-                          className="mt-3 text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1"
-                        >
-                          <FaEdit size={12} /> {application.employer_notes ? 'Edit Notes' : 'Add Notes'}
-                        </button>
-                      </div>
-                    )}
+                    ))}
                   </div>
                 </div>
               )}
 
-              {/* Application Timeline */}
-              <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-                <div className="bg-linear-to-r from-gray-700 to-gray-800 px-6 py-4">
-                  <h2 className="text-xl font-semibold text-white">Timeline</h2>
-                </div>
-                <div className="p-6">
-                  <div className="space-y-4">
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-                        <FaCheckCircle className="text-green-600" size={14} />
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900">Application Submitted</p>
-                        <p className="text-xs text-gray-500">{formatDateTime(application.created_at)}</p>
-                      </div>
+              {/* Education - Compact */}
+              {profile?.education_histories && profile.education_histories.length > 0 && (
+                <div className="bg-white rounded-2xl shadow-lg p-5 border border-gray-100">
+                  <h3 className="text-md font-bold text-gray-900 mb-3 flex items-center gap-2">
+                    <div className="w-6 h-6 bg-green-100 rounded-lg flex items-center justify-center">
+                      <FaGraduationCap size={12} className="text-green-600" />
                     </div>
-
-                    {application.updated_at !== application.created_at && (
-                      <div className="flex items-start gap-3">
-                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                          <FaEye className="text-blue-600" size={14} />
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900">Last Updated</p>
-                          <p className="text-xs text-gray-500">{formatDateTime(application.updated_at)}</p>
-                        </div>
+                    Education
+                    <span className="text-xs text-gray-400 ml-1">({profile.education_histories.length})</span>
+                  </h3>
+                  <div className="space-y-3">
+                    {profile.education_histories.map((edu, index) => (
+                      <div key={index} className="border-l-2 border-green-300 pl-3 hover:bg-gray-50 rounded-r-lg transition-colors">
+                        <p className="text-sm font-semibold text-gray-900">{edu.degree}</p>
+                        <p className="text-xs text-gray-600">{edu.institution_name}</p>
+                        <p className="text-xs text-gray-400">Year: {edu.passing_year}</p>
                       </div>
-                    )}
-
-                    {application.status !== 'pending' && (
-                      <div className="flex items-start gap-3">
-                        <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
-                          <FaStar className="text-purple-600" size={14} />
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900">Status Updated</p>
-                          <p className="text-xs text-gray-500">Changed to {application.status}</p>
-                          <p className="text-xs text-gray-400">{formatDateTime(application.updated_at)}</p>
-                        </div>
-                      </div>
-                    )}
+                    ))}
                   </div>
                 </div>
-              </div>
+              )}
+
+              {/* Achievements - Compact */}
+              {profile?.achievements && profile.achievements.length > 0 && (
+                <div className="bg-white rounded-2xl shadow-lg p-5 border border-gray-100">
+                  <h3 className="text-md font-bold text-gray-900 mb-3 flex items-center gap-2">
+                    <div className="w-6 h-6 bg-yellow-100 rounded-lg flex items-center justify-center">
+                      <FaTrophy size={12} className="text-yellow-600" />
+                    </div>
+                    Achievements
+                    <span className="text-xs text-gray-400 ml-1">({profile.achievements.length})</span>
+                  </h3>
+                  <div className="space-y-3 max-h-60 overflow-y-auto">
+                    {profile.achievements.map((achievement, index) => (
+                      <div key={index} className="bg-linear-to-r from-yellow-50 to-orange-50 p-3 rounded-xl">
+                        <p className="text-xs font-semibold text-gray-900 flex items-center gap-1">
+                          <FaAward size={10} className="text-yellow-500" />
+                          {achievement.achievement_name}
+                        </p>
+                        <p className="text-xs text-gray-600 line-clamp-2 mt-1">{achievement.achievement_details}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Status Timeline - Compact */}
+              {application.status_timelines && application.status_timelines.length > 0 && (
+                <div className="bg-white rounded-2xl shadow-lg p-5 border border-gray-100">
+                  <h3 className="text-md font-bold text-gray-900 mb-3 flex items-center gap-2">
+                    <div className="w-6 h-6 bg-purple-100 rounded-lg flex items-center justify-center">
+                      <FaHistory size={12} className="text-purple-600" />
+                    </div>
+                    Status Timeline
+                  </h3>
+                  <div className="space-y-3 max-h-60 overflow-y-auto">
+                    {application.status_timelines.slice(0, 5).map((timeline, index) => (
+                      <div key={index} className="flex items-start gap-2 text-xs p-2 hover:bg-gray-50 rounded-lg transition-colors">
+                        <div className="shrink-0 mt-0.5">
+                          {timeline.status === 'hired' ? (
+                            <FaCheckCircle className="text-green-500" size={12} />
+                          ) : timeline.status === 'rejected' ? (
+                            <FaTimesCircle className="text-red-500" size={12} />
+                          ) : (
+                            <FaClock className="text-yellow-500" size={12} />
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <span className={`text-xs font-medium ${getStatusBadge(timeline.status)} px-2 py-0.5 rounded-full`}>
+                            {getStatusText(timeline.status)}
+                          </span>
+                          <p className="text-gray-400 text-xs mt-1">{formatDateTime(timeline.created_at)}</p>
+                          {timeline.notes && (
+                            <p className="text-gray-500 text-xs mt-0.5">{timeline.notes}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
-
-      {/* Delete Confirmation Modal */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
-            <div className="p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                  <FaExclamationTriangle className="text-red-600 text-xl" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900">
-                  {userRole === 'job_seeker' ? 'Withdraw Application?' : 'Delete Application?'}
-                </h3>
-              </div>
-
-              <p className="text-gray-600 mb-6">
-                {userRole === 'job_seeker'
-                  ? 'Are you sure you want to withdraw your application? This action cannot be undone.'
-                  : 'Are you sure you want to delete this application? This action cannot be undone.'}
-              </p>
-
-              <div className="flex gap-3 justify-end">
-                <button
-                  onClick={cancelDelete}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={confirmDelete}
-                  disabled={deleting}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center gap-2"
-                >
-                  {deleting && <FaSpinner className="animate-spin" size={16} />}
-                  {userRole === 'job_seeker' ? 'Yes, Withdraw' : 'Yes, Delete'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </AuthenticatedLayout>
   );
 }
