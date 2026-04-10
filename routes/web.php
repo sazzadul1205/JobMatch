@@ -22,6 +22,8 @@ use App\Http\Controllers\ApplicationController;
 use App\Http\Controllers\ApplyController;
 use App\Http\Controllers\JobCategoryController;
 use App\Http\Controllers\ApplicationsController; // Add this for the new Applications Controller
+use App\Http\Controllers\Settings\PasswordController;
+use App\Http\Controllers\Settings\ProfileController;
 
 /*
 |--------------------------------------------------------------------------
@@ -230,6 +232,10 @@ Route::middleware(['auth', 'verified', 'profile.complete'])->group(function () {
             // Email routes - FIXED: removed redundant '/applications/' from URL
             Route::post('/{id}/send-email', [ApplicationsController::class, 'sendEmail'])->name('send-email');
             Route::post('/bulk-send-email', [ApplicationsController::class, 'sendBulkEmail'])->name('bulk-send-email');
+
+            // Export routes
+            Route::post('export/{jobId}', [ApplicationsController::class, 'exportApplications'])->name('export');
+            Route::post('export-single/{id}', [ApplicationsController::class, 'exportSingleApplication'])->name('export-single');
         });
     });
 
@@ -239,12 +245,12 @@ Route::middleware(['auth', 'verified', 'profile.complete'])->group(function () {
     */
     Route::prefix('settings')->name('settings.')->group(function () {
 
-        Route::get('/profile', [\App\Http\Controllers\Settings\ProfileController::class, 'edit'])->name('profile');
-        Route::patch('/profile', [\App\Http\Controllers\Settings\ProfileController::class, 'update'])->name('profile.update');
-        Route::delete('/profile', [\App\Http\Controllers\Settings\ProfileController::class, 'destroy'])->name('profile.destroy');
+        Route::get('/profile', [ProfileController::class, 'edit'])->name('profile');
+        Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+        Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
-        Route::get('/password', [\App\Http\Controllers\Settings\PasswordController::class, 'edit'])->name('password');
-        Route::put('/password', [\App\Http\Controllers\Settings\PasswordController::class, 'update'])->name('password.update');
+        Route::get('/password', [PasswordController::class, 'edit'])->name('password');
+        Route::put('/password', [PasswordController::class, 'update'])->name('password.update');
     });
 });
 

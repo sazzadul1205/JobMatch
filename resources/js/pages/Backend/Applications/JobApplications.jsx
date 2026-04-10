@@ -4,7 +4,7 @@ import AuthenticatedLayout from '../../../layouts/AuthenticatedLayout';
 import EmailModal from '../../../components/EmailModal';
 import useEmailModal from '../../../hooks/useEmailModal';
 
-// Icons (same as before)
+// Icons
 import {
   FaArrowLeft,
   FaBriefcase,
@@ -29,6 +29,8 @@ import {
   FaChevronDown,
   FaChevronUp,
   FaCheckDouble,
+  FaFileExcel,
+  FaFileCsv,
 } from 'react-icons/fa';
 
 import Swal from 'sweetalert2';
@@ -50,7 +52,9 @@ export default function JobApplications({ job, applications: initialApplications
   const [selectedApps, setSelectedApps] = useState([]);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
   const [pendingUpdates, setPendingUpdates] = useState({});
   const [localFilters, setLocalFilters] = useState({
     status: filters.status || '',
@@ -190,6 +194,141 @@ export default function JobApplications({ job, applications: initialApplications
   // Open email modal for single applicant
   const handleOpenSingleEmail = (applicant) => {
     openEmailModal(applicant, `Send Email to ${applicant.name}`);
+  };
+
+  // Handle bulk export
+  const handleExport = (format) => {
+    if (applicationItems.length === 0) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'No Data to Export',
+        text: 'There are no applications to export.',
+        confirmButtonColor: '#3b82f6',
+      });
+      return;
+    }
+
+    setIsExporting(true);
+    setShowExportMenu(false);
+
+    // Create form data for export
+    const formData = new FormData();
+    formData.append('format', format);
+
+    if (localFilters.status) {
+      formData.append('status', localFilters.status);
+    }
+    if (localFilters.search) {
+      formData.append('search', localFilters.search);
+    }
+
+    // Use fetch to handle file download
+    fetch(route('backend.applications.export', job.id), {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+      },
+    })
+      .then(response => {
+        if (!response.ok) throw new Error('Export failed');
+
+        // Get filename from Content-Disposition header or create one
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = `applications_${job.title}_${Date.now()}.${format}`;
+        if (contentDisposition) {
+          const match = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+          if (match && match[1]) {
+            filename = match[1].replace(/['"]/g, '');
+          }
+        }
+
+        return response.blob().then(blob => ({ blob, filename }));
+      })
+      .then(({ blob, filename }) => {
+        // Create download link
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        Swal.fire({
+          icon: 'success',
+          title: 'Export Started!',
+          text: `Your file will download shortly.`,
+          timer: 1500,
+          showConfirmButton: false,
+        });
+      })
+      .catch(error => {
+        console.error('Export error:', error);
+        Swal.fire({
+          icon: 'error',
+          title: 'Export Failed',
+          text: 'Failed to export applications. Please try again.',
+          confirmButtonColor: '#d33',
+        });
+      })
+      .finally(() => setIsExporting(false));
+  };
+
+  // Handle single application export
+  const handleExportSingle = (app, format) => {
+    setIsExporting(true);
+
+    fetch(route('backend.applications.export-single', app.id), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+      },
+      body: JSON.stringify({ format }),
+    })
+      .then(response => {
+        if (!response.ok) throw new Error('Export failed');
+
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = `application_${app.name}_${Date.now()}.${format}`;
+        if (contentDisposition) {
+          const match = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+          if (match && match[1]) {
+            filename = match[1].replace(/['"]/g, '');
+          }
+        }
+
+        return response.blob().then(blob => ({ blob, filename }));
+      })
+      .then(({ blob, filename }) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        Swal.fire({
+          icon: 'success',
+          title: 'Exported!',
+          text: 'Application data downloaded successfully.',
+          timer: 1500,
+          showConfirmButton: false,
+        });
+      })
+      .catch(error => {
+        Swal.fire({
+          icon: 'error',
+          title: 'Export Failed',
+          text: 'Failed to export application data.',
+          confirmButtonColor: '#d33',
+        });
+      })
+      .finally(() => setIsExporting(false));
   };
 
   // Handle bulk status update with optimistic update
@@ -389,7 +528,7 @@ export default function JobApplications({ job, applications: initialApplications
     window.location.href = route('backend.applications.download', appId);
   };
 
-  // Helper functions (same as before)
+  // Helper functions
   const formatDate = (date) => {
     if (!date) return 'N/A';
     return new Date(date).toLocaleDateString('en-US', {
@@ -521,7 +660,7 @@ export default function JobApplications({ job, applications: initialApplications
     }
   }, [flash]);
 
-  // Pagination component (same as before)
+  // Pagination component
   const Pagination = () => {
     if (!pagination || pagination.lastPage <= 1) return null;
 
@@ -618,7 +757,7 @@ export default function JobApplications({ job, applications: initialApplications
 
       <div className="min-h-screen bg-gray-50 p-6">
         <div className="mx-auto">
-          {/* HEADER (same as before) */}
+          {/* HEADER */}
           <div className="flex justify-between items-start mb-6">
             <div>
               <Link
@@ -641,25 +780,69 @@ export default function JobApplications({ job, applications: initialApplications
               </div>
             </div>
 
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all duration-200 ${showFilters || hasActiveFilters()
-                ? 'bg-blue-600 text-white'
-                : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
-                }`}
-            >
-              <FaFilter size={14} />
-              Filters
-              {hasActiveFilters() && (
-                <span className="ml-1 bg-blue-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center">
-                  {Object.values(localFilters).filter(v => v !== '').length}
-                </span>
-              )}
-              {showFilters ? <FaChevronUp size={12} /> : <FaChevronDown size={12} />}
-            </button>
+            <div className="flex gap-2">
+              {/* Export Dropdown Button */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowExportMenu(!showExportMenu)}
+                  disabled={isExporting || applicationItems.length === 0}
+                  className="px-4 py-2 rounded-lg flex items-center gap-2 transition-all duration-200 bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+                >
+                  {isExporting ? (
+                    <FaSpinner className="animate-spin" size={14} />
+                  ) : (
+                    <FaFileExcel size={14} />
+                  )}
+                  Export Data
+                  <FaChevronDown size={12} />
+                </button>
+
+                {showExportMenu && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-10"
+                      onClick={() => setShowExportMenu(false)}
+                    />
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg z-20 border border-gray-200 overflow-hidden">
+                      <button
+                        onClick={() => handleExport('xlsx')}
+                        className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                      >
+                        <FaFileExcel className="text-green-600" size={16} />
+                        Export as Excel (.xlsx)
+                      </button>
+                      <button
+                        onClick={() => handleExport('csv')}
+                        className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 border-t border-gray-100"
+                      >
+                        <FaFileCsv className="text-blue-600" size={16} />
+                        Export as CSV (.csv)
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all duration-200 ${showFilters || hasActiveFilters()
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+                  }`}
+              >
+                <FaFilter size={14} />
+                Filters
+                {hasActiveFilters() && (
+                  <span className="ml-1 bg-blue-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center">
+                    {Object.values(localFilters).filter(v => v !== '').length}
+                  </span>
+                )}
+                {showFilters ? <FaChevronUp size={12} /> : <FaChevronDown size={12} />}
+              </button>
+            </div>
           </div>
 
-          {/* STATS CARDS (same as before) */}
+          {/* STATS CARDS */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
             {statsCards.map((card, index) => (
               <div
@@ -698,7 +881,7 @@ export default function JobApplications({ job, applications: initialApplications
             ))}
           </div>
 
-          {/* FILTERS PANEL (same as before) */}
+          {/* FILTERS PANEL */}
           {showFilters && (
             <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
               <div className="flex justify-between items-center mb-4">
@@ -757,7 +940,7 @@ export default function JobApplications({ job, applications: initialApplications
             </div>
           )}
 
-          {/* BULK ACTIONS BAR (same as before) */}
+          {/* BULK ACTIONS BAR */}
           {selectedApps.length > 0 && (
             <div className="bg-blue-50 rounded-xl shadow-lg p-4 mb-6 border border-blue-200">
               <div className="flex items-center justify-between flex-wrap gap-3">
@@ -807,7 +990,7 @@ export default function JobApplications({ job, applications: initialApplications
             </div>
           )}
 
-          {/* APPLICATIONS TABLE (same as before) */}
+          {/* APPLICATIONS TABLE */}
           <div className="bg-white rounded-xl shadow-lg overflow-hidden">
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
@@ -982,6 +1165,32 @@ export default function JobApplications({ job, applications: initialApplications
                             >
                               <FaFilePdf size={18} />
                             </button>
+                            {/* Single Export Dropdown */}
+                            <div className="relative group">
+                              <button
+                                disabled={isPending}
+                                className="p-2 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all duration-200 disabled:opacity-50"
+                                title="Export Data"
+                              >
+                                <FaFileExcel size={18} />
+                              </button>
+                              <div className="absolute right-0 mt-2 w-40 bg-white rounded-lg shadow-lg hidden group-hover:block z-10 border border-gray-200">
+                                <button
+                                  onClick={() => handleExportSingle(app, 'xlsx')}
+                                  className="w-full px-3 py-1.5 text-left text-xs hover:bg-gray-50 flex items-center gap-2"
+                                >
+                                  <FaFileExcel className="text-green-600" size={12} />
+                                  Excel (.xlsx)
+                                </button>
+                                <button
+                                  onClick={() => handleExportSingle(app, 'csv')}
+                                  className="w-full px-3 py-1.5 text-left text-xs hover:bg-gray-50 flex items-center gap-2 border-t border-gray-100"
+                                >
+                                  <FaFileCsv className="text-blue-600" size={12} />
+                                  CSV (.csv)
+                                </button>
+                              </div>
+                            </div>
                           </div>
                         </td>
                       </tr>
@@ -997,7 +1206,7 @@ export default function JobApplications({ job, applications: initialApplications
         </div>
       </div>
 
-      {/* Email Modal - Now reusable anywhere */}
+      {/* Email Modal */}
       <EmailModal
         isOpen={isEmailModalOpen}
         onClose={closeEmailModal}
@@ -1005,7 +1214,6 @@ export default function JobApplications({ job, applications: initialApplications
         title={emailModalTitle}
         jobTitle={job.title}
         onSuccess={() => {
-          // Optional: Refresh data or show success message
           console.log('Email sent successfully');
         }}
       />

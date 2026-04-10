@@ -398,4 +398,321 @@ class ApplicationsController extends Controller
             'message' => "Email sent successfully to {$successCount} applicant(s)."
         ]);
     }
+
+    /**
+     * Download applications as CSV with filters
+     */
+    public function exportApplications(Request $request, $jobId = null)
+    {
+        $request->validate([
+            'status' => 'nullable|in:pending,shortlisted,rejected,hired',
+            'search' => 'nullable|string',
+            'format' => 'required|in:csv,xlsx',
+        ]);
+
+        $status = $request->status;
+        $search = $request->search;
+        $format = $request->format;
+
+        // Build query
+        $query = Application::with(['jobListing.employer', 'applicantProfile']);
+
+        if ($jobId) {
+            $query->where('job_listing_id', $jobId);
+            $job = JobListing::find($jobId);
+            $filename = $job ? sanitize_filename($job->title) : 'job_applications';
+        } else {
+            $filename = 'all_applications';
+        }
+
+        // Apply filters
+        if ($status) {
+            $query->where('status', $status);
+            $filename .= '_' . $status;
+        }
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('phone', 'like', "%{$search}%");
+            });
+            $filename .= '_filtered';
+        }
+
+        $applications = $query->orderBy('created_at', 'desc')->get();
+
+        if ($applications->isEmpty()) {
+            return back()->with('error', 'No applications found to export.');
+        }
+
+        $timestamp = date('Y-m-d_His');
+        $filename .= "_{$timestamp}";
+
+        // Prepare CSV data
+        $csvData = $this->prepareExportData($applications);
+
+        // Create CSV file
+        $output = fopen('php://temp', 'w');
+
+        // Add UTF-8 BOM for Excel compatibility
+        fprintf($output, chr(0xEF) . chr(0xBB) . chr(0xBF));
+
+        // Add headers
+        fputcsv($output, array_keys($csvData[0]));
+
+        // Add data rows
+        foreach ($csvData as $row) {
+            fputcsv($output, $row);
+        }
+
+        rewind($output);
+        $csvContent = stream_get_contents($output);
+        fclose($output);
+
+        // For XLSX format, we'll just send as CSV but with .xlsx extension
+        // (Excel can open CSV files, but we'll note that it's CSV format)
+        $extension = $format === 'xlsx' ? 'xlsx' : 'csv';
+        $contentType = $format === 'xlsx' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'text/csv';
+
+        return response($csvContent, 200, [
+            'Content-Type' => $contentType,
+            'Content-Disposition' => "attachment; filename=\"{$filename}.{$extension}\"",
+            'Cache-Control' => 'no-cache, no-store, must-revalidate',
+            'Pragma' => 'no-cache',
+            'Expires' => '0',
+        ]);
+    }
+
+    /**
+     * Export single application data
+     */
+    public function exportSingleApplication(Request $request, $id)
+    {
+        $request->validate([
+            'format' => 'required|in:csv,xlsx',
+        ]);
+
+        $application = Application::with([
+            'jobListing.employer',
+            'jobListing.category',
+            'jobListing.locations',
+            'applicantProfile.user',
+            'applicantProfile.jobHistories' => function ($q) {
+                $q->orderBy('starting_year', 'desc');
+            },
+            'applicantProfile.educationHistories' => function ($q) {
+                $q->orderBy('passing_year', 'desc');
+            },
+            'applicantProfile.achievements',
+            'statusTimelines'
+        ])->findOrFail($id);
+
+        $format = $request->format;
+        $filename = "application_{$application->id}_" . sanitize_filename($application->name) . "_" . date('Y-m-d_His');
+
+        // Prepare detailed export data
+        $exportData = $this->prepareSingleApplicationExport($application);
+
+        // Create CSV
+        $output = fopen('php://temp', 'w');
+
+        // Add UTF-8 BOM
+        fprintf($output, chr(0xEF) . chr(0xBB) . chr(0xBF));
+
+        // Write data sections
+        foreach ($exportData as $section => $data) {
+            // Add section header
+            fputcsv($output, [strtoupper($section)]);
+            fputcsv($output, []); // Empty line
+
+            if (!empty($data) && is_array($data)) {
+                // Check if it's associative or indexed
+                if (isset($data[0]) && is_array($data[0])) {
+                    // Multiple rows (like work history)
+                    if (!empty($data)) {
+                        // Add headers from first item
+                        fputcsv($output, array_keys($data[0]));
+                        // Add data rows
+                        foreach ($data as $row) {
+                            fputcsv($output, $row);
+                        }
+                    }
+                } else {
+                    // Single row data
+                    fputcsv($output, array_keys($data));
+                    fputcsv($output, array_values($data));
+                }
+            }
+
+            fputcsv($output, []); // Empty line between sections
+        }
+
+        rewind($output);
+        $csvContent = stream_get_contents($output);
+        fclose($output);
+
+        $extension = $format === 'xlsx' ? 'xlsx' : 'csv';
+        $contentType = $format === 'xlsx' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'text/csv';
+
+        return response($csvContent, 200, [
+            'Content-Type' => $contentType,
+            'Content-Disposition' => "attachment; filename=\"{$filename}.{$extension}\"",
+        ]);
+    }
+
+    /**
+     * Prepare export data for multiple applications
+     */
+    private function prepareExportData($applications)
+    {
+        $exportData = [];
+
+        foreach ($applications as $app) {
+            // Get ATS score
+            $atsScore = 'N/A';
+            if ($app->ats_score) {
+                if (is_array($app->ats_score) && isset($app->ats_score['percentage'])) {
+                    $atsScore = $app->ats_score['percentage'] . '%';
+                } elseif (is_numeric($app->ats_score)) {
+                    $atsScore = $app->ats_score . '%';
+                }
+            }
+
+            $exportData[] = [
+                'Application ID' => $app->id,
+                'Name' => $app->name,
+                'Email' => $app->email,
+                'Phone' => $app->phone ?? 'N/A',
+                'Status' => ucfirst($app->status),
+                'Applied Date' => $app->created_at ? $app->created_at->format('Y-m-d H:i:s') : 'N/A',
+                'Job Title' => $app->jobListing->title ?? 'N/A',
+                'Company' => $app->jobListing->employer->name ?? 'N/A',
+                'Expected Salary (BDT)' => $app->expected_salary ? number_format($app->expected_salary, 0) : 'N/A',
+                'Years of Experience' => $app->years_of_experience ?? 'N/A',
+                'ATS Score' => $atsScore,
+                'Cover Letter Preview' => $app->cover_letter ? substr(str_replace(["\n", "\r"], ' ', $app->cover_letter), 0, 200) . '...' : 'N/A',
+                'Current Location' => $app->current_location ?? 'N/A',
+                'Current Salary (BDT)' => $app->current_salary ? number_format($app->current_salary, 0) : 'N/A',
+                'Notice Period (Days)' => $app->notice_period_days ?? 'N/A',
+                'LinkedIn URL' => $app->linkedin_url ?? 'N/A',
+                'Portfolio URL' => $app->portfolio_url ?? 'N/A',
+                'Additional Info' => $app->additional_info ? substr(str_replace(["\n", "\r"], ' ', $app->additional_info), 0, 200) : 'N/A',
+            ];
+        }
+
+        return $exportData;
+    }
+
+    /**
+     * Prepare detailed single application export
+     */
+    private function prepareSingleApplicationExport($application)
+    {
+        // Get ATS analysis
+        $atsAnalysis = 'N/A';
+        if ($application->ats_score) {
+            if (is_array($application->ats_score)) {
+                if (isset($application->ats_score['analysis'])) {
+                    $atsAnalysis = substr(str_replace(["\n", "\r"], ' ', json_encode($application->ats_score['analysis'])), 0, 500);
+                } elseif (isset($application->ats_score['percentage'])) {
+                    $atsAnalysis = "Score: {$application->ats_score['percentage']}%";
+                    if (isset($application->ats_score['feedback'])) {
+                        $atsAnalysis .= " - Feedback: " . substr($application->ats_score['feedback'], 0, 200);
+                    }
+                }
+            }
+        }
+
+        $data = [
+            'APPLICATION DETAILS' => [
+                'Application ID' => $application->id,
+                'Name' => $application->name,
+                'Email' => $application->email,
+                'Phone' => $application->phone ?? 'N/A',
+                'Status' => ucfirst($application->status),
+                'Applied Date' => $application->created_at ? $application->created_at->format('Y-m-d H:i:s') : 'N/A',
+                'Last Updated' => $application->updated_at ? $application->updated_at->format('Y-m-d H:i:s') : 'N/A',
+                'Expected Salary (BDT)' => $application->expected_salary ? number_format($application->expected_salary, 0) : 'N/A',
+                'Years of Experience' => $application->years_of_experience ?? 'N/A',
+                'Current Location' => $application->current_location ?? 'N/A',
+                'Current Salary (BDT)' => $application->current_salary ? number_format($application->current_salary, 0) : 'N/A',
+                'Notice Period (Days)' => $application->notice_period_days ?? 'N/A',
+                'LinkedIn URL' => $application->linkedin_url ?? 'N/A',
+                'Portfolio URL' => $application->portfolio_url ?? 'N/A',
+                'Cover Letter' => $application->cover_letter ? str_replace(["\n", "\r"], ' ', $application->cover_letter) : 'N/A',
+                'Additional Info' => $application->additional_info ?? 'N/A',
+                'ATS Analysis' => $atsAnalysis,
+            ],
+            'JOB DETAILS' => [
+                'Job Title' => $application->jobListing->title ?? 'N/A',
+                'Job Description' => $application->jobListing->description ? substr(str_replace(["\n", "\r"], ' ', $application->jobListing->description), 0, 500) : 'N/A',
+                'Company Name' => $application->jobListing->employer->name ?? 'N/A',
+                'Category' => $application->jobListing->category->name ?? 'N/A',
+                'Job Type' => $application->jobListing->job_type ?? 'N/A',
+                'Employment Status' => $application->jobListing->employment_status ?? 'N/A',
+                'Min Salary (BDT)' => $application->jobListing->salary_min ? number_format($application->jobListing->salary_min, 0) : 'N/A',
+                'Max Salary (BDT)' => $application->jobListing->salary_max ? number_format($application->jobListing->salary_max, 0) : 'N/A',
+                'Locations' => $application->jobListing->locations ? $application->jobListing->locations->pluck('name')->implode(', ') : 'N/A',
+                'Job Posted Date' => $application->jobListing->created_at ? $application->jobListing->created_at->format('Y-m-d') : 'N/A',
+                'Job Deadline' => $application->jobListing->application_deadline ? $application->jobListing->application_deadline->format('Y-m-d') : 'N/A',
+            ],
+            'WORK HISTORY' => [],
+            'EDUCATION' => [],
+            'ACHIEVEMENTS' => [],
+            'STATUS TIMELINE' => [],
+        ];
+
+        // Add work history
+        if ($application->applicantProfile && $application->applicantProfile->jobHistories) {
+            foreach ($application->applicantProfile->jobHistories as $job) {
+                $data['WORK HISTORY'][] = [
+                    'Company' => $job->company_name,
+                    'Designation' => $job->designation,
+                    'Start Year' => $job->starting_year,
+                    'End Year' => $job->ending_year ?? 'Present',
+                    'Current Job' => $job->is_current ? 'Yes' : 'No',
+                    'Responsibilities' => substr(str_replace(["\n", "\r"], ' ', $job->responsibilities ?? ''), 0, 200),
+                ];
+            }
+        }
+
+        // Add education
+        if ($application->applicantProfile && $application->applicantProfile->educationHistories) {
+            foreach ($application->applicantProfile->educationHistories as $edu) {
+                $data['EDUCATION'][] = [
+                    'Degree' => $edu->degree,
+                    'Institution' => $edu->institution,
+                    'Major' => $edu->major ?? 'N/A',
+                    'Passing Year' => $edu->passing_year,
+                    'Result' => $edu->result ?? 'N/A',
+                ];
+            }
+        }
+
+        // Add achievements
+        if ($application->applicantProfile && $application->applicantProfile->achievements) {
+            foreach ($application->applicantProfile->achievements as $achievement) {
+                $data['ACHIEVEMENTS'][] = [
+                    'Title' => $achievement->title,
+                    'Description' => substr(str_replace(["\n", "\r"], ' ', $achievement->description ?? ''), 0, 200),
+                    'Date' => $achievement->date ?? 'N/A',
+                ];
+            }
+        }
+
+        // Add status timeline
+        if ($application->statusTimelines) {
+            foreach ($application->statusTimelines as $timeline) {
+                $data['STATUS TIMELINE'][] = [
+                    'Status' => ucfirst($timeline->status),
+                    'Changed By' => $timeline->changed_by ?? 'System',
+                    'Notes' => $timeline->notes ?? 'N/A',
+                    'Date' => $timeline->created_at ? $timeline->created_at->format('Y-m-d H:i:s') : 'N/A',
+                ];
+            }
+        }
+
+        return $data;
+    }
 }
