@@ -27,10 +27,11 @@ import {
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 
 const Dashboard = () => {
-  const { auth } = usePage().props;
+  const { auth, notifications } = usePage().props;
   const userRole = auth.user?.role;
   const [greeting, setGreeting] = useState('');
   const [animateStats, setAnimateStats] = useState(false);
+  const recentNotifications = notifications?.recent || [];
 
   useEffect(() => {
     // Set greeting based on time of day
@@ -150,6 +151,16 @@ const Dashboard = () => {
   // Recent Activities based on role
   const getActivities = () => {
     if (userRole === 'job_seeker') {
+      if (recentNotifications.length > 0) {
+        return recentNotifications.map((notification) => ({
+          icon: notification.read_at ? FiBell : FiCheckCircle,
+          title: notification.data?.title || 'Application updated',
+          time: new Date(notification.created_at).toLocaleString(),
+          color: notification.read_at ? 'from-slate-500 to-slate-600' : 'from-blue-500 to-cyan-600',
+          status: notification.read_at ? 'success' : 'new',
+        }));
+      }
+
       return [
         { icon: FiCheckCircle, title: 'Application submitted for Senior Developer position', time: '2 hours ago', color: 'from-blue-500 to-cyan-600', status: 'success' },
         { icon: FiStar, title: 'Your application has been shortlisted', time: 'Yesterday', color: 'from-green-500 to-emerald-600', status: 'success' },
@@ -180,7 +191,7 @@ const Dashboard = () => {
         { icon: FiFileText, label: 'Browse Jobs', color: 'from-blue-500 to-blue-600', onClick: () => window.location.href = '/jobs' },
         { icon: FiTarget, label: 'Upload Resume', color: 'from-green-500 to-emerald-600', onClick: () => window.location.href = '/profile' },
         { icon: FiActivity, label: 'Track Applications', color: 'from-purple-500 to-purple-600', onClick: () => window.location.href = '/applications' },
-        { icon: FiSmile, label: 'Get Tips', color: 'from-orange-500 to-red-600', onClick: () => window.location.href = '/tips' }
+        { icon: FiBell, label: 'Notifications', color: 'from-orange-500 to-red-600', onClick: () => window.location.href = '/backend/notifications' }
       ];
     } else if (userRole === 'employer') {
       return [

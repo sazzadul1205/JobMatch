@@ -22,6 +22,7 @@ use App\Http\Controllers\ApplicationController;
 use App\Http\Controllers\ApplyController;
 use App\Http\Controllers\JobCategoryController;
 use App\Http\Controllers\ApplicationsController; // Add this for the new Applications Controller
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\Settings\PasswordController;
 use App\Http\Controllers\Settings\ProfileController;
 
@@ -236,6 +237,12 @@ Route::middleware(['auth', 'verified', 'profile.complete'])->group(function () {
             // Export routes
             Route::post('export/{jobId}', [ApplicationsController::class, 'exportApplications'])->name('export');
             Route::post('export-single/{id}', [ApplicationsController::class, 'exportSingleApplication'])->name('export-single');
+        });
+
+        Route::prefix('notifications')->name('notifications.')->group(function () {
+            Route::get('/', [NotificationController::class, 'index'])->name('index');
+            Route::post('/read-all', [NotificationController::class, 'markAllAsRead'])->name('read-all');
+            Route::post('/{id}/read', [NotificationController::class, 'markAsRead'])->name('read');
         });
     });
 

@@ -7,6 +7,7 @@ import { Link, usePage } from '@inertiajs/react';
 // Icons
 import {
   FiHome,
+  FiBell,
   FiBriefcase,
   FiFileText,
   FiSettings,
@@ -24,6 +25,7 @@ import { FaSearchLocation } from "react-icons/fa";
 const Sidebar = () => {
   const { url, props } = usePage();
   const { auth } = props;
+  const notificationMeta = props.notifications || { unread_count: 0, recent: [] };
 
   // Get user role
   const user = auth?.user;
@@ -160,6 +162,12 @@ const Sidebar = () => {
       name: 'My Applications',
       routeName: 'backend.apply.index',
       icon: FiFileText,
+    },
+    {
+      name: 'Notifications',
+      routeName: 'backend.notifications.index',
+      icon: FiBell,
+      badgeCount: notificationMeta.unread_count,
     },
 
   ];
@@ -360,10 +368,15 @@ const Sidebar = () => {
       >
         <item.icon className={`w-5 h-5 ${isMenuItemActive ? 'text-blue-600 dark:text-blue-400' : ''}`} />
         <span>{item.name}</span>
+        {item.badgeCount > 0 && (
+          <span className="ml-auto min-w-5 h-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-semibold flex items-center justify-center">
+            {item.badgeCount > 99 ? '99+' : item.badgeCount}
+          </span>
+        )}
         {isMenuItemActive && (
           <>
             <span className="absolute left-0 w-1 h-8 bg-blue-600 rounded-r-full"></span>
-            <span className="ml-auto w-2 h-2 rounded-full bg-blue-600"></span>
+            {!(item.badgeCount > 0) && <span className="ml-auto w-2 h-2 rounded-full bg-blue-600"></span>}
           </>
         )}
       </Link>

@@ -37,21 +37,39 @@ class HandleInertiaRequests extends Middleware
     public function share(Request $request): array
     {
         [$message, $author] = str(Inspiring::quotes()->random())->explode('-');
+        $user = $request->user();
 
         return array_merge(parent::share($request), [
             ...parent::share($request),
             'name' => config('app.name'),
             'quote' => ['message' => trim($message), 'author' => trim($author)],
             'auth' => [
-                'user' => $request->user() ? [
-                    'id' => $request->user()->id,
-                    'name' => $request->user()->name,
-                    'email' => $request->user()->email,
-                    'role' => $request->user()->role,
-                    'google_id' => $request->user()->google_id,
-                    'email_verified_at' => $request->user()->email_verified_at,
-                    'created_at' => $request->user()->created_at,
+                'user' => $user ? [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'role' => $user->role,
+                    'google_id' => $user->google_id,
+                    'email_verified_at' => $user->email_verified_at,
+                    'created_at' => $user->created_at,
                 ] : null,
+            ],
+            'notifications' => $user ? [
+                'unread_count' => $user->unreadNotifications()->count(),
+                'recent' => $user->notifications()
+                    ->latest()
+                    ->take(5)
+                    ->get()
+                    ->map(fn ($notification) => [
+                        'id' => $notification->id,
+                        'data' => $notification->data,
+                        'read_at' => $notification->read_at,
+                        'created_at' => $notification->created_at,
+                    ])
+                    ->values(),
+            ] : [
+                'unread_count' => 0,
+                'recent' => [],
             ],
         ]);
     }

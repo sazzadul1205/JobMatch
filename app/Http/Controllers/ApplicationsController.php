@@ -420,7 +420,7 @@ class ApplicationsController extends Controller
         if ($jobId) {
             $query->where('job_listing_id', $jobId);
             $job = JobListing::find($jobId);
-            $filename = $job ? sanitize_filename($job->title) : 'job_applications';
+            $filename = $job ? $this->sanitizeFilename($job->title) : 'job_applications';
         } else {
             $filename = 'all_applications';
         }
@@ -509,7 +509,7 @@ class ApplicationsController extends Controller
         ])->findOrFail($id);
 
         $format = $request->format;
-        $filename = "application_{$application->id}_" . sanitize_filename($application->name) . "_" . date('Y-m-d_His');
+        $filename = "application_{$application->id}_" . $this->sanitizeFilename($application->name) . "_" . date('Y-m-d_His');
 
         // Prepare detailed export data
         $exportData = $this->prepareSingleApplicationExport($application);
@@ -714,5 +714,18 @@ class ApplicationsController extends Controller
         }
 
         return $data;
+    }
+
+    /**
+     * Create a filesystem-safe filename fragment without relying on a global helper.
+     */
+    private function sanitizeFilename(string $filename): string
+    {
+        $filename = preg_replace('/[^a-zA-Z0-9\s_-]/', '', $filename);
+        $filename = str_replace(' ', '_', $filename);
+        $filename = preg_replace('/_+/', '_', $filename);
+        $filename = trim($filename, '_');
+
+        return substr($filename, 0, 100) ?: 'file';
     }
 }
