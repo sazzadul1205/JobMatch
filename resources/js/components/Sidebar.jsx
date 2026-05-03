@@ -387,7 +387,7 @@ const Sidebar = () => {
     <aside className="fixed left-0 top-0 h-full w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col shadow-lg">
       {/* Logo Section */}
       <div className="p-4 border-b border-gray-200 dark:border-gray-800">
-        <Link href="/" className="flex items-center gap-2 group">
+        <Link href={route('home')} className="flex items-center gap-2 group">
           <div className="w-8 h-8 bg-linear-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center shadow-md group-hover:shadow-lg transition-all duration-200">
             <FiBriefcase className="w-5 h-5 text-white" />
           </div>

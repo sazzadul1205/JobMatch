@@ -180,7 +180,7 @@ export default function Login({ status, canResetPassword, googleAuthEnabled }) {
                     </div>
                   </div>
                   <a
-                    href="/auth/google/redirect"
+                    href={route('auth.google.redirect')}
                     className="w-full flex items-center justify-center px-4 py-2 border-2 border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 transition-all duration-300 transform hover:scale-[1.02] group"
                   >
                     <FaGoogle className="mr-2 h-5 w-5 text-red-500 transition-transform duration-300 group-hover:scale-110" />

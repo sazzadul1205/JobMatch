@@ -191,7 +191,7 @@ export default function Register({ googleAuthEnabled, status }) {
                     </div>
                   </div>
                   <a
-                    href="/auth/google/redirect"
+                    href={route('auth.google.redirect')}
                     className="w-full flex items-center justify-center px-4 py-2 border-2 border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 transition-all duration-300 transform hover:scale-[1.02] group"
                   >
                     <FaGoogle className="mr-2 h-5 w-5 text-red-500 transition-transform duration-300 group-hover:scale-110" />
@@ -210,11 +210,11 @@ export default function Register({ googleAuthEnabled, status }) {
                   <FaEnvelopeOpenText className="h-4 w-4 text-gray-500 mr-2" />
                   <p className="text-xs text-gray-600">
                     By creating an account, you agree to our{' '}
-                    <a href="/terms" className="font-medium text-green-600 hover:text-green-700 transition-colors">
+                    <a href={`${route('home').replace(/\/$/, '')}/terms`} className="font-medium text-green-600 hover:text-green-700 transition-colors">
                       Terms of Service
                     </a>{' '}
                     and{' '}
-                    <a href="/privacy" className="font-medium text-green-600 hover:text-green-700 transition-colors">
+                    <a href={`${route('home').replace(/\/$/, '')}/privacy`} className="font-medium text-green-600 hover:text-green-700 transition-colors">
                       Privacy Policy
                     </a>
                   </p>

@@ -5,6 +5,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <base href="{{ rtrim(url('/'), '/') }}/">
 
     <!-- Prevent theme flash -->
     <script>
@@ -42,9 +43,9 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <!-- Favicons -->
-    <link rel="icon" href="/Icon.png" sizes="any">
-    <link rel="icon" type="image/svg+xml" href="/Icon.png">
-    <link rel="apple-touch-icon" href="/Icon.png">
+    <link rel="icon" href="{{ asset('Icon.png') }}" sizes="any">
+    <link rel="icon" type="image/svg+xml" href="{{ asset('Icon.png') }}">
+    <link rel="apple-touch-icon" href="{{ asset('Icon.png') }}">
 
     <!-- Font loading optimization -->
     <link rel="preconnect" href="https://fonts.bunny.net" crossorigin>

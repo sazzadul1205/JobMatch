@@ -40,7 +40,7 @@ export default function Welcome() {
             <div className="flex gap-3">
               {auth.user ? (
                 <Link
-                  href="/dashboard"
+                  href={route('dashboard')}
                   className="relative px-5 py-2 text-sm font-medium text-white bg-linear-to-r from-blue-500 to-indigo-600 rounded-lg overflow-hidden group"
                 >
                   <span className="relative z-10">Dashboard</span>
@@ -49,13 +49,13 @@ export default function Welcome() {
               ) : (
                 <>
                   <Link
-                    href="/login"
+                    href={route('login')}
                     className="px-5 py-2 text-sm font-medium text-blue-600 border-2 border-blue-600 rounded-lg hover:bg-blue-50 transition-all duration-300 hover:scale-105"
                   >
                     Log in
                   </Link>
                   <Link
-                    href="/register"
+                    href={route('register')}
                     className="relative px-5 py-2 text-sm font-medium text-white bg-linear-to-r from-blue-500 to-indigo-600 rounded-lg overflow-hidden group hover:shadow-lg transition-all duration-300 hover:scale-105"
                   >
                     <span className="relative z-10">Sign up</span>
@@ -90,14 +90,14 @@ export default function Welcome() {
             </p>
             <div className="flex gap-4 justify-center">
               <Link
-                href="/register"
+                href={route('register')}
                 className="group relative px-8 py-3 text-white bg-linear-to-r from-blue-500 to-indigo-600 rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
               >
                 <span className="relative z-10 font-semibold">Get Started Free →</span>
                 <div className="absolute inset-0 bg-linear-to-r from-blue-600 to-indigo-700 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left"></div>
               </Link>
               <Link
-                href="/jobs"
+                href={route('public.jobs.index')}
                 className="px-8 py-3 text-blue-600 border-2 border-blue-600 rounded-lg hover:bg-blue-50 transition-all duration-300 hover:scale-105 font-semibold"
               >
                 Browse Jobs
@@ -186,7 +186,7 @@ export default function Welcome() {
                 Join thousands of job seekers who found their dream careers through Job Match
               </p>
               <Link
-                href="/register"
+                href={route('register')}
                 className="inline-block px-8 py-3 bg-white text-blue-600 rounded-lg font-semibold hover:shadow-xl transform hover:scale-105 transition-all duration-300"
               >
                 Create Free Account
