@@ -1,11 +1,18 @@
 // pages/auth/register.jsx
 
-// React
 import { useState } from 'react';
 import { Head, useForm } from '@inertiajs/react';
-
-// Icons
-import { FaSpinner, FaEye, FaEyeSlash, FaGoogle, FaEnvelope, FaLock, FaUserPlus, FaArrowRight, FaShieldAlt, FaEnvelopeOpenText } from 'react-icons/fa';
+import {
+  LoaderCircle,
+  Eye,
+  EyeOff,
+  Mail,
+  Lock,
+  Shield,
+  ArrowRight,
+  UserPlus,
+  Info
+} from 'lucide-react';
 
 export default function Register({ googleAuthEnabled, status }) {
   const { data, setData, post, processing, errors, reset } = useForm({
@@ -28,44 +35,33 @@ export default function Register({ googleAuthEnabled, status }) {
   return (
     <>
       <Head title="Register" />
-
-      <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-green-50 via-white to-blue-50 py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
-        {/* Animated background elements */}
-        <div className="absolute -top-20 -right-20 w-64 h-64 bg-linear-to-r from-green-400 to-emerald-500 rounded-full blur-3xl opacity-20 animate-pulse"></div>
-        <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-linear-to-r from-blue-400 to-indigo-500 rounded-full blur-3xl opacity-20 animate-pulse animation-delay-1000"></div>
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full max-w-4xl"></div>
-
-        <div className="max-w-md w-full space-y-8 relative z-10">
-          {/* Logo and Header */}
-          <div className="text-center animate-fade-in-up">
-            <div className="flex justify-center mb-4">
-              <div className="bg-linear-to-r from-green-600 to-emerald-600 rounded-2xl p-3 shadow-lg transform hover:scale-105 transition-transform duration-300">
-                <FaUserPlus className="h-8 w-8 text-white" />
+      <div className="flex min-h-screen flex-col items-center bg-[#FDFDFC] p-6 text-[#1b1b18] lg:justify-center lg:p-8 dark:bg-[#0a0a0a]">
+        <div className="flex w-full items-center justify-center opacity-100 transition-opacity duration-750 lg:grow starting:opacity-0">
+          <main className="w-full max-w-83.75 lg:max-w-md">
+            {/* Header */}
+            <div className="mb-8">
+              <div className="flex items-center justify-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-[#1b1b18] rounded-lg flex items-center justify-center dark:bg-[#EDEDEC]">
+                  <UserPlus className="h-5 w-5 text-white dark:text-[#1b1b18]" />
+                </div>
               </div>
+              <h1 className="text-2xl font-semibold text-center text-white mb-2">Create an account</h1>
+              <p className="text-sm text-[#706f6c] dark:text-[#A1A09A] text-center">
+                Join Job Match and find your perfect career opportunity
+              </p>
             </div>
-            <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-              Create an account
-            </h2>
-            <p className="mt-2 text-sm text-gray-600">
-              Join Job Match and start your career journey
-            </p>
-          </div>
 
-          {/* Registration Form */}
-          <form className="mt-8 space-y-6" onSubmit={submit}>
-            <div className="space-y-4">
-              {/* Email Field */}
-              <div className="animate-fade-in-up animation-delay-100">
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                  Email address
-                </label>
-                <div className={`relative transition-all duration-300 ${focusedField === 'email' ? 'transform scale-[1.02]' : ''}`}>
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <FaEnvelope className="h-5 w-5 text-gray-400" />
-                  </div>
+            {/* Registration Form */}
+            <form className="flex flex-col gap-6" onSubmit={submit}>
+              <div className="grid gap-5">
+                {/* Email Field */}
+                <div className="grid gap-2">
+                  <label htmlFor="email" className="text-sm text-white font-medium flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-[#706f6c] dark:text-[#A1A09A]" />
+                    Email address
+                  </label>
                   <input
                     id="email"
-                    name="email"
                     type="email"
                     required
                     autoFocus
@@ -76,250 +72,220 @@ export default function Register({ googleAuthEnabled, status }) {
                     onFocus={() => setFocusedField('email')}
                     onBlur={() => setFocusedField(null)}
                     disabled={processing}
-                    className="appearance-none rounded-lg relative block w-full px-3 py-2 pl-10 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 focus:z-10 sm:text-sm transition-all duration-300 disabled:bg-gray-100 disabled:cursor-not-allowed"
                     placeholder="email@example.com"
+                    className={`w-full rounded-sm border px-3 py-2.5 text-sm focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed dark:bg-[#0a0a0a] dark:text-[#EDEDEC] placeholder:text-[#706f6c] dark:placeholder:text-[#A1A09A] transition-all duration-200 ${focusedField === 'email'
+                        ? 'border-[#1b1b18] ring-1 ring-[#1b1b18] dark:border-[#EDEDEC] dark:ring-[#EDEDEC]'
+                        : 'border-[#19140035] dark:border-[#3E3E3A]'
+                      }`}
                   />
+                  {errors.email && (
+                    <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
+                      <span className="inline-block w-1 h-1 bg-red-600 rounded-full shrink-0"></span>
+                      {errors.email}
+                    </p>
+                  )}
                 </div>
-                {errors.email && (
-                  <p className="mt-1 text-sm text-red-600 animate-slide-in">{errors.email}</p>
-                )}
-              </div>
 
-              {/* Password Field */}
-              <div className="animate-fade-in-up animation-delay-200">
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                  Password
-                </label>
-                <div className={`relative transition-all duration-300 ${focusedField === 'password' ? 'transform scale-[1.02]' : ''}`}>
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <FaLock className="h-5 w-5 text-gray-400" />
+                {/* Password Field */}
+                <div className="grid gap-2">
+                  <label htmlFor="password" className="text-sm text-white font-medium flex items-center gap-2">
+                    <Lock className="h-4 w-4 text-[#706f6c] dark:text-[#A1A09A]" />
+                    Password
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="password"
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      tabIndex={2}
+                      autoComplete="new-password"
+                      value={data.password}
+                      onChange={(e) => setData('password', e.target.value)}
+                      onFocus={() => setFocusedField('password')}
+                      onBlur={() => setFocusedField(null)}
+                      disabled={processing}
+                      placeholder="Create a strong password"
+                      className={`w-full rounded-sm border px-3 py-2.5 pr-10 text-sm focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed dark:bg-[#0a0a0a] dark:text-[#EDEDEC] placeholder:text-[#706f6c] dark:placeholder:text-[#A1A09A] transition-all duration-200 ${focusedField === 'password'
+                          ? 'border-[#1b1b18] ring-1 ring-[#1b1b18] dark:border-[#EDEDEC] dark:ring-[#EDEDEC]'
+                          : 'border-[#19140035] dark:border-[#3E3E3A]'
+                        }`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-[#706f6c] hover:text-[#1b1b18] dark:text-[#A1A09A] dark:hover:text-[#EDEDEC] transition-colors"
+                      tabIndex={-1}
+                      disabled={processing}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
                   </div>
-                  <input
-                    id="password"
-                    name="password"
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    tabIndex={2}
-                    autoComplete="new-password"
-                    value={data.password}
-                    onChange={(e) => setData('password', e.target.value)}
-                    onFocus={() => setFocusedField('password')}
-                    onBlur={() => setFocusedField(null)}
-                    disabled={processing}
-                    className="appearance-none rounded-lg relative block w-full px-3 py-2 pl-10 pr-10 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 focus:z-10 sm:text-sm transition-all duration-300 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    placeholder="Create a strong password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    {showPassword ? <FaEyeSlash className="h-5 w-5" /> : <FaEye className="h-5 w-5" />}
-                  </button>
+                  {errors.password && (
+                    <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
+                      <span className="inline-block w-1 h-1 bg-red-600 rounded-full shrink-0"></span>
+                      {errors.password}
+                    </p>
+                  )}
+                  <p className="text-xs text-[#706f6c] dark:text-[#A1A09A] flex items-center gap-1">
+                    <Info className="h-3 w-3" />
+                    Password must be at least 8 characters
+                  </p>
                 </div>
-                {errors.password && (
-                  <p className="mt-1 text-sm text-red-600 animate-slide-in">{errors.password}</p>
-                )}
-                <p className="mt-1 text-xs text-gray-500">Password must be at least 8 characters</p>
-              </div>
 
-              {/* Confirm Password Field */}
-              <div className="animate-fade-in-up animation-delay-300">
-                <label htmlFor="password_confirmation" className="block text-sm font-medium text-gray-700 mb-1">
-                  Confirm password
-                </label>
-                <div className={`relative transition-all duration-300 ${focusedField === 'confirm' ? 'transform scale-[1.02]' : ''}`}>
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <FaShieldAlt className="h-5 w-5 text-gray-400" />
+                {/* Confirm Password Field */}
+                <div className="grid gap-2">
+                  <label htmlFor="password_confirmation" className="text-sm text-white font-medium flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-[#706f6c] dark:text-[#A1A09A]" />
+                    Confirm password
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="password_confirmation"
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      required
+                      tabIndex={3}
+                      autoComplete="new-password"
+                      value={data.password_confirmation}
+                      onChange={(e) => setData('password_confirmation', e.target.value)}
+                      onFocus={() => setFocusedField('confirm')}
+                      onBlur={() => setFocusedField(null)}
+                      disabled={processing}
+                      placeholder="Confirm your password"
+                      className={`w-full rounded-sm border px-3 py-2.5 pr-10 text-sm focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed dark:bg-[#0a0a0a] dark:text-[#EDEDEC] placeholder:text-[#706f6c] dark:placeholder:text-[#A1A09A] transition-all duration-200 ${focusedField === 'confirm'
+                          ? 'border-[#1b1b18] ring-1 ring-[#1b1b18] dark:border-[#EDEDEC] dark:ring-[#EDEDEC]'
+                          : 'border-[#19140035] dark:border-[#3E3E3A]'
+                        }`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-[#706f6c] hover:text-[#1b1b18] dark:text-[#A1A09A] dark:hover:text-[#EDEDEC] transition-colors"
+                      tabIndex={-1}
+                      disabled={processing}
+                    >
+                      {showConfirmPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
                   </div>
-                  <input
-                    id="password_confirmation"
-                    name="password_confirmation"
-                    type={showConfirmPassword ? 'text' : 'password'}
-                    required
-                    tabIndex={3}
-                    autoComplete="new-password"
-                    value={data.password_confirmation}
-                    onChange={(e) => setData('password_confirmation', e.target.value)}
-                    onFocus={() => setFocusedField('confirm')}
-                    onBlur={() => setFocusedField(null)}
-                    disabled={processing}
-                    className="appearance-none rounded-lg relative block w-full px-3 py-2 pl-10 pr-10 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 focus:z-10 sm:text-sm transition-all duration-300 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    placeholder="Confirm your password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    {showConfirmPassword ? <FaEyeSlash className="h-5 w-5" /> : <FaEye className="h-5 w-5" />}
-                  </button>
+                  {errors.password_confirmation && (
+                    <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
+                      <span className="inline-block w-1 h-1 bg-red-600 rounded-full shrink-0"></span>
+                      {errors.password_confirmation}
+                    </p>
+                  )}
                 </div>
-                {errors.password_confirmation && (
-                  <p className="mt-1 text-sm text-red-600 animate-slide-in">{errors.password_confirmation}</p>
-                )}
-              </div>
 
-              {/* Submit Button */}
-              <button
-                type="submit"
-                disabled={processing}
-                className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-linear-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-300 transform hover:scale-[1.02] hover:shadow-lg animate-fade-in-up animation-delay-400 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                tabIndex={4}
-              >
-                {processing ? (
-                  <FaSpinner className="animate-spin h-5 w-5" />
-                ) : (
-                  <>
-                    <span className="absolute left-0 inset-y-0 flex items-center pl-3">
-                      <FaArrowRight className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-all duration-300 group-hover:translate-x-1" />
-                    </span>
-                    Create account
-                  </>
-                )}
-              </button>
+                {/* Submit Button */}
+                <button
+                  type="submit"
+                  disabled={processing}
+                  className="group relative inline-flex w-full items-center justify-center gap-2 rounded-sm border border-black bg-[#1b1b18] px-5 py-2.5 text-sm font-medium leading-normal text-white hover:border-black hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed dark:border-[#eeeeec] dark:bg-[#eeeeec] dark:text-[#1C1C1A] dark:hover:border-white dark:hover:bg-white transition-all duration-200 mt-2"
+                  tabIndex={4}
+                >
+                  {processing ? (
+                    <>
+                      <LoaderCircle className="h-4 w-4 animate-spin" />
+                      Creating account...
+                    </>
+                  ) : (
+                    <>
+                      Create account
+                      <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
+                    </>
+                  )}
+                </button>
+              </div>
 
               {/* Google Sign Up */}
               {googleAuthEnabled && (
-                <div className="animate-fade-in-up animation-delay-500">
-                  <div className="relative my-4">
+                <div className="grid gap-4">
+                  <div className="relative">
                     <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-gray-300"></div>
+                      <div className="w-full border-t border-[#e3e3e0] dark:border-[#3E3E3A]"></div>
                     </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-white px-2 text-gray-500">Or sign up with</span>
+                    <div className="relative flex justify-center text-xs">
+                      <span className="bg-[#FDFDFC] px-3 text-[#706f6c] dark:bg-[#0a0a0a] dark:text-[#A1A09A]">
+                        or sign up with
+                      </span>
                     </div>
                   </div>
                   <a
                     href={route('auth.google.redirect')}
-                    className="w-full flex items-center justify-center px-4 py-2 border-2 border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 transition-all duration-300 transform hover:scale-[1.02] group"
+                    className="flex items-center justify-center gap-3 rounded-sm border border-[#19140035] px-5 py-2.5 text-sm leading-normal text-[#1b1b18] hover:border-[#1915014a] dark:border-[#3E3E3A] dark:text-[#EDEDEC] dark:hover:border-[#62605b] transition-all duration-200 group"
                   >
-                    <FaGoogle className="mr-2 h-5 w-5 text-red-500 transition-transform duration-300 group-hover:scale-110" />
-                    Google
+                    <svg className="h-4 w-4 transition-transform duration-200 group-hover:scale-110" viewBox="0 0 24 24">
+                      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
+                      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+                      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+                      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+                    </svg>
+                    Continue with Google
                   </a>
                 </div>
               )}
 
               {errors.google && (
-                <p className="text-sm text-red-600 text-center animate-slide-in">{errors.google}</p>
+                <p className="text-xs text-red-600 dark:text-red-400 text-center flex items-center justify-center gap-1">
+                  <span className="inline-block w-1 h-1 bg-red-600 rounded-full"></span>
+                  {errors.google}
+                </p>
               )}
 
               {/* Terms and Conditions */}
-              <div className="bg-gray-50 rounded-lg p-4 text-center animate-fade-in-up animation-delay-600">
-                <div className="flex items-center justify-center mb-2">
-                  <FaEnvelopeOpenText className="h-4 w-4 text-gray-500 mr-2" />
-                  <p className="text-xs text-gray-600">
-                    By creating an account, you agree to our{' '}
-                    <a href={`${route('home').replace(/\/$/, '')}/terms`} className="font-medium text-green-600 hover:text-green-700 transition-colors">
-                      Terms of Service
-                    </a>{' '}
-                    and{' '}
-                    <a href={`${route('home').replace(/\/$/, '')}/privacy`} className="font-medium text-green-600 hover:text-green-700 transition-colors">
-                      Privacy Policy
-                    </a>
-                  </p>
-                </div>
-                <p className="text-xs text-gray-500 mt-2">
-                  <FaEnvelopeOpenText className="inline h-3 w-3 mr-1" />
+              <div className="rounded-sm border border-[#e3e3e0] bg-[#FDFDFC] p-4 dark:border-[#3E3E3A] dark:bg-[#0a0a0a]">
+                <p className="text-xs text-[#706f6c] dark:text-[#A1A09A] text-center leading-relaxed">
+                  By creating an account, you agree to our{' '}
+                  <a
+                    href={`${route('home')?.replace(/\/$/, '') || ''}/terms`}
+                    className="font-medium text-[#1b1b18] hover:underline dark:text-[#EDEDEC] underline-offset-4"
+                  >
+                    Terms of Service
+                  </a>{' '}
+                  and{' '}
+                  <a
+                    href={`${route('home')?.replace(/\/$/, '') || ''}/privacy`}
+                    className="font-medium text-[#1b1b18] hover:underline dark:text-[#EDEDEC] underline-offset-4"
+                  >
+                    Privacy Policy
+                  </a>
+                </p>
+                <p className="text-xs text-[#706f6c] dark:text-[#A1A09A] mt-2 text-center flex items-center justify-center gap-1">
+                  <Mail className="inline h-3 w-3" />
                   We'll send you a verification email to confirm your account
                 </p>
               </div>
-            </div>
 
-            {/* Login link */}
-            <div className="text-center text-sm animate-fade-in-up animation-delay-700">
-              <span className="text-gray-600">Already have an account? </span>
-              <a href={route('login')} className="font-medium text-green-600 hover:text-green-700 transition-colors">
-                Log in
-              </a>
-            </div>
+              {/* Login link */}
+              <div className="text-center text-sm text-[#706f6c] dark:text-[#A1A09A]">
+                Already have an account?{' '}
+                <a
+                  href={route('login')}
+                  className="font-medium text-[#1b1b18] hover:underline dark:text-[#EDEDEC] underline-offset-4"
+                  tabIndex={5}
+                >
+                  Log in
+                </a>
+              </div>
+            </form>
 
+            {/* Status Message */}
             {status && (
-              <div className="rounded-lg bg-green-50 border border-green-200 p-3 text-center text-sm font-medium text-green-700 animate-slide-in">
+              <div className="mt-6 rounded-sm border border-green-200 bg-green-50 p-4 text-sm font-medium text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-400 flex items-center gap-2">
+                <span className="shrink-0 w-1.5 h-1.5 bg-green-600 rounded-full"></span>
                 {status}
               </div>
             )}
-          </form>
+          </main>
         </div>
+        <div className="hidden h-14.5 lg:block"></div>
       </div>
-
-      <style>{`
-                @keyframes fadeInUp {
-                    from {
-                        opacity: 0;
-                        transform: translateY(20px);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: translateY(0);
-                    }
-                }
-                
-                @keyframes slideIn {
-                    from {
-                        opacity: 0;
-                        transform: translateX(-10px);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: translateX(0);
-                    }
-                }
-                
-                @keyframes pulse {
-                    0%, 100% {
-                        opacity: 0.2;
-                    }
-                    50% {
-                        opacity: 0.3;
-                    }
-                }
-                
-                .animate-fade-in-up {
-                    animation: fadeInUp 0.6s ease-out forwards;
-                    opacity: 0;
-                }
-                
-                .animate-slide-in {
-                    animation: slideIn 0.3s ease-out forwards;
-                }
-                
-                .animate-pulse {
-                    animation: pulse 3s ease-in-out infinite;
-                }
-                
-                .animation-delay-100 {
-                    animation-delay: 0.1s;
-                }
-                
-                .animation-delay-200 {
-                    animation-delay: 0.2s;
-                }
-                
-                .animation-delay-300 {
-                    animation-delay: 0.3s;
-                }
-                
-                .animation-delay-400 {
-                    animation-delay: 0.4s;
-                }
-                
-                .animation-delay-500 {
-                    animation-delay: 0.5s;
-                }
-                
-                .animation-delay-600 {
-                    animation-delay: 0.6s;
-                }
-                
-                .animation-delay-700 {
-                    animation-delay: 0.7s;
-                }
-                
-                .animation-delay-1000 {
-                    animation-delay: 1s;
-                }
-            `}</style>
     </>
   );
 }
