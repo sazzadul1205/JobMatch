@@ -226,6 +226,10 @@ Route::middleware(['auth', 'verified', 'profile.complete'])->group(function () {
             Route::put('/{id}/status', [ApplicationsController::class, 'updateStatus'])->name('update-status');
             Route::post('/bulk-status', [ApplicationsController::class, 'bulkUpdateStatus'])->name('bulk-status');
 
+            // Deletes
+            Route::delete('/{id}', [ApplicationsController::class, 'destroy'])->name('destroy');
+            Route::post('/bulk-delete', [ApplicationsController::class, 'bulkDelete'])->name('bulk-delete');
+
             // Downloads
             Route::get('/{id}/download', [ApplicationsController::class, 'downloadResume'])->name('download');
             Route::post('/bulk-download', [ApplicationsController::class, 'bulkDownloadResumes'])->name('bulk-download');
@@ -233,6 +237,9 @@ Route::middleware(['auth', 'verified', 'profile.complete'])->group(function () {
             // Email routes - FIXED: removed redundant '/applications/' from URL
             Route::post('/{id}/send-email', [ApplicationsController::class, 'sendEmail'])->name('send-email');
             Route::post('/bulk-send-email', [ApplicationsController::class, 'sendBulkEmail'])->name('bulk-send-email');
+
+            // ATS Score routes
+            Route::post('/{id}/recalculate-ats', [ApplicationsController::class, 'recalculateAts'])->name('recalculate-ats');
 
             // Export routes
             Route::post('export/{jobId}', [ApplicationsController::class, 'exportApplications'])->name('export');

@@ -183,18 +183,6 @@ class Application extends Model
     }
 
     /**
-     * Get ATS score percentage
-     */
-    public function getAtsScorePercentageAttribute()
-    {
-        if (!$this->ats_score || !isset($this->ats_score['percentage'])) {
-            return null;
-        }
-
-        return $this->ats_score['percentage'];
-    }
-
-    /**
      * Get the actual resume path for ATS parsing
      */
     public function getActualResumePath(): ?string
@@ -331,4 +319,52 @@ class Application extends Model
         return $this->resume_path ? asset('storage/' . $this->resume_path) : null;
     }
 
+    // In app/Models/Application.php
+
+    /**
+     * Get the ATS score percentage
+     */
+    public function getAtsScorePercentageAttribute()
+    {
+        if (!$this->ats_score) {
+            return null;
+        }
+
+        if (is_array($this->ats_score)) {
+            return $this->ats_score['percentage'] ?? $this->ats_score['total'] ?? null;
+        }
+
+        if (is_numeric($this->ats_score)) {
+            return $this->ats_score;
+        }
+
+        $decoded = json_decode($this->ats_score, true);
+        if ($decoded) {
+            return $decoded['percentage'] ?? $decoded['total'] ?? null;
+        }
+
+        return null;
+    }
+
+    /**
+     * Scope for filtering by minimum ATS score
+     */
+    public function scopeMinAtsScore($query, $minScore)
+    {
+        return $query->where(function ($q) use ($minScore) {
+            $q->whereRaw('JSON_EXTRACT(ats_score, "$.percentage") >= ?', [$minScore])
+                ->orWhereRaw('ats_score >= ?', [$minScore]);
+        });
+    }
+
+    /**
+     * Scope for filtering by ATS score range
+     */
+    public function scopeAtsScoreBetween($query, $min, $max)
+    {
+        return $query->where(function ($q) use ($min, $max) {
+            $q->whereBetweenRaw('JSON_EXTRACT(ats_score, "$.percentage")', [$min, $max])
+                ->orWhereBetweenRaw('ats_score', [$min, $max]);
+        });
+    }
 }

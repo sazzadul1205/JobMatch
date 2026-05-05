@@ -261,14 +261,6 @@ export default function CustomEditor({
                 <FaRedo />
               </button>
             </div>
-
-            {/* Preview toggle */}
-            <div className="ml-auto">
-              <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => setIsPreview(!isPreview)} className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-200 transition">
-                {isPreview ? <FaEyeSlash /> : <FaEye />}
-                <span className="hidden sm:inline">{isPreview ? 'Edit' : 'Preview'}</span>
-              </button>
-            </div>
           </div>
         </div>
       )}

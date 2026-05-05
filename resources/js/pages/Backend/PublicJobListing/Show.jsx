@@ -569,26 +569,6 @@ export default function PublicJobListingShow({
                   </div>
                 </InfoSection>
               )}
-
-              {/* External Apply Links */}
-              {jobListing.is_external_apply && jobListing.external_apply_links?.length > 0 && (
-                <InfoSection title="External Application" icon={FaExternalLinkAlt}>
-                  <div className="space-y-2">
-                    {jobListing.external_apply_links.map((link, idx) => (
-                      <a
-                        key={idx}
-                        href={link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 text-blue-600 hover:text-blue-800 text-sm break-all p-2 hover:bg-blue-50 rounded-lg transition"
-                      >
-                        <FaExternalLinkAlt size={12} />
-                        Apply on External Site
-                      </a>
-                    ))}
-                  </div>
-                </InfoSection>
-              )}
             </div>
           </div>
 

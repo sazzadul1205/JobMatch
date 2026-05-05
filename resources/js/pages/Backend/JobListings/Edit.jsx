@@ -73,8 +73,6 @@ export default function Edit({ jobListing, categories, locations }) {
     is_active: jobListing.is_active ?? true,
     required_linkedin_link: jobListing.required_linkedin_link || false,
     required_facebook_link: jobListing.required_facebook_link || false,
-    is_external_apply: jobListing.is_external_apply || false,
-    external_apply_links: jobListing.external_apply_links || [],
   });
 
   // Check if any changes were made
@@ -105,8 +103,6 @@ export default function Edit({ jobListing, categories, locations }) {
     if (original.is_active !== current.is_active) return true;
     if (original.required_linkedin_link !== current.required_linkedin_link) return true;
     if (original.required_facebook_link !== current.required_facebook_link) return true;
-    if (original.is_external_apply !== current.is_external_apply) return true;
-    if (JSON.stringify(original.external_apply_links) !== JSON.stringify(current.external_apply_links)) return true;
 
     return false;
   };

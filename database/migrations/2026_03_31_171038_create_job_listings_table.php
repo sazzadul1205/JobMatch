@@ -47,10 +47,6 @@ return new class extends Migration
             // Quick counter cache for views
             $table->unsignedInteger('views_count')->default(0);
 
-            // External apply fields
-            $table->json('external_apply_links')->nullable();
-            $table->boolean('is_external_apply')->default(false);
-
             $table->boolean('is_active')->default(true);
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
 

@@ -116,7 +116,6 @@ class JobListingSeeder extends Seeder
                 'application_deadline' => now()->addDays(rand(7, 60)),
                 'publish_at' => now()->subDays(rand(0, 30)),
                 'views_count' => rand(0, 500),
-                'is_external_apply' => rand(0, 1) == 1,
                 'is_active' => true,
                 'user_id' => $employers->random()->id,
                 'required_facebook_link' => rand(0, 1) == 1,

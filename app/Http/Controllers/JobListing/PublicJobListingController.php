@@ -386,8 +386,6 @@ class PublicJobListingController extends Controller
                 'application_deadline' => $jobListing->application_deadline,
                 'publish_at' => $jobListing->publish_at,
                 'is_active' => $jobListing->is_active,
-                'is_external_apply' => $jobListing->is_external_apply,
-                'external_apply_links' => $jobListing->external_apply_links,
                 'required_linkedin_link' => $jobListing->required_linkedin_link,
                 'required_facebook_link' => $jobListing->required_facebook_link,
                 'views_count' => $totalViews,

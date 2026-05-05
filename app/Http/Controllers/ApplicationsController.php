@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Mail\ApplicationEmail;
 use App\Models\Application;
 use App\Models\JobListing;
+use App\Services\ATSService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
@@ -72,11 +73,58 @@ class ApplicationsController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%");
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('phone', 'like', "%{$search}%");
             });
         }
 
-        $applications = $query->orderBy('created_at', 'desc')->paginate(20);
+        // Filter by minimum ATS score
+        if ($request->has('min_score') && $request->min_score !== '') {
+            $minScore = (int) $request->min_score;
+            $query->where(function ($q) use ($minScore) {
+                $q->whereRaw('JSON_EXTRACT(ats_score, "$.percentage") >= ?', [$minScore])
+                    ->orWhereRaw('ats_score >= ?', [$minScore]);
+            });
+        }
+
+        // Sort by ATS score if requested
+        $sortField = $request->get('sort', 'created_at');
+        $sortDirection = $request->get('direction', 'desc');
+
+        if ($sortField === 'ats_score') {
+            $query->orderByRaw('COALESCE(JSON_EXTRACT(ats_score, "$.percentage"), CAST(ats_score AS UNSIGNED), 0) ' . $sortDirection);
+        } else {
+            $allowedSortFields = ['created_at', 'name', 'email', 'expected_salary', 'years_of_experience', 'status'];
+            if (in_array($sortField, $allowedSortFields)) {
+                $query->orderBy($sortField, $sortDirection);
+            } else {
+                $query->orderBy('created_at', 'desc');
+            }
+        }
+
+        $applications = $query->paginate(20)->withQueryString();
+
+        // Calculate ATS score for each application
+        $applications->getCollection()->transform(function ($application) {
+            $atsScore = null;
+
+            if ($application->ats_score) {
+                if (is_array($application->ats_score)) {
+                    $atsScore = $application->ats_score['percentage'] ?? $application->ats_score['total'] ?? null;
+                } elseif (is_numeric($application->ats_score)) {
+                    $atsScore = $application->ats_score;
+                } elseif (is_string($application->ats_score)) {
+                    $decoded = json_decode($application->ats_score, true);
+                    if ($decoded) {
+                        $atsScore = $decoded['percentage'] ?? $decoded['total'] ?? null;
+                    }
+                }
+            }
+
+            $application->calculated_ats_score = $atsScore;
+
+            return $application;
+        });
 
         // Status counts
         $statusCounts = [
@@ -90,7 +138,7 @@ class ApplicationsController extends Controller
             'job' => $job,
             'applications' => $applications,
             'statusCounts' => $statusCounts,
-            'filters' => $request->only(['status', 'search'])
+            'filters' => $request->only(['status', 'search', 'min_score', 'sort', 'direction'])
         ]);
     }
 
@@ -175,6 +223,32 @@ class ApplicationsController extends Controller
     }
 
     /**
+     * Delete a single application (soft delete)
+     */
+    public function destroy($id)
+    {
+        $application = Application::findOrFail($id);
+        $application->delete();
+
+        return back()->with('success', 'Application deleted successfully.');
+    }
+
+    /**
+     * Bulk delete applications (soft delete)
+     */
+    public function bulkDelete(Request $request)
+    {
+        $request->validate([
+            'application_ids' => 'required|array',
+            'application_ids.*' => 'exists:applications,id',
+        ]);
+
+        $deleted = Application::whereIn('id', $request->application_ids)->delete();
+
+        return back()->with('success', $deleted . ' applications deleted successfully.');
+    }
+
+    /**
      * Download single application resume/CV
      */
     public function downloadResume($id)
@@ -182,31 +256,31 @@ class ApplicationsController extends Controller
         $application = Application::findOrFail($id);
         $resumePath = $application->getActualResumePath();
 
+        if ($resumePath) {
+            // Normalize stored paths (some older records may store URL-encoded paths or include `storage/` prefix)
+            $resumePath = urldecode($resumePath);
+            $resumePath = ltrim($resumePath, '/');
+            if (str_starts_with($resumePath, 'storage/')) {
+                $resumePath = substr($resumePath, strlen('storage/'));
+            }
+        }
+
         if (!$resumePath || !Storage::disk('public')->exists($resumePath)) {
             return back()->with('error', 'Resume file not found.');
         }
 
-        // Get the original filename
-        $originalName = 'resume_' . $application->id . '_' . $application->name;
+        // Get the extension from the actual file
+        $extension = pathinfo($resumePath, PATHINFO_EXTENSION);
 
-        // Try to get original name from application or applicant CV
-        if ($application->resume_path) {
-            $originalName = basename($application->resume_path);
-        } else {
-            $primaryCv = $application->applicantProfile?->primaryCv;
-            if ($primaryCv && $primaryCv->original_name) {
-                $originalName = $primaryCv->original_name;
-            } else {
-                // Add extension if we can detect it
-                $extension = pathinfo($resumePath, PATHINFO_EXTENSION);
-                $originalName = $originalName . '.' . $extension;
-            }
-        }
+        // Sanitize the applicant's name for use as a filename
+        $applicantName = preg_replace('/[^a-zA-Z0-9\s_-]/', '', $application->name);
+        $applicantName = str_replace(' ', '_', trim($applicantName));
 
-        // Get the full path to the file
+        // Create the filename using the applicant's name
+        $originalName = 'Resume_' . $applicantName . '.' . $extension;
+
+        // Return file download response with a clean filename
         $fullPath = Storage::disk('public')->path($resumePath);
-
-        // Return file download response
         return response()->download($fullPath, $originalName);
     }
 
@@ -717,7 +791,62 @@ class ApplicationsController extends Controller
     }
 
     /**
-     * Create a filesystem-safe filename fragment without relying on a global helper.
+     * Recalculate ATS score for an application
+     */
+    public function recalculateAts($id)
+    {
+        $application = Application::with('jobListing')->findOrFail($id);
+
+        if (!$application->jobListing) {
+            $message = 'Associated job listing not found';
+
+            // Inertia requests must receive an Inertia-compatible response (typically a redirect).
+            if (request()->header('X-Inertia')) {
+                return redirect()->back()->with('error', $message);
+            }
+
+            return response()->json([
+                'message' => $message
+            ], 404);
+        }
+
+        try {
+            $atsService = new ATSService();
+            $atsScore = $atsService->calculateScore($application, $application->jobListing);
+
+            // Update the application with the new ATS score
+            $application->ats_score = $atsScore;
+            $application->save();
+
+            // Inertia requests must receive an Inertia-compatible response (typically a redirect).
+            if (request()->header('X-Inertia')) {
+                return redirect()->back()->with('success', 'ATS score recalculated successfully');
+            }
+
+            return response()->json([
+                'message' => 'ATS score recalculated successfully',
+                'ats_score' => $atsScore
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error recalculating ATS score: ' . $e->getMessage(), [
+                'application_id' => $id
+            ]);
+
+            $message = 'Failed to recalculate ATS score: ' . $e->getMessage();
+
+            // Inertia requests must receive an Inertia-compatible response (typically a redirect).
+            if (request()->header('X-Inertia')) {
+                return redirect()->back()->with('error', $message);
+            }
+
+            return response()->json([
+                'message' => $message
+            ], 500);
+        }
+    }
+
+    /**
+     * Prepare export data for a single application
      */
     private function sanitizeFilename(string $filename): string
     {

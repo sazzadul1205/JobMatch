@@ -534,7 +534,7 @@ export const ReviewStep = ({ formData, locations, categories, onNavigateToStep, 
         </InfoSection>
 
         {/* Social & External Options Section */}
-        {(hasRequiredLinks || formData.is_external_apply) && (
+        {(hasRequiredLinks) && (
           <InfoSection title="Additional Options" icon={FaGlobe} step={5}>
             <dl className="divide-y divide-gray-100">
               {formData.required_linkedin_link && (
@@ -555,20 +555,6 @@ export const ReviewStep = ({ formData, locations, categories, onNavigateToStep, 
                     <div className="flex items-center gap-3">
                       <FaFacebook className="text-blue-600" size={16} />
                       <span className="text-sm">Require Facebook profile</span>
-                    </div>
-                  }
-                />
-              )}
-              {formData.is_external_apply && formData.external_apply_links?.length > 0 && (
-                <InfoRow
-                  label="External Application"
-                  value={
-                    <div className="space-y-1">
-                      {formData.external_apply_links.map((link, idx) => (
-                        <div key={idx} className="text-sm text-blue-600 break-all">
-                          {link}
-                        </div>
-                      ))}
                     </div>
                   }
                 />

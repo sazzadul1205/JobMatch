@@ -8,14 +8,14 @@ import AuthenticatedLayout from '../../../layouts/AuthenticatedLayout';
 import { FaArrowLeft, FaSave, FaEye } from 'react-icons/fa';
 
 // Step Components
-import { StepIndicator } from '../../../components/JobListingSteps/StepIndicator';
-import { StepNavigation } from '../../../components/JobListingSteps/StepNavigation';
-import { BasicInfoStep } from '../../../components/JobListingSteps/BasicInfoStep';
-import { RequirementsStep } from '../../../components/JobListingSteps/RequirementsStep';
+import { ReviewStep } from '../../../components/JobListingSteps/ReviewStep';
 import { LocationStep } from '../../../components/JobListingSteps/LocationStep';
-import { CompensationStep } from '../../../components/JobListingSteps/CompensationStep';
+import { BasicInfoStep } from '../../../components/JobListingSteps/BasicInfoStep';
+import { StepIndicator } from '../../../components/JobListingSteps/StepIndicator';
 import { PublishingStep } from '../../../components/JobListingSteps/PublishingStep';
-import { ReviewStep } from '../../../components/JobListingSteps/ReviewStep'; // Import Review Step
+import { StepNavigation } from '../../../components/JobListingSteps/StepNavigation';
+import { RequirementsStep } from '../../../components/JobListingSteps/RequirementsStep';
+import { CompensationStep } from '../../../components/JobListingSteps/CompensationStep';
 
 // SweetAlert
 import Swal from 'sweetalert2';
@@ -72,8 +72,6 @@ export default function Create({ categories, locations }) {
     is_active: true,
     required_linkedin_link: false,
     required_facebook_link: false,
-    is_external_apply: false,
-    external_apply_links: [],
   });
 
   // Check if form has any data entered

@@ -808,35 +808,6 @@ export default function ApplyCreate({ jobListing, applicantProfile, cvs }) {
                 </div>
               </div>
 
-              {/* External Application */}
-              {jobListing.is_external_apply && jobListing.external_apply_links?.length > 0 && (
-                <div className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-all duration-300">
-                  <div className="px-6 py-4 bg-linear-to-r from-orange-600 to-red-600">
-                    <h3 className="font-semibold text-white flex items-center gap-2">
-                      <FaExternalLinkAlt size={14} />
-                      External Application
-                    </h3>
-                  </div>
-                  <div className="p-6">
-                    <p className="text-sm text-gray-600 mb-3">
-                      This employer accepts applications through external sites:
-                    </p>
-                    {jobListing.external_apply_links.map((link, idx) => (
-                      <a
-                        key={idx}
-                        href={link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 text-blue-600 hover:text-blue-800 text-sm mb-2 transition-colors"
-                      >
-                        <FaExternalLinkAlt size={12} />
-                        Apply on External Site
-                      </a>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {/* Requirements Note */}
               <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-200">
                 <div className="flex items-start gap-2">

@@ -162,8 +162,6 @@ class ApplyController extends Controller
                 'application_deadline' => $jobListing->application_deadline,
                 'required_linkedin_link' => $jobListing->required_linkedin_link,
                 'required_facebook_link' => $jobListing->required_facebook_link,
-                'is_external_apply' => $jobListing->is_external_apply,
-                'external_apply_links' => $jobListing->external_apply_links,
                 'salary_min' => $jobListing->salary_min,
                 'salary_max' => $jobListing->salary_max,
                 'as_per_companies_policy' => $jobListing->as_per_companies_policy,

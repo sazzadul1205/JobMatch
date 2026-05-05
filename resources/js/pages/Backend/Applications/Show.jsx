@@ -44,6 +44,30 @@ import {
 // SweetAlert2
 import Swal from 'sweetalert2';
 
+// Helper functions for resume download
+const safeFilename = (name) => {
+  return name
+    ? String(name)
+      .replace(/[^a-z0-9\s\-_.]/gi, '')
+      .replace(/\s+/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^[._-]+|[._-]+$/g, '')
+      .substring(0, 200) || 'resume'
+    : 'resume';
+};
+
+const extractFilenameFromDisposition = (header) => {
+  if (!header) return null;
+  const match = header.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+  if (!match) return null;
+  const filename = match[1].replace(/['"]/g, '').trim();
+  try {
+    return decodeURIComponent(filename);
+  } catch {
+    return filename;
+  }
+};
+
 export default function Show({ application, atsAnalysis }) {
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState(application.status);
@@ -170,15 +194,59 @@ export default function Show({ application, atsAnalysis }) {
     });
   };
 
-  const handleDownloadResume = () => {
-    window.location.href = route('backend.applications.download', application.id);
-  };
-
-  const handleDownloadSpecificCv = (cvId, cvName) => {
+  const handleDownloadResume = async (app) => {
     setIsDownloadingCv(true);
-    // You'll need to create this route or use the existing download with CV ID
-    window.location.href = route('backend.applications.download-cv', { application_id: application.id, cv_id: cvId });
-    setTimeout(() => setIsDownloadingCv(false), 1000);
+
+    try {
+      const url = route('backend.applications.download', app.id);
+      const response = await fetch(url, {
+        method: 'GET',
+        credentials: 'same-origin',
+      });
+
+      if (!response.ok) {
+        throw new Error(`Download failed (${response.status})`);
+      }
+
+      const contentDisposition = response.headers.get('content-disposition');
+      const serverFilename = extractFilenameFromDisposition(contentDisposition);
+      const serverExt = serverFilename?.split('.').pop();
+
+      // Use a safe extension, default to 'pdf' if can't determine
+      const ext = (serverExt && serverExt.length <= 6) ? serverExt : 'pdf';
+      const desiredFilename = `Resume_${safeFilename(app.name)}.${ext}`;
+
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = desiredFilename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      window.URL.revokeObjectURL(blobUrl);
+
+      // Success notification (optional)
+      Swal.fire({
+        icon: 'success',
+        title: 'Downloaded!',
+        text: `Resume downloaded as ${desiredFilename}`,
+        timer: 2000,
+        showConfirmButton: false,
+      });
+    } catch (e) {
+      console.error('Download error:', e);
+      Swal.fire({
+        icon: 'error',
+        title: 'Download Failed',
+        text: e?.message || 'Failed to download resume. Please try again.',
+        confirmButtonColor: '#d33',
+      });
+    } finally {
+      setIsDownloadingCv(false);
+    }
   };
 
   const handleRecalculateAts = () => {
@@ -233,12 +301,25 @@ export default function Show({ application, atsAnalysis }) {
 
   // Get profile photo URL (adjust based on your storage structure)
   const getProfilePhoto = () => {
-    if (profile?.photo_path) {
-      return `/storage/${profile.photo_path}`;
-    }
-    return null;
-  };
+    if (!profile?.photo_path) return null;
 
+    // If the backend already provided a URL, prefer it.
+    if (profile.photo_url) return profile.photo_url;
+
+    // Normalize stored paths (handles older URL-encoded values and accidental `storage/` prefix)
+    let path = profile.photo_path;
+    try {
+      path = decodeURIComponent(path);
+    } catch {
+      // ignore decode errors
+    }
+    path = path.replace(/^\/+/, '');
+    if (path.startsWith('storage/')) path = path.slice('storage/'.length);
+
+    // Use route that serves the file from the public disk (avoids storage symlink issues)
+    return route('profile.photo', { path });
+  };
+  
   return (
     <AuthenticatedLayout>
       <Head title={`Application: ${application.name} - ${job?.title}`} />
@@ -264,7 +345,7 @@ export default function Show({ application, atsAnalysis }) {
             </div>
 
             <button
-              onClick={handleDownloadResume}
+              onClick={() => handleDownloadResume(application)}
               className="px-5 py-2.5 bg-linear-to-r from-purple-600 to-purple-700 text-white rounded-xl flex items-center gap-2 hover:from-purple-700 hover:to-purple-800 transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg"
             >
               <FaDownload size={14} />
@@ -334,7 +415,7 @@ export default function Show({ application, atsAnalysis }) {
                       {/* Download CV Button - Visible and Working */}
                       <div className="mt-4 w-full">
                         <button
-                          onClick={handleDownloadResume}
+                          onClick={() => handleDownloadResume(application)}
                           className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-linear-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white rounded-xl transition-all duration-200 group shadow-md hover:shadow-lg"
                         >
                           <FaFilePdf size={18} />

@@ -280,8 +280,6 @@ class JobListingController extends Controller
             'responsibilities' => 'required|array|min:1',
             'keywords' => 'nullable|array',
             'is_active' => 'boolean',
-            'is_external_apply' => 'boolean',
-            'external_apply_links' => 'nullable|array',
             'required_linkedin_link' => 'boolean',
             'required_facebook_link' => 'boolean',
         ]);
@@ -306,8 +304,6 @@ class JobListingController extends Controller
             'skills' => $validated['skills'],
             'responsibilities' => $validated['responsibilities'],
             'keywords' => $validated['keywords'] ?? [],
-            'is_external_apply' => $validated['is_external_apply'] ?? false,
-            'external_apply_links' => $validated['external_apply_links'] ?? [],
             'required_linkedin_link' => $validated['required_linkedin_link'] ?? false,
             'required_facebook_link' => $validated['required_facebook_link'] ?? false,
             'user_id' => Auth::id(),
@@ -431,8 +427,6 @@ class JobListingController extends Controller
                 'application_deadline' => $jobListing->application_deadline,
                 'publish_at' => $jobListing->publish_at,
                 'is_active' => $jobListing->is_active,
-                'is_external_apply' => $jobListing->is_external_apply,
-                'external_apply_links' => $jobListing->external_apply_links,
                 'required_linkedin_link' => $jobListing->required_linkedin_link,
                 'required_facebook_link' => $jobListing->required_facebook_link,
                 'views_count' => $totalViews,
@@ -485,8 +479,6 @@ class JobListingController extends Controller
             'responsibilities' => $jobListing->responsibilities ?? [],
             'keywords' => $jobListing->keywords ?? [],
             'is_active' => $jobListing->is_active,
-            'is_external_apply' => $jobListing->is_external_apply,
-            'external_apply_links' => $jobListing->external_apply_links ?? [],
             'required_linkedin_link' => $jobListing->required_linkedin_link,
             'required_facebook_link' => $jobListing->required_facebook_link,
         ];
@@ -526,8 +518,6 @@ class JobListingController extends Controller
             'responsibilities' => 'required|array|min:1',
             'keywords' => 'nullable|array',
             'is_active' => 'boolean',
-            'is_external_apply' => 'boolean',
-            'external_apply_links' => 'nullable|array',
             'required_linkedin_link' => 'boolean',
             'required_facebook_link' => 'boolean',
         ]);
@@ -552,8 +542,6 @@ class JobListingController extends Controller
             'skills' => $validated['skills'],
             'responsibilities' => $validated['responsibilities'],
             'keywords' => $validated['keywords'] ?? [],
-            'is_external_apply' => $validated['is_external_apply'] ?? false,
-            'external_apply_links' => $validated['external_apply_links'] ?? [],
             'required_linkedin_link' => $validated['required_linkedin_link'] ?? false,
             'required_facebook_link' => $validated['required_facebook_link'] ?? false,
         ];
