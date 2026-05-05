@@ -285,7 +285,7 @@ class ApplicationsController extends Controller
     }
 
     /**
-     * Bulk download resumes as ZIP
+     * Bulk download resumes as merged PDF (Simple Version)
      */
     public function bulkDownloadResumes(Request $request)
     {
@@ -300,52 +300,258 @@ class ApplicationsController extends Controller
             return back()->with('error', 'No applications selected.');
         }
 
+        // Collect all valid resume paths
+        $resumeFiles = [];
+        $downloadedCount = 0;
+
+        foreach ($applications as $application) {
+            $resumePath = $application->getActualResumePath();
+
+            if ($resumePath) {
+                // Normalize stored paths
+                $resumePath = urldecode($resumePath);
+                $resumePath = ltrim($resumePath, '/');
+                if (str_starts_with($resumePath, 'storage/')) {
+                    $resumePath = substr($resumePath, strlen('storage/'));
+                }
+            }
+
+            if ($resumePath && Storage::disk('public')->exists($resumePath)) {
+                $fullPath = Storage::disk('public')->path($resumePath);
+
+                // Create a unique temporary copy with applicant name
+                $safeName = preg_replace('/[^a-zA-Z0-9\s_-]/', '', $application->name);
+                $safeName = str_replace(' ', '_', trim($safeName));
+
+                $resumeFiles[] = [
+                    'path' => $fullPath,
+                    'name' => $safeName,
+                    'applicant_name' => $application->name,
+                ];
+                $downloadedCount++;
+            }
+        }
+
+        if ($downloadedCount === 0) {
+            return back()->with('error', 'No resume files found to download.');
+        }
+
+        // If there's only one file, just download it directly
+        if ($downloadedCount === 1) {
+            $file = $resumeFiles[0];
+            $extension = pathinfo($file['path'], PATHINFO_EXTENSION);
+            $filename = 'Resume_' . $file['name'] . '.' . $extension;
+
+            return response()->download($file['path'], $filename);
+        }
+
         // Create temp directory if not exists
         $tempDir = storage_path('app/temp');
         if (!is_dir($tempDir)) {
             mkdir($tempDir, 0755, true);
         }
 
-        $zipFileName = 'applications_resumes_' . date('Y-m-d_His') . '.zip';
-        $zipPath = $tempDir . '/' . $zipFileName;
+        // Generate output filename
+        $jobTitle = $applications->first()->jobListing->title ?? 'Job';
+        $jobTitle = preg_replace('/[^a-zA-Z0-9\s_-]/', '', $jobTitle);
+        $jobTitle = str_replace(' ', '_', trim($jobTitle));
+        $timestamp = date('Y-m-d_His');
+        $mergedFilename = 'Resumes_' . $jobTitle . '_' . $timestamp . '.pdf';
+        $mergedPath = $tempDir . '/' . $mergedFilename;
 
-        $zip = new ZipArchive();
+        try {
+            // Try using FPDI first (if installed)
+            if (class_exists('\setasign\Fpdi\Fpdi')) {
+                return $this->mergeWithFpdi($resumeFiles, $mergedPath, $mergedFilename);
+            }
 
-        if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
-            return back()->with('error', 'Could not create ZIP file.');
+            // Try using Ghostscript
+            $gsCommand = $this->getGhostscriptCommand($resumeFiles, $mergedPath);
+            if ($gsCommand) {
+                exec($gsCommand, $output, $returnCode);
+                if ($returnCode === 0 && file_exists($mergedPath)) {
+                    $this->cleanupOldTempFiles($tempDir, 3600);
+                    return response()->download($mergedPath, $mergedFilename)->deleteFileAfterSend(true);
+                }
+            }
+
+            // Try using PDFTK
+            $pdftkCommand = $this->getPdftkCommand($resumeFiles, $mergedPath);
+            if ($pdftkCommand) {
+                exec($pdftkCommand, $output, $returnCode);
+                if ($returnCode === 0 && file_exists($mergedPath)) {
+                    $this->cleanupOldTempFiles($tempDir, 3600);
+                    return response()->download($mergedPath, $mergedFilename)->deleteFileAfterSend(true);
+                }
+            }
+
+            // Fallback to ZIP if no PDF merger available
+            return $this->createZipFallback($resumeFiles, $jobTitle, $timestamp);
+        } catch (\Exception $e) {
+            Log::error('Failed to merge PDFs: ' . $e->getMessage());
+
+            // Final fallback to ZIP
+            return $this->createZipFallback($resumeFiles, $jobTitle, $timestamp);
         }
+    }
 
-        $downloadedCount = 0;
+    /**
+     * Merge PDFs using FPDI
+     */
+    private function mergeWithFpdi($resumeFiles, $mergedPath, $mergedFilename)
+    {
+        $pdf = new \setasign\Fpdi\Fpdi();
 
-        foreach ($applications as $application) {
-            $resumePath = $application->getActualResumePath();
+        foreach ($resumeFiles as $file) {
+            if (strtolower(pathinfo($file['path'], PATHINFO_EXTENSION)) === 'pdf') {
+                try {
+                    $pageCount = $pdf->setSourceFile($file['path']);
+                    for ($pageNo = 1; $pageNo <= $pageCount; $pageNo++) {
+                        $templateId = $pdf->importPage($pageNo);
+                        $size = $pdf->getTemplateSize($templateId);
 
-            if ($resumePath && Storage::disk('public')->exists($resumePath)) {
-                $fullPath = Storage::disk('public')->path($resumePath);
-                $fileContent = file_get_contents($fullPath);
+                        // Add page with same orientation
+                        $orientation = $size['width'] > $size['height'] ? 'L' : 'P';
+                        $pdf->AddPage($orientation, [$size['width'], $size['height']]);
+                        $pdf->useTemplate($templateId);
 
-                if ($fileContent !== false) {
-                    // Create safe filename
-                    $safeName = preg_replace('/[^a-zA-Z0-9_-]/', '_', $application->name);
-                    $extension = pathinfo($resumePath, PATHINFO_EXTENSION);
-                    $fileName = $safeName . '_' . $application->id . '.' . $extension;
-
-                    $zip->addFromString($fileName, $fileContent);
-                    $downloadedCount++;
+                        // Add applicant name as header (only on first page)
+                        if ($pageNo === 1) {
+                            $pdf->SetFont('Helvetica', 'B', 10);
+                            $pdf->SetTextColor(100, 100, 100);
+                            $pdf->SetXY(10, 5);
+                            $pdf->Cell(0, 10, 'Resume: ' . $file['applicant_name'], 0, 0, 'L');
+                        }
+                    }
+                } catch (\Exception $e) {
+                    Log::warning('Failed to merge PDF for ' . $file['applicant_name'] . ': ' . $e->getMessage());
+                    continue;
                 }
             }
         }
 
-        $zip->close();
+        $pdf->Output('F', $mergedPath);
 
-        if ($downloadedCount === 0) {
-            if (file_exists($zipPath)) {
-                unlink($zipPath);
+        // Clean up old temp files
+        $tempDir = storage_path('app/temp');
+        $this->cleanupOldTempFiles($tempDir, 3600);
+
+        return response()->download($mergedPath, $mergedFilename)->deleteFileAfterSend(true);
+    }
+
+    /**
+     * Get Ghostscript merge command
+     */
+    private function getGhostscriptCommand($resumeFiles, $outputPath)
+    {
+        // Check if ghostscript is available
+        $gsPath = $this->findExecutable('gs');
+        if (!$gsPath) return null;
+
+        $inputFiles = implode(' ', array_map(function ($file) {
+            return '"' . $file['path'] . '"';
+        }, $resumeFiles));
+
+        return "$gsPath -q -dNOPAUSE -dBATCH -sDEVICE=pdfwrite -sOutputFile=\"$outputPath\" $inputFiles";
+    }
+
+    /**
+     * Get PDFTK merge command
+     */
+    private function getPdftkCommand($resumeFiles, $outputPath)
+    {
+        // Check if pdftk is available
+        $pdftkPath = $this->findExecutable('pdftk');
+        if (!$pdftkPath) return null;
+
+        $inputFiles = implode(' ', array_map(function ($file) {
+            return '"' . $file['path'] . '"';
+        }, $resumeFiles));
+
+        return "$pdftkPath $inputFiles cat output \"$outputPath\"";
+    }
+
+    /**
+     * Find executable path
+     */
+    private function findExecutable($command)
+    {
+        if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+            // Windows
+            $paths = [
+                "C:\\Program Files\\gs\\gs*\\bin\\gswin64c.exe",  // Ghostscript
+                "C:\\Program Files (x86)\\gs\\gs*\\bin\\gswin32c.exe",
+                "C:\\Program Files (x86)\\PDFtk\\bin\\pdftk.exe",  // PDFTK
+                "C:\\Program Files\\PDFtk\\bin\\pdftk.exe",
+            ];
+
+            foreach ($paths as $pattern) {
+                $matches = glob($pattern);
+                if (!empty($matches)) {
+                    return '"' . $matches[0] . '"';
+                }
             }
-            return back()->with('error', 'No resume files found to download.');
+
+            // Try where command
+            exec("where $command 2>NUL", $output, $returnCode);
+            if ($returnCode === 0 && !empty($output[0])) {
+                return '"' . $output[0] . '"';
+            }
+        } else {
+            // Linux/Mac
+            exec("which $command 2>/dev/null", $output, $returnCode);
+            if ($returnCode === 0 && !empty($output[0])) {
+                return $output[0];
+            }
         }
 
+        return null;
+    }
+
+    /**
+     * Create ZIP fallback
+     */
+    private function createZipFallback($resumeFiles, $jobTitle, $timestamp)
+    {
+        $zipFileName = 'Resumes_' . $jobTitle . '_' . $timestamp . '.zip';
+        $zipPath = storage_path('app/temp') . '/' . $zipFileName;
+
+        $zip = new ZipArchive();
+
+        if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            return back()->with('error', 'Could not create file for download.');
+        }
+
+        foreach ($resumeFiles as $index => $file) {
+            $extension = pathinfo($file['path'], PATHINFO_EXTENSION);
+            $filename = sprintf('%02d_%s.%s', $index + 1, $file['name'], $extension);
+            $zip->addFile($file['path'], $filename);
+        }
+
+        $zip->close();
+
         return response()->download($zipPath, $zipFileName)->deleteFileAfterSend(true);
+    }
+
+    /**
+     * Clean up old temporary files
+     */
+    private function cleanupOldTempFiles($directory, $maxAge = 3600)
+    {
+        if (!is_dir($directory)) {
+            return;
+        }
+
+        $files = glob($directory . '/*');
+        $now = time();
+
+        foreach ($files as $file) {
+            if (is_file($file)) {
+                if ($now - filemtime($file) >= $maxAge) {
+                    unlink($file);
+                }
+            }
+        }
     }
 
     /**

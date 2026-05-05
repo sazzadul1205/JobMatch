@@ -37,6 +37,7 @@ import {
   FaTimesCircle,
   FaStar,
   FaTrash,
+  FaFileArchive,
 } from 'react-icons/fa';
 
 import Swal from 'sweetalert2';
@@ -161,7 +162,31 @@ export default function JobApplications({ job, applications: initialApplications
   const handleSortChange = (field) => {
     const newDirection = localFilters.sort === field && localFilters.direction === 'asc' ? 'desc' : 'asc';
     setLocalFilters(prev => ({ ...prev, sort: field, direction: newDirection }));
-    applyFilters();
+
+    const filterParams = {};
+    Object.keys(localFilters).forEach(key => {
+      if (key !== 'sort' && key !== 'direction' && localFilters[key] !== '' && localFilters[key] !== null && localFilters[key] !== undefined) {
+        filterParams[key] = localFilters[key];
+      }
+    });
+    filterParams.sort = field;
+    filterParams.direction = newDirection;
+
+    router.get(route('backend.applications.job', job.id), {
+      ...filterParams,
+      page: 1,
+    }, {
+      preserveState: true,
+      preserveScroll: true,
+      replace: true,
+      onSuccess: (page) => {
+        setApplications(page.props.applications);
+        setShowFilters(false);
+        setSelectedApps([]);
+        setPendingUpdates({});
+        setPendingDeletes({});
+      },
+    });
   };
 
   // Handle page change
@@ -227,6 +252,36 @@ export default function JobApplications({ job, applications: initialApplications
     openEmailModal(applicant, `Send Email to ${applicant.name}`);
   };
 
+  // Helper function to extract filename from Content-Disposition header
+  const extractFilenameFromDisposition = (contentDisposition) => {
+    if (!contentDisposition) return null;
+
+    // RFC 6266 / RFC 5987 (filename*)
+    const filenameStarMatch = contentDisposition.match(/filename\*\s*=\s*UTF-8''([^;]+)/i);
+    if (filenameStarMatch?.[1]) {
+      try {
+        return decodeURIComponent(filenameStarMatch[1].replace(/(^\"|\"$)/g, ''));
+      } catch {
+        return filenameStarMatch[1].replace(/(^\"|\"$)/g, '');
+      }
+    }
+
+    // Basic filename=
+    const filenameMatch = contentDisposition.match(/filename\s*=\s*\"?([^\";]+)\"?/i);
+    return filenameMatch?.[1] ?? null;
+  };
+
+  // Helper function to sanitize filename
+  const safeFilename = (name) => {
+    if (!name) return 'Resume';
+    return name
+      .toString()
+      .replace(/[^a-zA-Z0-9\s_-]/g, '')
+      .trim()
+      .replace(/\s+/g, '_')
+      .replace(/_+/g, '_') || 'Resume';
+  };
+
   // Handle bulk export
   const handleExport = (format) => {
     if (applicationItems.length === 0) {
@@ -258,8 +313,8 @@ export default function JobApplications({ job, applications: initialApplications
         const contentDisposition = response.headers.get('Content-Disposition');
         let filename = `applications_${job.title}_${Date.now()}.${format}`;
         if (contentDisposition) {
-          const match = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-          if (match && match[1]) filename = match[1].replace(/['"]/g, '');
+          const extracted = extractFilenameFromDisposition(contentDisposition);
+          if (extracted) filename = extracted;
         }
         return response.blob().then(blob => ({ blob, filename }));
       })
@@ -309,8 +364,8 @@ export default function JobApplications({ job, applications: initialApplications
         const contentDisposition = response.headers.get('Content-Disposition');
         let filename = `application_${app.name}_${Date.now()}.${format}`;
         if (contentDisposition) {
-          const match = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-          if (match && match[1]) filename = match[1].replace(/['"]/g, '');
+          const extracted = extractFilenameFromDisposition(contentDisposition);
+          if (extracted) filename = extracted;
         }
         return response.blob().then(blob => ({ blob, filename }));
       })
@@ -570,8 +625,8 @@ export default function JobApplications({ job, applications: initialApplications
     });
   };
 
-  // Handle bulk download resumes
-  const handleBulkDownload = () => {
+  // Handle bulk download resumes (MERGED PDF)
+  const handleBulkDownload = async () => {
     if (selectedApps.length === 0) {
       Swal.fire('No Selection', 'Please select at least one application to download resumes.', 'warning');
       return;
@@ -579,30 +634,129 @@ export default function JobApplications({ job, applications: initialApplications
 
     setIsDownloading(true);
 
-    router.post(route('backend.applications.bulk-download'), {
-      application_ids: selectedApps,
-    }, {
-      preserveScroll: true,
-      onSuccess: () => {
-        setIsDownloading(false);
-        Swal.fire({
-          icon: 'success',
-          title: 'Download Started!',
-          text: 'Your resumes are being downloaded.',
-          timer: 1500,
-          showConfirmButton: false,
-        });
-      },
-      onError: (errors) => {
-        Swal.fire({
-          icon: 'error',
-          title: 'Download Failed',
-          text: errors?.message || 'Failed to download resumes.',
-          confirmButtonColor: '#d33',
-        });
-        setIsDownloading(false);
+    // Show loading indicator
+    Swal.fire({
+      title: 'Preparing Resumes...',
+      text: selectedApps.length === 1
+        ? 'Downloading resume...'
+        : `Merging ${selectedApps.length} resumes into one PDF...`,
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading();
       },
     });
+
+    try {
+      const response = await fetch(route('backend.applications.bulk-download'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+        },
+        body: JSON.stringify({
+          application_ids: selectedApps,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData?.message || `Download failed (${response.status})`);
+      }
+
+      // Get filename from Content-Disposition header
+      const contentDisposition = response.headers.get('content-disposition');
+      const serverFilename = extractFilenameFromDisposition(contentDisposition);
+
+      // Determine filename
+      let filename;
+      if (serverFilename) {
+        filename = serverFilename;
+      } else if (selectedApps.length === 1) {
+        const app = applicationItems.find(a => a.id === selectedApps[0]);
+        filename = `Resume_${safeFilename(app?.name || 'applicant')}.pdf`;
+      } else {
+        const jobTitle = safeFilename(job.title || 'job');
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+        filename = `Resumes_${jobTitle}_${timestamp}.pdf`;
+      }
+
+      // Download the file
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      window.URL.revokeObjectURL(blobUrl);
+
+      // Close loading and show success
+      Swal.close();
+      Swal.fire({
+        icon: 'success',
+        title: 'Download Complete!',
+        text: selectedApps.length === 1
+          ? 'Resume downloaded successfully.'
+          : `${selectedApps.length} resumes merged and downloaded.`,
+        timer: 2000,
+        showConfirmButton: false,
+      });
+    } catch (error) {
+      console.error('Bulk download error:', error);
+      Swal.close();
+      Swal.fire({
+        icon: 'error',
+        title: 'Download Failed',
+        text: error?.message || 'Failed to download resumes. Please try again.',
+        confirmButtonColor: '#d33',
+      });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  // Handle single resume download
+  const handleDownloadResume = async (app) => {
+    try {
+      const url = route('backend.applications.download', app.id);
+      const response = await fetch(url, {
+        method: 'GET',
+        credentials: 'same-origin',
+      });
+
+      if (!response.ok) {
+        throw new Error(`Download failed (${response.status})`);
+      }
+
+      const contentDisposition = response.headers.get('content-disposition');
+      const serverFilename = extractFilenameFromDisposition(contentDisposition);
+      const serverExt = serverFilename?.split('.').pop();
+
+      const ext = serverExt && serverExt.length <= 6 ? serverExt : 'pdf';
+      const desiredFilename = `Resume_${safeFilename(app.name)}.${ext}`;
+
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = desiredFilename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (e) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Download Failed',
+        text: e?.message || 'Failed to download resume.',
+        confirmButtonColor: '#d33',
+      });
+    }
   };
 
   // Handle single status update with optimistic update
@@ -660,75 +814,6 @@ export default function JobApplications({ job, applications: initialApplications
         });
       },
     });
-  };
-
-  // Handle single resume download
-  const extractFilenameFromDisposition = (contentDisposition) => {
-    if (!contentDisposition) return null;
-
-    // RFC 6266 / RFC 5987 (filename*)
-    const filenameStarMatch = contentDisposition.match(/filename\*\s*=\s*UTF-8''([^;]+)/i);
-    if (filenameStarMatch?.[1]) {
-      try {
-        return decodeURIComponent(filenameStarMatch[1].replace(/(^\"|\"$)/g, ''));
-      } catch {
-        return filenameStarMatch[1].replace(/(^\"|\"$)/g, '');
-      }
-    }
-
-    // Basic filename=
-    const filenameMatch = contentDisposition.match(/filename\s*=\s*\"?([^\";]+)\"?/i);
-    return filenameMatch?.[1] ?? null;
-  };
-
-  const safeFilename = (name) => {
-    if (!name) return 'Resume';
-    return name
-      .toString()
-      .replace(/[^a-zA-Z0-9\s_-]/g, '')
-      .trim()
-      .replace(/\s+/g, '_')
-      .replace(/_+/g, '_') || 'Resume';
-  };
-
-  const handleDownloadResume = async (app) => {
-    try {
-      const url = route('backend.applications.download', app.id);
-      const response = await fetch(url, {
-        method: 'GET',
-        credentials: 'same-origin',
-      });
-
-      if (!response.ok) {
-        throw new Error(`Download failed (${response.status})`);
-      }
-
-      const contentDisposition = response.headers.get('content-disposition');
-      const serverFilename = extractFilenameFromDisposition(contentDisposition);
-      const serverExt = serverFilename?.split('.').pop();
-
-      const ext = serverExt && serverExt.length <= 6 ? serverExt : 'pdf';
-      const desiredFilename = `Resume_${safeFilename(app.name)}.${ext}`;
-
-      const blob = await response.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
-
-      const a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = desiredFilename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-
-      window.URL.revokeObjectURL(blobUrl);
-    } catch (e) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Download Failed',
-        text: e?.message || 'Failed to download resume.',
-        confirmButtonColor: '#d33',
-      });
-    }
   };
 
   // Helper functions
@@ -1062,8 +1147,19 @@ export default function JobApplications({ job, applications: initialApplications
                     disabled={isDownloading}
                     className="px-3 py-2 bg-purple-600 text-white rounded-lg text-sm flex items-center gap-2 hover:bg-purple-700 transition-all duration-200 disabled:opacity-50"
                   >
-                    {isDownloading ? <FaSpinner className="animate-spin" size={14} /> : <FaDownload size={14} />}
-                    Download Resumes
+                    {isDownloading ? (
+                      <FaSpinner className="animate-spin" size={14} />
+                    ) : selectedApps.length > 1 ? (
+                      <FaFilePdf size={14} />
+                    ) : (
+                      <FaDownload size={14} />
+                    )}
+                    {isDownloading
+                      ? 'Downloading...'
+                      : selectedApps.length > 1
+                        ? 'Download Merged PDF'
+                        : 'Download Resume'
+                    }
                   </button>
                   <button
                     onClick={handleBulkDelete}
