@@ -33,7 +33,7 @@ const ChangePasswordModal = ({ isOpen, onClose, profile }) => {
     setErrors({});
 
     try {
-      const response = await fetch('/applicant/profile/change-password', {
+      const response = await fetch(route('backend.applicant.profile.change-password'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

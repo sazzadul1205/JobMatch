@@ -172,7 +172,7 @@ const CompleteProfile = ({ applicantProfile = null }) => {
     formData.append('photo', file);
 
     try {
-      const response = await fetch('/profile/photo', {
+      const response = await fetch(route('profile.photo.upload'), {
         method: 'POST',
         body: formData,
         headers: {

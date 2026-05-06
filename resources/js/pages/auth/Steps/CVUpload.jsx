@@ -116,7 +116,7 @@ const CVUpload = ({ data, setData }) => {
       const formData = new FormData();
       formData.append('cv', file);
 
-      const response = await fetch('/profile/cv', {
+      const response = await fetch(route('profile.cv.upload'), {
         method: 'POST',
         body: formData,
         headers: {
@@ -182,7 +182,7 @@ const CVUpload = ({ data, setData }) => {
       if (result.isConfirmed) {
         const cvToRemove = data.cvs[index];
         if (cvToRemove?.id) {
-          await fetch(`/profile/cv/${cvToRemove.id}`, {
+          await fetch(route('profile.cv.destroy', cvToRemove.id), {
             method: 'DELETE',
             headers: {
               'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
@@ -227,7 +227,7 @@ const CVUpload = ({ data, setData }) => {
 
     const cv = data.cvs[index];
     if (cv?.id) {
-      await fetch(`/profile/cv/${cv.id}/primary`, {
+      await fetch(route('profile.cv.primary', cv.id), {
         method: 'PATCH',
         headers: {
           'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',

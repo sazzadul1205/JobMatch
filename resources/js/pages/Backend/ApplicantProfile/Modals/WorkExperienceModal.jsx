@@ -71,7 +71,7 @@ const WorkExperienceModal = ({ isOpen, onClose, profile }) => {
     setSaving(true);
 
     try {
-      const response = await fetch(`/backend/applicant/profile/${profile.id}/work-experiences`, {
+      const response = await fetch(route('backend.applicant.profile.update-work-experiences', profile.id), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

@@ -66,7 +66,7 @@ const EducationModal = ({ isOpen, onClose, profile }) => {
     setSaving(true);
 
     try {
-      const response = await fetch(`/backend/applicant/profile/${profile.id}/educations`, {
+      const response = await fetch(route('backend.applicant.profile.update-educations', profile.id), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

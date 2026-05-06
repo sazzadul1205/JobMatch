@@ -89,7 +89,7 @@ const ProfessionalInfoModal = ({ isOpen, onClose, profile }) => {
     setSaving(true);
 
     try {
-      const response = await fetch(`/backend/applicant/profile/${profile.id}/professional-info`, {
+      const response = await fetch(route('backend.applicant.profile.update-professional-info', profile.id), {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

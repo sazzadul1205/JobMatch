@@ -133,7 +133,7 @@ const BasicInfoModal = ({ isOpen, onClose, profile }) => {
     if (modalData.photo) formData.append('photo', modalData.photo);
 
     try {
-      const response = await fetch(`/backend/applicant/profile/${profile.id}/basic-info`, {
+      const response = await fetch(route('backend.applicant.profile.update-basic-info', profile.id), {
         method: 'POST',
         headers: {
           'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',

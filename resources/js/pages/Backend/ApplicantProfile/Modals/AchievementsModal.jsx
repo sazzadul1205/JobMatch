@@ -61,7 +61,7 @@ const AchievementsModal = ({ isOpen, onClose, profile }) => {
     setSaving(true);
 
     try {
-      const response = await fetch(`/backend/applicant/profile/${profile.id}/achievements`, {
+      const response = await fetch(route('backend.applicant.profile.update-achievements', profile.id), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
