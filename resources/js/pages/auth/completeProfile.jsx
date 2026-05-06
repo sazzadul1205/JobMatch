@@ -369,30 +369,6 @@ const CompleteProfile = ({ applicantProfile = null }) => {
             </p>
           </div>
         </div>
-
-        {/* Save Progress Button - Show on all except review page */}
-        {!isReviewPage && (
-          <div className="mb-4 flex justify-end">
-            <button
-              onClick={handleSaveProgress}
-              disabled={isSaving}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 hover:border-blue-400 transition-all duration-200 shadow-sm"
-            >
-              {isSaving ? (
-                <>
-                  <FaSpinner className="h-4 w-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <FaSave className="h-4 w-4 text-blue-600" />
-                  Save Progress
-                </>
-              )}
-            </button>
-          </div>
-        )}
-
         {/* Progress Bar - Hide on Review Page */}
         {!isReviewPage && (
           <div className="mb-8 bg-white rounded-xl p-4 shadow-sm">
