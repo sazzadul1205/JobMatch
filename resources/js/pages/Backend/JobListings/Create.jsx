@@ -5,7 +5,7 @@ import { Head, router } from '@inertiajs/react';
 import AuthenticatedLayout from '../../../layouts/AuthenticatedLayout';
 
 // Icons
-import { FaArrowLeft, FaSave, FaEye } from 'react-icons/fa';
+import { FaArrowLeft, FaBriefcase } from 'react-icons/fa';
 
 // Step Components
 import { ReviewStep } from '../../../components/JobListingSteps/ReviewStep';
@@ -37,7 +37,7 @@ export default function Create({ categories, locations }) {
     { id: 3, title: 'Location', component: LocationStep },
     { id: 4, title: 'Compensation', component: CompensationStep },
     { id: 5, title: 'Publishing', component: PublishingStep },
-    { id: 6, title: 'Review', component: ReviewStep }, // Add Review Step
+    { id: 6, title: 'Review', component: ReviewStep },
   ];
 
   const [formData, setFormData] = useState({
@@ -213,26 +213,6 @@ export default function Create({ categories, locations }) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Save as draft (optional feature)
-  const saveAsDraft = () => {
-    Swal.fire({
-      title: 'Save as Draft?',
-      text: 'This feature will save your progress. Coming soon!',
-      icon: 'info',
-      confirmButtonColor: '#2563eb',
-    });
-  };
-
-  // Preview job (optional feature)
-  const previewJob = () => {
-    Swal.fire({
-      title: 'Preview Job',
-      text: 'This feature will show a preview of the job listing. Coming soon!',
-      icon: 'info',
-      confirmButtonColor: '#2563eb',
-    });
-  };
-
   // Final submission - ONLY called when user clicks "Post Job" on review page
   const handleSubmit = () => {
     // Prepare data for submission
@@ -331,54 +311,35 @@ export default function Create({ categories, locations }) {
     <AuthenticatedLayout>
       <Head title="Create Job Listing" />
 
-      <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 py-8 px-4 sm:px-6 lg:px-8">
-        <div className=" mx-auto">
-          {/* Header with Back Button & Actions */}
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <button
-                onClick={handleBackToListings}
-                className="group flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-all duration-200"
-              >
-                <FaArrowLeft className="group-hover:-translate-x-1 transition-transform duration-200" size={16} />
-                <span className="text-sm font-medium">Back</span>
-              </button>
-
-              <div className="flex gap-2">
-                <button
-                  onClick={saveAsDraft}
-                  className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition flex items-center gap-2"
-                >
-                  <FaSave size={12} />
-                  Draft
-                </button>
-                <button
-                  onClick={previewJob}
-                  className="px-3 py-1.5 text-sm bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition flex items-center gap-2"
-                >
-                  <FaEye size={12} />
-                  Preview
-                </button>
-              </div>
+      <div className="min-h-screen bg-linear-to-br from-blue-50 via-white to-purple-50 py-8 px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto ">
+          {/* Header */}
+          <div className="mx-auto flex justify-center items-center gap-5">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-linear-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg mb-4">
+              <FaBriefcase className="w-8 h-8 text-white" />
             </div>
 
-            <div className="text-center">
-              <h1 className="text-2xl font-bold bg-linear-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+            {/* Header Content */}
+            <div>
+              <h1 className="text-3xl font-bold bg-linear-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
                 Create Job Listing
               </h1>
-              <p className="text-xs text-gray-500 mt-1">Fill in the details below to post a new job opportunity</p>
+              <p className="text-sm text-gray-500 max-w-md mx-auto">
+                Fill in the details below to post a new job opportunity and find the perfect candidate
+              </p>
             </div>
           </div>
 
+
           {/* Main Card */}
-          <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
             {/* Step Indicator */}
-            <div className="px-8 pt-8">
+            <div className="border-b border-gray-100 bg-gray-50/50 px-8 pt-6">
               <StepIndicator currentStep={currentStep} steps={steps} />
             </div>
 
             {/* Form Content */}
-            <div className="px-8 py-6">
+            <div className="px-8 py-8">
               <CurrentStepComponent
                 formData={formData}
                 errors={errors}
@@ -392,7 +353,7 @@ export default function Create({ categories, locations }) {
             </div>
 
             {/* Navigation */}
-            <div className="px-8 pb-8">
+            <div className="border-t border-gray-100 bg-gray-50/50 px-8 py-6">
               <StepNavigation
                 currentStep={currentStep}
                 totalSteps={steps.length}
@@ -403,16 +364,6 @@ export default function Create({ categories, locations }) {
                 isValid={true}
                 isReviewStep={isReviewStep}
               />
-            </div>
-          </div>
-
-          {/* Progress Indicator */}
-          <div className="mt-6 text-center">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-full shadow-sm">
-              <div className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
-              <span className="text-sm text-gray-600">
-                Step {currentStep} of {steps.length}
-              </span>
             </div>
           </div>
         </div>

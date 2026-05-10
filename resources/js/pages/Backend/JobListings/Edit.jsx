@@ -5,7 +5,7 @@ import { Head, router } from '@inertiajs/react';
 import AuthenticatedLayout from '../../../layouts/AuthenticatedLayout';
 
 // Icons
-import { FaArrowLeft, FaSave, FaEye } from 'react-icons/fa';
+import { FaArrowLeft, FaBriefcase, FaEdit } from 'react-icons/fa';
 
 // Step Components
 import { StepIndicator } from '../../../components/JobListingSteps/StepIndicator';
@@ -241,26 +241,6 @@ export default function Edit({ jobListing, categories, locations }) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Save as draft (optional feature)
-  const saveAsDraft = () => {
-    Swal.fire({
-      title: 'Save as Draft?',
-      text: 'This feature will save your progress. Coming soon!',
-      icon: 'info',
-      confirmButtonColor: '#2563eb',
-    });
-  };
-
-  // Preview job (optional feature)
-  const previewJob = () => {
-    Swal.fire({
-      title: 'Preview Job',
-      text: 'This feature will show a preview of the job listing. Coming soon!',
-      icon: 'info',
-      confirmButtonColor: '#2563eb',
-    });
-  };
-
   // Final submission - Update the job listing
   const handleSubmit = () => {
     if (!hasChanges()) {
@@ -356,51 +336,64 @@ export default function Edit({ jobListing, categories, locations }) {
   // Check if current step is the review step
   const isReviewStep = currentStep === steps.length;
 
+  // Custom submit handler for review step
+  const handleStepSubmit = () => {
+    if (isReviewStep) {
+      handleSubmit();
+    } else {
+      nextStep();
+    }
+  };
+
   return (
     <AuthenticatedLayout>
       <Head title={`Edit: ${jobListing.title}`} />
 
-      <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 py-8 px-4 sm:px-6 lg:px-8">
-        <div className=" mx-auto">
-          {/* Header with Back Button & Actions */}
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <button
-                onClick={handleGoBack}
-                className="group flex items-center gap-2 text-gray-600 hover:text-gray-900 transition"
-              >
-                <FaArrowLeft className="group-hover:-translate-x-1 transition-transform duration-200" size={14} />
-                <span className="text-sm">Back</span>
-              </button>
+      <div className="min-h-screen bg-linear-to-br from-blue-50 via-white to-purple-50 py-8 px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto">
+          {/* Header */}
+          <div className="relative mb-8">
 
-              <div className="flex gap-2">
-                <button
-                  onClick={saveAsDraft}
-                  className="px-2.5 py-1.5 text-xs bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition flex items-center gap-1.5"
-                >
-                  <FaSave size={11} />
-                  Draft
-                </button>
-                <button
-                  onClick={previewJob}
-                  className="px-2.5 py-1.5 text-xs bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition flex items-center gap-1.5"
-                >
-                  <FaEye size={11} />
-                  Preview
-                </button>
+            {/* Back Button - Extreme Left */}
+            <button
+              onClick={handleGoBack}
+              className="group absolute left-0 top-1/2 -translate-y-1/2 flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white text-gray-600 shadow-xs hover:bg-gray-100 hover:text-gray-900 hover:shadow-md transition-all duration-200"
+            >
+              <FaArrowLeft
+                className="transition-transform duration-200 group-hover:-translate-x-1"
+                size={14}
+              />
+
+              <span className="text-sm font-medium">
+                Back
+              </span>
+            </button>
+
+            {/* Center Content */}
+            <div className="flex gap-5 items-center justify-center text-center">
+
+              {/* Icon */}
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-linear-to-br from-orange-500 to-orange-600 rounded-2xl shadow-lg mb-4">
+                <FaEdit className="w-8 h-8 text-white" />
               </div>
-            </div>
 
-            <div className="text-center">
-              <h1 className="text-xl font-bold bg-linear-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
-                Edit Job Listing
-              </h1>
-              <p className="text-xs text-gray-500 mt-1">
-                Update "{jobListing.title}"
-              </p>
+              <div className='text-left' >
+                {/* Title */}
+                <h1 className="text-3xl font-bold bg-linear-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+                  Create Job Listing
+                </h1>
+
+                {/* Subtitle */}
+                <p className="text-sm text-gray-500 max-w-md mx-auto">
+                  Fill in the details below to post a new job opportunity and find the perfect candidate
+                </p>
+              </div>
+
+              {/* Unsaved Changes */}
               {hasChanges() && (
-                <div className="mt-1.5 inline-flex items-center gap-1.5 px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded-full text-xs">
+                <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">
                   <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse" />
+
                   Unsaved changes
                 </div>
               )}
@@ -408,14 +401,14 @@ export default function Edit({ jobListing, categories, locations }) {
           </div>
 
           {/* Main Card */}
-          <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
             {/* Step Indicator */}
-            <div className="px-8 pt-8">
+            <div className="border-b border-gray-100 bg-gray-50/50 px-8 pt-6">
               <StepIndicator currentStep={currentStep} steps={steps} />
             </div>
 
             {/* Form Content */}
-            <div className="px-8 py-6">
+            <div className="px-8 py-8">
               <CurrentStepComponent
                 formData={formData}
                 errors={errors}
@@ -431,11 +424,11 @@ export default function Edit({ jobListing, categories, locations }) {
             </div>
 
             {/* Navigation */}
-            <div className="px-8 pb-8">
+            <div className="border-t border-gray-100 bg-gray-50/50 px-8 py-6">
               <StepNavigation
                 currentStep={currentStep}
                 totalSteps={steps.length}
-                onNext={nextStep}
+                onNext={handleStepSubmit}
                 onPrevious={previousStep}
                 onSubmit={handleSubmit}
                 isSubmitting={isSubmitting}
@@ -447,11 +440,17 @@ export default function Edit({ jobListing, categories, locations }) {
           </div>
 
           {/* Progress Indicator */}
-          <div className="mt-6 text-center">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-full shadow-sm">
-              <div className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
-              <span className="text-sm text-gray-600">
+          <div className="mt-8 text-center">
+            <div className="inline-flex items-center gap-3 px-5 py-2.5 bg-white/80 backdrop-blur-sm rounded-full shadow-sm border border-gray-100">
+              <div className="relative">
+                <div className="w-2 h-2 rounded-full bg-orange-600 animate-ping opacity-75"></div>
+                <div className="w-2 h-2 rounded-full bg-orange-600 absolute top-0"></div>
+              </div>
+              <span className="text-sm font-medium text-gray-600">
                 Step {currentStep} of {steps.length}
+              </span>
+              <span className="text-xs text-gray-400">
+                {Math.round((currentStep / steps.length) * 100)}% complete
               </span>
             </div>
           </div>
