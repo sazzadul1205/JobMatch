@@ -14,7 +14,19 @@ class ApplicationSeeder extends Seeder
         $educationLevels = ['SSC', 'HSC', 'Bachelor', 'Master', 'Diploma'];
 
         $jobListings = DB::table('job_listings')->get();
-        $jobSeekers = DB::table('users')->where('role', 'job_seeker')->get();
+        // Users table no longer has a `role` column; fetch job seekers via RBAC pivot.
+        $jobSeekers = DB::table('users')
+            ->join('user_roles', 'users.id', '=', 'user_roles.user_id')
+            ->join('roles', 'roles.id', '=', 'user_roles.role_id')
+            ->whereIn('roles.slug', ['job-seeker', 'job_seeker'])
+            ->where('user_roles.is_active', true)
+            ->where(function ($q) {
+                $q->whereNull('user_roles.expires_at')
+                    ->orWhere('user_roles.expires_at', '>', now());
+            })
+            ->select('users.*')
+            ->distinct()
+            ->get();
         $applicantProfiles = DB::table('applicant_profiles')->get();
 
         // Create a mapping from user_id to profile_id

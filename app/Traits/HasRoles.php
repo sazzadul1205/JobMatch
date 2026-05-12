@@ -15,7 +15,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
  * to Eloquent models (usually User model).
  *
  * @mixin Model
+ * @property-read \Illuminate\Support\Collection<int, \App\Models\Role> $roles
+ * @property-read array<int, string> $permissions
  * @method BelongsToMany belongsToMany($related, $table = null, $foreignPivotKey = null, $relatedPivotKey = null, $parentKey = null, $relatedKey = null, $relation = null)
+ * @method bool relationLoaded(string $key)
+ * @method $this load($relations)
  */
 trait HasRoles
 {
@@ -48,6 +52,29 @@ trait HasRoles
       ->withTimestamps();
   }
 
+  /**
+   * Get all permissions directly from roles (cached).
+   */
+  public function getPermissionsAttribute(): array
+  {
+    if (!$this->relationLoaded('roles')) {
+      $this->load('roles.permissions');
+    }
+
+    $permissions = [];
+    foreach ($this->roles as $role) {
+      if ($role->relationLoaded('permissions')) {
+        foreach ($role->permissions as $permission) {
+          if ($permission->pivot->granted) {
+            $permissions[] = $permission->slug;
+          }
+        }
+      }
+    }
+
+    return array_unique($permissions);
+  }
+
     /* =========================================================
      | ROLE HELPERS
      |========================================================= */
@@ -75,11 +102,23 @@ trait HasRoles
   }
 
   /**
+   * Check if user has all roles from array.
+   *
+   * @param array<int, string> $roleSlugs
+   */
+  public function hasAllRoles(array $roleSlugs): bool
+  {
+    $userRoleSlugs = $this->roles()->pluck('slug')->toArray();
+    return empty(array_diff($roleSlugs, $userRoleSlugs));
+  }
+
+  /**
    * Assign role to user.
    */
   public function assignRole(
     string $roleSlug,
-    ?int $assignedBy = null
+    ?int $assignedBy = null,
+    ?int $expiresInDays = null
   ): bool {
     $role = Role::where('slug', $roleSlug)->first();
 
@@ -91,7 +130,7 @@ trait HasRoles
       $role->id => [
         'assigned_by' => $assignedBy,
         'assigned_at' => now(),
-        'expires_at' => null,
+        'expires_at' => $expiresInDays ? now()->addDays($expiresInDays) : null,
         'is_active' => true,
         'created_at' => now(),
         'updated_at' => now(),
@@ -130,7 +169,17 @@ trait HasRoles
       ->pluck('id')
       ->toArray();
 
-    return $this->roles()->sync($roleIds);
+    $syncData = [];
+    foreach ($roleIds as $roleId) {
+      $syncData[$roleId] = [
+        'assigned_at' => now(),
+        'is_active' => true,
+        'created_at' => now(),
+        'updated_at' => now(),
+      ];
+    }
+
+    return $this->roles()->sync($syncData);
   }
 
   /**
@@ -147,6 +196,16 @@ trait HasRoles
     return $this->roles()->detach($role->id);
   }
 
+  /**
+   * Get user's primary role (highest level).
+   */
+  public function getPrimaryRole(): ?Role
+  {
+    return $this->roles()
+      ->orderBy('level', 'desc')
+      ->first();
+  }
+
     /* =========================================================
      | PERMISSION HELPERS
      |========================================================= */
@@ -156,6 +215,12 @@ trait HasRoles
    */
   public function hasPermission(string $permissionSlug): bool
   {
+    // Check legacy permission first (fallback)
+    if ($this->checkLegacyPermission($permissionSlug)) {
+      return true;
+    }
+
+    // Check through RBAC roles
     $hasPermission = $this->roles()
       ->join(
         'role_permissions',
@@ -177,7 +242,12 @@ trait HasRoles
       return true;
     }
 
-    return $this->checkLegacyPermission($permissionSlug);
+    // Super admin override
+    if ($this->hasRole('super-admin')) {
+      return true;
+    }
+
+    return false;
   }
 
   /**
@@ -212,6 +282,14 @@ trait HasRoles
     }
 
     return true;
+  }
+
+  /**
+   * Get all permissions slugs for the user.
+   */
+  public function getAllPermissions(): array
+  {
+    return $this->permissions;
   }
 
     /* =========================================================
@@ -256,7 +334,6 @@ trait HasRoles
     ];
 
     $userLevel = $levels[$this->getModuleAccess($module)] ?? 0;
-
     $required = $levels[$requiredLevel] ?? 0;
 
     return $userLevel >= $required;
@@ -284,9 +361,11 @@ trait HasRoles
         'application.shortlist',
         'application.reject',
         'application.hire',
+        'category.view',
         'category.create',
         'category.edit',
         'category.delete',
+        'location.view',
         'location.create',
         'location.edit',
         'location.delete',
@@ -294,23 +373,44 @@ trait HasRoles
         'user.create',
         'user.edit',
         'user.delete',
+        'role.view',
+        'role.create',
+        'role.edit',
+        'role.delete',
+        'report.jobs',
+        'report.applications',
+        'report.users',
+        'dashboard.admin',
+        'cv.view',
+        'cv.download',
       ],
 
       'employer' => [
         'profile.edit.own',
         'job.create',
+        'job.view.own',
         'job.edit.own',
         'job.delete.own',
+        'job.publish',
         'application.view.for_own_jobs',
         'application.shortlist',
         'application.reject',
+        'application.add_notes',
+        'dashboard.employer',
       ],
 
       'job_seeker' => [
         'profile.edit.own',
+        'profile.view.own',
         'job.view.any',
-        'application.apply',
         'application.view.own',
+        'application.apply',
+        'application.withdraw',
+        'dashboard.job_seeker',
+        'cv.upload',
+        'cv.delete',
+        'cv.set_primary',
+        'cv.view',
       ],
     ];
 

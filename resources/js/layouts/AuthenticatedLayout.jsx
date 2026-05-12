@@ -1,14 +1,15 @@
-// resources/js/Layouts/AuthenticatedLayout.jsx
-import Sidebar from '@/Components/Sidebar';
+// resources/js/layouts/AuthenticatedLayout.jsx
+import Sidebar from '@/components/Sidebar';
 import { usePage } from '@inertiajs/react';
 
 const AuthenticatedLayout = ({ children }) => {
-  const { auth } = usePage().props;
-  const userRole = auth.user?.role || 'job_seeker';
+  // `auth` may be missing on some Inertia responses (or during hydration),
+  // so keep this layout resilient.
+  usePage();
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Sidebar userRole={userRole} />
+      <Sidebar />
 
       {/* Main Content */}
       <main className="ml-64 p-2 mx-auto text-black">

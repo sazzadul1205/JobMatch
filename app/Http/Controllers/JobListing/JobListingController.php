@@ -206,7 +206,12 @@ class JobListingController extends Controller
             'job_types' => JobListing::$jobTypes,
             'experience_levels' => JobListing::$experienceLevels,
             'locations' => Location::active()->orderBy('name')->get(['id', 'name']),
-            'employers' => User::where('role', 'employer')->get(['id', 'name']),
+            'employers' => User::query()
+                ->whereHas('roles', function ($q) {
+                    $q->whereIn('slug', ['employer-admin', 'hr-manager', 'recruiter']);
+                })
+                ->orderBy('name')
+                ->get(['id', 'name']),
         ];
 
         // Return response
@@ -1094,7 +1099,10 @@ class JobListingController extends Controller
         // ==========================================
 
         // Top employers by job count
-        $topEmployers = User::where('role', 'employer')
+        $topEmployers = User::query()
+            ->whereHas('roles', function ($q) {
+                $q->whereIn('slug', ['employer-admin', 'hr-manager', 'recruiter']);
+            })
             ->withCount(['jobListings' => function ($query) {
                 $query->whereNull('deleted_at');
             }])
@@ -1110,7 +1118,10 @@ class JobListingController extends Controller
             });
 
         // Top employers by application count
-        $topEmployersByApplications = User::where('role', 'employer')
+        $topEmployersByApplications = User::query()
+            ->whereHas('roles', function ($q) {
+                $q->whereIn('slug', ['employer-admin', 'hr-manager', 'recruiter']);
+            })
             ->withCount(['jobListings' => function ($query) {
                 $query->withCount('applications');
             }])

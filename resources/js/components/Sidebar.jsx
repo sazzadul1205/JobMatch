@@ -1,4 +1,4 @@
-// resources/js/Components/Sidebar.jsx
+// resources/js/Components/Sidebar.jsx (Updated version)
 
 // React
 import { useState, useEffect, useMemo } from 'react';
@@ -61,7 +61,19 @@ const Sidebar = () => {
 
   // Check if user has specific permission
   const hasPermission = (permissionSlug) => {
-    return userPermissions.includes(permissionSlug);
+    return userPermissions?.includes(permissionSlug) || false;
+  };
+
+  // Check if user has ANY of the given permissions
+  const hasAnyPermission = (permissionSlugs) => {
+    if (!permissionSlugs || permissionSlugs.length === 0) return false;
+    return permissionSlugs.some(slug => hasPermission(slug));
+  };
+
+  // Check if user has ALL of the given permissions
+  const hasAllPermissions = (permissionSlugs) => {
+    if (!permissionSlugs || permissionSlugs.length === 0) return true;
+    return permissionSlugs.every(slug => hasPermission(slug));
   };
 
   // Determine primary role for UI theming
@@ -72,7 +84,7 @@ const Sidebar = () => {
     return 'job_seeker';
   }, [userRoles]);
 
-  // State to track open menus - expanded to include adminRoles
+  // State to track open menus
   const [openMenus, setOpenMenus] = useState({
     jobs: false,
     applications: false,
@@ -94,7 +106,6 @@ const Sidebar = () => {
     const shouldOpenRoles = url.includes('/roles');
     const shouldOpenApplicants = url.includes('/applicant-profiles');
 
-    // Jobs management section
     setOpenMenus((prev) => ({
       ...prev,
       jobs: prev.jobs || shouldOpenJobs,
@@ -135,7 +146,6 @@ const Sidebar = () => {
     return withoutQueryOrHash.replace(/\/$/, '');
   };
 
-  // Normalize URL but keep query string (used for filter links like ?status=pending)
   const normalizeUrlWithQuery = (value) => {
     if (!value) return '';
     const absolute = typeof value === 'string' ? value : value.toString();
@@ -147,7 +157,6 @@ const Sidebar = () => {
     return `${normalizedPath}${query}`;
   };
 
-  // Check if route is active - FIXED to properly handle exact matching
   const isRouteActive = (routeName, params = {}, aliasPaths = [], options = {}) => {
     try {
       const routeUrl = route(routeName, params);
@@ -162,25 +171,20 @@ const Sidebar = () => {
         .filter(Boolean)
         .map((path) => normalizeUrl(path));
 
-      // Check if current URL matches any exclude pattern
       if (normalizedExcludes.some((exclude) => normalizedUrl === exclude || normalizedUrl.startsWith(exclude))) {
         return false;
       }
 
-      // For exact match, only return true if URLs are identical
       if (options?.exact) {
         return normalizedUrl === normalizedRouteUrl;
       }
 
-      // Check exact match
       if (normalizedUrl === normalizedRouteUrl) return true;
 
-      // Check aliases
       if (normalizedAliases.some((alias) => normalizedUrl === alias || normalizedUrl.startsWith(alias))) {
         return true;
       }
 
-      // Check if current URL starts with route URL (for parent routes)
       if (normalizedRouteUrl !== '/' && normalizedUrl.startsWith(normalizedRouteUrl)) {
         return true;
       }
@@ -191,16 +195,12 @@ const Sidebar = () => {
     }
   };
 
-  // Check if path is active
   const isPathActive = (path) => {
     if (!path || path === '#') return false;
-
     const normalizedUrl = normalizeUrl(url);
     const normalizedPath = normalizeUrl(path);
-
     if (normalizedUrl === normalizedPath) return true;
     if (normalizedPath !== '/' && normalizedUrl.startsWith(normalizedPath)) return true;
-
     return false;
   };
 
@@ -209,7 +209,6 @@ const Sidebar = () => {
     return normalizeUrlWithQuery(url) === normalizeUrlWithQuery(path);
   };
 
-  // Check if any subitem in a dropdown is active
   const isDropdownActive = (subItems) => {
     return subItems?.some(subItem => {
       if (subItem.href && subItem.href !== '#') {
@@ -232,7 +231,7 @@ const Sidebar = () => {
     const items = [];
 
     // Dashboard - available to all job seekers
-    if (hasPermission('dashboard.job_seeker') || hasPermission('dashboard.admin') || hasPermission('dashboard.employer')) {
+    if (hasPermission('dashboard.job_seeker')) {
       items.push({
         name: 'Dashboard',
         routeName: 'dashboard',
@@ -252,7 +251,7 @@ const Sidebar = () => {
     }
 
     // My Profile
-    if (hasPermission('profile.view.own') || hasPermission('profile.edit.own')) {
+    if (hasAnyPermission(['profile.view.own', 'profile.edit.own'])) {
       items.push({
         name: 'My Profile',
         routeName: 'backend.applicant.profile.show',
@@ -273,8 +272,8 @@ const Sidebar = () => {
       });
     }
 
-    // CV Management (if user has permission)
-    if (hasPermission('cv.upload') || hasPermission('cv.view')) {
+    // CV Management
+    if (hasAnyPermission(['cv.upload', 'cv.view'])) {
       items.push({
         name: 'My CVs',
         routeName: 'backend.applicant.profile.show',
@@ -285,13 +284,15 @@ const Sidebar = () => {
     }
 
     // Notifications
-    items.push({
-      name: 'Notifications',
-      routeName: 'backend.notifications.index',
-      icon: FiBell,
-      badgeCount: notificationMeta.unread_count,
-      description: 'Updates & alerts',
-    });
+    if (hasPermission('notification.view')) {
+      items.push({
+        name: 'Notifications',
+        routeName: 'backend.notifications.index',
+        icon: FiBell,
+        badgeCount: notificationMeta.unread_count,
+        description: 'Updates & alerts',
+      });
+    }
 
     return items;
   }, [user?.id, notificationMeta.unread_count]);
@@ -303,7 +304,7 @@ const Sidebar = () => {
     const items = [];
 
     // Dashboard
-    if (hasPermission('dashboard.employer') || hasPermission('dashboard.admin')) {
+    if (hasPermission('dashboard.employer')) {
       items.push({
         name: 'Dashboard',
         routeName: 'dashboard',
@@ -313,10 +314,10 @@ const Sidebar = () => {
     }
 
     // Job Listings Dropdown
-    if (hasPermission('job.create') || hasPermission('job.view.own') || hasPermission('job.edit.own')) {
+    if (hasAnyPermission(['job.create', 'job.view.own', 'job.edit.own'])) {
       const jobSubItems = [];
 
-      if (hasPermission('job.view.own') || hasPermission('job.view.any')) {
+      if (hasAnyPermission(['job.view.own', 'job.view.any'])) {
         jobSubItems.push({
           name: 'All Jobs',
           routeName: 'backend.listing.index',
@@ -364,10 +365,10 @@ const Sidebar = () => {
     }
 
     // Applications Dropdown
-    if (hasPermission('application.view.for_own_jobs') || hasPermission('application.view.any')) {
+    if (hasAnyPermission(['application.view.for_own_jobs', 'application.view.any'])) {
       const appSubItems = [];
 
-      if (hasPermission('application.view.for_own_jobs') || hasPermission('application.view.any')) {
+      if (hasAnyPermission(['application.view.for_own_jobs', 'application.view.any'])) {
         appSubItems.push({
           name: 'All Applications',
           href: '/backend/applications',
@@ -431,13 +432,15 @@ const Sidebar = () => {
     }
 
     // Notifications
-    items.push({
-      name: 'Notifications',
-      routeName: 'backend.notifications.index',
-      icon: FiBell,
-      badgeCount: notificationMeta.unread_count,
-      description: 'Updates & alerts',
-    });
+    if (hasPermission('notification.view')) {
+      items.push({
+        name: 'Notifications',
+        routeName: 'backend.notifications.index',
+        icon: FiBell,
+        badgeCount: notificationMeta.unread_count,
+        description: 'Updates & alerts',
+      });
+    }
 
     return items;
   }, [notificationMeta.unread_count]);
@@ -459,7 +462,7 @@ const Sidebar = () => {
     }
 
     // Jobs Management Dropdown
-    if (hasPermission('job.view.any') || hasPermission('job.create') || hasPermission('category.view') || hasPermission('location.view')) {
+    if (hasAnyPermission(['job.view.any', 'job.create', 'category.view', 'location.view', 'statistics.view'])) {
       const jobSubItems = [];
 
       if (hasPermission('job.view.any')) {
@@ -497,7 +500,7 @@ const Sidebar = () => {
       }
 
       // Statistics - Job Statistics
-      if (hasPermission('report.jobs') || hasPermission('dashboard.admin')) {
+      if (hasPermission('statistics.view') || hasPermission('report.jobs')) {
         jobSubItems.push({
           name: 'Job Statistics',
           routeName: 'backend.statistics.index',
@@ -518,7 +521,7 @@ const Sidebar = () => {
       }
     }
 
-    // Applicant Profiles - Single Link (no dropdown) - UPDATED
+    // Applicant Profiles - Single Link
     if (hasPermission('profile.view.any')) {
       items.push({
         name: 'Applicant Profiles',
@@ -529,7 +532,7 @@ const Sidebar = () => {
     }
 
     // Applications Dropdown
-    if (hasPermission('application.view.any') || hasPermission('application.shortlist') || hasPermission('application.reject')) {
+    if (hasAnyPermission(['application.view.any', 'application.shortlist', 'application.reject'])) {
       const appSubItems = [];
 
       if (hasPermission('application.view.any')) {
@@ -584,8 +587,8 @@ const Sidebar = () => {
       }
     }
 
-    // Single Users Management Link (no dropdown)
-    if (hasPermission('user.view') || hasPermission('user.create') || hasPermission('user.edit')) {
+    // Users Management Link
+    if (hasAnyPermission(['user.view', 'user.create', 'user.edit'])) {
       items.push({
         name: 'Users Management',
         routeName: 'backend.users.index',
@@ -595,7 +598,7 @@ const Sidebar = () => {
     }
 
     // Roles & Permissions Dropdown
-    if (hasPermission('role.view') || hasPermission('role.create') || hasPermission('role.edit') || hasPermission('role.delete')) {
+    if (hasAnyPermission(['role.view', 'role.create', 'role.edit', 'role.delete'])) {
       const roleSubItems = [];
 
       if (hasPermission('role.view')) {
@@ -646,18 +649,20 @@ const Sidebar = () => {
     }
 
     // Notifications
-    items.push({
-      name: 'Notifications',
-      routeName: 'backend.notifications.index',
-      icon: FiBell,
-      badgeCount: notificationMeta.unread_count,
-      description: 'System alerts',
-    });
+    if (hasPermission('notification.view')) {
+      items.push({
+        name: 'Notifications',
+        routeName: 'backend.notifications.index',
+        icon: FiBell,
+        badgeCount: notificationMeta.unread_count,
+        description: 'System alerts',
+      });
+    }
 
     return items;
   }, [notificationMeta.unread_count]);
 
-  // Get menu items based on user's roles
+  // Get menu items based on user's roles and permissions
   const menuItems = useMemo(() => {
     // Super Admin and Admin get admin menu
     if (hasRole('super-admin') || hasRole('admin')) {
@@ -671,11 +676,21 @@ const Sidebar = () => {
     if (hasRole('job-seeker')) {
       return jobSeekerItems;
     }
-    // Default fallback
-    return jobSeekerItems;
-  }, [hasRole, adminItems, employerItems, jobSeekerItems]);
+    // Default fallback - check if user has any permission at all
+    if (userPermissions && userPermissions.length > 0) {
+      // Try to determine based on permissions
+      if (userPermissions.some(p => p.includes('admin') || p.includes('user.view'))) {
+        return adminItems;
+      }
+      if (userPermissions.some(p => p.includes('employer') || p.includes('job.create'))) {
+        return employerItems;
+      }
+      return jobSeekerItems;
+    }
+    return [];
+  }, [hasRole, userPermissions, adminItems, employerItems, jobSeekerItems]);
 
-  // Get role-based color scheme
+  // Role-based color scheme
   const roleColors = {
     admin: {
       light: 'from-red-600 to-red-700',
@@ -708,7 +723,6 @@ const Sidebar = () => {
 
   const colors = roleColors[primaryRole] || roleColors.job_seeker;
 
-  // Get user's primary role name for display
   const getPrimaryRoleName = () => {
     if (hasRole('super-admin')) return 'Super Administrator';
     if (hasRole('admin')) return 'Administrator';
@@ -796,7 +810,6 @@ const Sidebar = () => {
       );
     }
 
-    // For non-dropdown items (like Users Management, My Profile)
     const isMenuItemActive = item.routeName
       ? isRouteActive(item.routeName, item.routeParams || {}, item.activeAliases || [], {
         exact: item.exact,
@@ -834,6 +847,11 @@ const Sidebar = () => {
     );
   };
 
+  // If user has no menu items, show nothing
+  if (menuItems.length === 0) {
+    return null;
+  }
+
   return (
     <aside className={`fixed left-0 top-0 h-full ${isCollapsed ? 'w-20' : 'w-64'} bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col shadow-xl transition-all duration-300 z-50`}>
       {/* Logo Section */}
@@ -861,7 +879,6 @@ const Sidebar = () => {
 
       {/* Navigation Menu */}
       <nav className="flex-1 overflow-y-auto py-4 px-3 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700">
-        {/* Section Label */}
         {!isCollapsed && (
           <div className="px-4 mb-3">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
@@ -874,7 +891,6 @@ const Sidebar = () => {
           {menuItems.map((item) => renderMenuItem(item))}
         </div>
 
-        {/* Show roles info when collapsed */}
         {isCollapsed && userRoles.length > 0 && (
           <div className="mt-4 flex justify-center">
             <div className="relative group">
@@ -904,7 +920,6 @@ const Sidebar = () => {
                   <span className={`w-1.5 h-1.5 rounded-full ${colors.bg}`}></span>
                   {getPrimaryRoleName()}
                 </p>
-                {/* Show additional roles */}
                 {userRoles.length > 1 && (
                   <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 truncate">
                     +{userRoles.slice(1).map(r => r.name).join(', ')}
@@ -929,7 +944,6 @@ const Sidebar = () => {
               <span className="text-white font-semibold text-sm">
                 {userName.charAt(0).toUpperCase()}
               </span>
-              {/* Tooltip on hover */}
               <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 hidden group-hover:block bg-gray-900 text-white text-xs rounded px-2 py-1 whitespace-nowrap z-50">
                 {userName}<br />
                 {getPrimaryRoleName()}

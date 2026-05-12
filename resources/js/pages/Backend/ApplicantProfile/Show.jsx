@@ -6,6 +6,9 @@ import { useState } from 'react';
 // Inertia
 import { Head, Link, router, usePage } from '@inertiajs/react';
 
+// Layout
+import AuthenticatedLayout from '../../../layouts/AuthenticatedLayout';
+
 // Icons
 import { FaCakeCandles } from "react-icons/fa6";
 import {
@@ -59,8 +62,6 @@ import {
 // SweetAlert2
 import Swal from 'sweetalert2';
 
-// Layouts
-import AuthenticatedLayout from '../../../layouts/AuthenticatedLayout';
 
 // Modals
 import CVModal from './Modals/CVModal';
@@ -252,7 +253,7 @@ export default function Show({ profile }) {
       <Head title={`${profile.first_name} ${profile.last_name} - Profile`} />
 
       <div className="min-h-screen bg-gray-50 py-8">
-        <div className="s mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto px-4 sm:px-6 lg:px-8">
 
           {/* Header */}
           <div className="mb-6 flex justify-between items-center flex-wrap gap-3">
