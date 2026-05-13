@@ -23,7 +23,7 @@ const Navbar = () => {
           <Link href="/" className="flex items-center space-x-2 group">
             <img
               src="/images/Icon.svg"
-              alt="Job Match Logo"
+              alt="DUS Logo"
               className="h-17.5 w-auto"
             />
           </Link>
