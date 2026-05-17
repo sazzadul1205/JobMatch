@@ -1,11 +1,17 @@
 // resources/js/Pages/Backend/Profile/Employer/Show.jsx
 
-// React & Inertia
+// Inertia
 import { useState } from 'react';
+
+// Inertia
 import { Head, Link, router, usePage } from '@inertiajs/react';
 
 // Layout
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+
+// Auth
+import { useAuth } from '@/hooks/useAuth';
+import { Can } from '@/components/Auth';
 
 // Icons
 import {
@@ -36,21 +42,77 @@ import {
   FaUserTie,
   FaIdCard,
   FaArrowLeft,
+  FaUserShield,
+  FaShieldAlt,
 } from 'react-icons/fa';
 import { HiOfficeBuilding } from 'react-icons/hi';
 
 // SweetAlert2
 import Swal from 'sweetalert2';
 
-export default function EmployerShow({ user, stats }) {
-  const { auth } = usePage().props;
+export default function EmployerShow({ user: employerUser, stats }) {
+  // Use centralized auth hook
+  const {
+    user: currentUser,
+    hasAnyPermission,
+    hasRole,
+    isAuthenticated,
+  } = useAuth();
+
+  // Check permissions for employer management
+  const isSuperAdmin = hasRole('super-admin');
+  const isRegularEmployer = hasRole('employer');
+  const isEmployerAdmin = hasRole('employer-admin');
+  const canViewEmployers = hasAnyPermission(['employer.view', 'employer.manage']);
+  const canEditEmployers = hasAnyPermission(['employer.update', 'employer.manage']);
+  const canDeleteEmployers = hasAnyPermission(['employer.destroy', 'employer.manage']);
+
+  // Loading state
   const [isRestoring, setIsRestoring] = useState(false);
+
+  // Deleting state
   const [isDeleting, setIsDeleting] = useState(false);
 
   // Check if viewing own profile
-  const isOwnProfile = auth?.user?.id === user?.id;
-  const isAdmin = auth?.user?.role === 'admin';
-  const isTrashed = user?.deleted_at !== null;
+  const isOwnProfile = currentUser?.id === employerUser?.id;
+  const isAdminUser = isSuperAdmin || hasAnyPermission(['admin.view', 'admin.manage']);
+
+  // Check if user can edit this employer
+  const canEditTargetEmployer = () => {
+    if (isOwnProfile) return true;
+    if (isSuperAdmin) return true;
+    // Employer admins can view/edit employers in their company
+    if (isEmployerAdmin && currentUser?.employer_id === employerUser?.employer_id) return true;
+    return canEditEmployers;
+  };
+
+  // Check if user can delete this employer
+  const canDeleteTargetEmployer = () => {
+    if (isOwnProfile) return false; // Cannot delete own account
+    if (isSuperAdmin) return canDeleteEmployers;
+    return canDeleteEmployers && isEmployerAdmin && currentUser?.employer_id === employerUser?.employer_id;
+  };
+
+  // Check if employer is trashed
+  const isTrashed = employerUser?.deleted_at !== null;
+
+  // If user doesn't have permission to view employers, show access denied
+  if (!canViewEmployers && !isOwnProfile) {
+    return (
+      <AuthenticatedLayout>
+        <Head title="Access Denied" />
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <FaShieldAlt className="w-10 h-10 text-red-500" />
+            </div>
+            <h2 className="text-xl font-semibold text-gray-900">Access Denied</h2>
+            <p className="text-gray-500 mt-2">You don't have permission to view employer profiles.</p>
+          </div>
+        </div>
+      </AuthenticatedLayout>
+    );
+  }
 
   // Format date
   const formatDate = (date) => {
@@ -66,14 +128,24 @@ export default function EmployerShow({ user, stats }) {
 
   // Get company logo URL
   const getCompanyLogo = () => {
-    if (user?.company_logo) {
-      return `/storage/${user.company_logo}`;
+    if (employerUser?.company_logo) {
+      return `/storage/${employerUser.company_logo}`;
     }
     return null;
   };
 
   // Handle restore
   const handleRestore = () => {
+    if (!canEditTargetEmployer()) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Permission Denied',
+        text: 'You do not have permission to restore this account.',
+        confirmButtonColor: '#2563eb',
+      });
+      return;
+    }
+
     Swal.fire({
       title: 'Restore Account?',
       text: 'This will reactivate the employer account and their job listings.',
@@ -86,8 +158,7 @@ export default function EmployerShow({ user, stats }) {
     }).then((result) => {
       if (result.isConfirmed) {
         setIsRestoring(true);
-        // Fix: Use POST request with proper route
-        router.post(route('backend.employer.profile.restore', { id: user.id }), {}, {
+        router.post(route('backend.employer.profile.restore', employerUser.id), {}, {
           preserveScroll: true,
           onSuccess: () => {
             Swal.fire({
@@ -115,6 +186,16 @@ export default function EmployerShow({ user, stats }) {
 
   // Handle force delete
   const handleForceDelete = () => {
+    if (!canDeleteTargetEmployer()) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Permission Denied',
+        text: 'You do not have permission to delete this account.',
+        confirmButtonColor: '#2563eb',
+      });
+      return;
+    }
+
     Swal.fire({
       title: 'Permanently Delete Account?',
       text: 'This action cannot be undone. All data including job listings and applications will be permanently deleted.',
@@ -140,8 +221,7 @@ export default function EmployerShow({ user, stats }) {
     }).then((result) => {
       if (result.isConfirmed) {
         setIsDeleting(true);
-        // Fix: Use DELETE request with correct route
-        router.delete(route('backend.employer.profile.force-destroy'), {
+        router.delete(route('backend.employer.profile.force-destroy', employerUser.id), {
           data: { password: result.value },
           preserveScroll: true,
           onSuccess: () => {
@@ -152,7 +232,7 @@ export default function EmployerShow({ user, stats }) {
               timer: 2000,
               showConfirmButton: false,
             });
-            window.location.href = route('dashboard');
+            router.visit(route('dashboard'));
           },
           onError: (error) => {
             Swal.fire({
@@ -168,13 +248,25 @@ export default function EmployerShow({ user, stats }) {
     });
   };
 
+  // Get user role display
+  const getUserRoleDisplay = () => {
+    if (isSuperAdmin && employerUser?.roles?.some(r => r.slug === 'super-admin')) return 'Super Admin';
+    if (employerUser?.roles?.some(r => r.slug === 'employer-admin')) return 'Employer Admin';
+    return 'Employer';
+  };
+
+  // Check if user can edit this employer
+  const canEdit = canEditTargetEmployer();
+
+  // Check if user can delete this employer
+  const canDelete = canDeleteTargetEmployer();
+
   return (
     <AuthenticatedLayout>
-      <Head title={`Employer Profile - ${user.name}`} />
+      <Head title={`Employer Profile - ${employerUser.name}`} />
 
       <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 py-8">
-        <div className="mx-auto px-4 sm:px-6 lg:px-8">
-
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header */}
           <div className="mb-6">
             <button
@@ -190,11 +282,18 @@ export default function EmployerShow({ user, stats }) {
                 <h1 className="text-3xl font-bold bg-linear-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
                   Employer Profile
                 </h1>
-                <p className="text-sm text-gray-500 mt-1">{user.name}</p>
+                <p className="text-sm text-gray-500 mt-1">{employerUser.name}</p>
               </div>
 
               <div className="flex gap-3">
-                {isTrashed && (isOwnProfile || isAdmin) && (
+                {!isOwnProfile && (
+                  <div className="bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg text-sm flex items-center gap-2">
+                    <FaUserShield size={14} />
+                    {getUserRoleDisplay()}
+                  </div>
+                )}
+
+                {isTrashed && canEdit && (
                   <button
                     onClick={handleRestore}
                     disabled={isRestoring}
@@ -205,28 +304,44 @@ export default function EmployerShow({ user, stats }) {
                   </button>
                 )}
 
-                {isOwnProfile && !isTrashed && (
-                  <>
-                    <Link
-                      href={route('backend.employer.profile.edit')}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-all duration-200"
-                    >
-                      <FaEdit size={14} />
-                      Edit Profile
-                    </Link>
-                    <button
-                      onClick={handleForceDelete}
-                      disabled={isDeleting}
-                      className="px-4 py-2 bg-red-600 text-white rounded-lg flex items-center gap-2 hover:bg-red-700 transition-all duration-200 disabled:opacity-50"
-                    >
-                      {isDeleting ? <FaSpinner className="animate-spin" size={14} /> : <FaTrash size={14} />}
-                      Delete Account
-                    </button>
-                  </>
+                {!isTrashed && isOwnProfile && (
+                  <Link
+                    href={route('backend.employer.profile.edit', employerUser.id)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-all duration-200"
+                  >
+                    <FaEdit size={14} />
+                    Edit Profile
+                  </Link>
+                )}
+
+                {!isTrashed && canDelete && (
+                  <button
+                    onClick={handleForceDelete}
+                    disabled={isDeleting}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg flex items-center gap-2 hover:bg-red-700 transition-all duration-200 disabled:opacity-50"
+                  >
+                    {isDeleting ? <FaSpinner className="animate-spin" size={14} /> : <FaTrash size={14} />}
+                    Delete Account
+                  </button>
                 )}
               </div>
             </div>
           </div>
+
+          {/* Warning for viewing another employer */}
+          {!isOwnProfile && !isTrashed && (
+            <div className="bg-amber-50 border-l-4 border-amber-400 rounded-lg p-4 mb-6">
+              <div className="flex items-start gap-3">
+                <FaExclamationTriangle className="text-amber-600 mt-0.5" size={18} />
+                <div>
+                  <p className="text-sm font-medium text-amber-800">Viewing Another Employer</p>
+                  <p className="text-xs text-amber-700 mt-1">
+                    You are currently viewing {employerUser.name}'s profile. Your actions are limited based on your permissions.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Trashed Warning */}
           {isTrashed && (
@@ -235,7 +350,7 @@ export default function EmployerShow({ user, stats }) {
               <div>
                 <p className="text-sm font-semibold text-red-800">Account Deactivated</p>
                 <p className="text-xs text-red-600">
-                  Deleted on {formatDate(user.deleted_at)}. Restore to reactivate.
+                  Deleted on {formatDate(employerUser.deleted_at)}. Restore to reactivate.
                 </p>
               </div>
             </div>
@@ -298,7 +413,7 @@ export default function EmployerShow({ user, stats }) {
                     {getCompanyLogo() ? (
                       <img
                         src={getCompanyLogo()}
-                        alt={user.company_name || user.name}
+                        alt={employerUser.company_name || employerUser.name}
                         className="w-24 h-24 rounded-xl object-cover border-2 border-gray-200 shadow-md"
                       />
                     ) : (
@@ -309,63 +424,63 @@ export default function EmployerShow({ user, stats }) {
                   </div>
                   <div className="flex-1">
                     <h3 className="text-2xl font-bold text-gray-900">
-                      {user.company_name || user.name}
+                      {employerUser.company_name || employerUser.name}
                     </h3>
-                    {user.industry && (
+                    {employerUser.industry && (
                       <p className="text-sm text-gray-500 flex items-center gap-2 mt-1">
                         <FaIndustry size={12} />
-                        {user.industry}
+                        {employerUser.industry}
                       </p>
                     )}
-                    {user.company_description && (
+                    {employerUser.company_description && (
                       <p className="text-sm text-gray-600 mt-3 leading-relaxed">
-                        {user.company_description}
+                        {employerUser.company_description}
                       </p>
                     )}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {user.company_website && (
+                  {employerUser.company_website && (
                     <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
                       <FaGlobe className="text-blue-500" size={16} />
                       <div>
                         <p className="text-xs text-gray-500">Website</p>
                         <a
-                          href={user.company_website}
+                          href={employerUser.company_website}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-sm text-blue-600 hover:underline"
                         >
-                          {user.company_website}
+                          {employerUser.company_website}
                         </a>
                       </div>
                     </div>
                   )}
-                  {user.company_phone && (
+                  {employerUser.company_phone && (
                     <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
                       <FaPhone className="text-green-500" size={16} />
                       <div>
                         <p className="text-xs text-gray-500">Phone</p>
-                        <p className="text-sm text-gray-900">{user.company_phone}</p>
+                        <p className="text-sm text-gray-900">{employerUser.company_phone}</p>
                       </div>
                     </div>
                   )}
-                  {user.company_address && (
+                  {employerUser.company_address && (
                     <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-lg">
                       <FaMapMarkerAlt className="text-purple-500" size={16} />
                       <div>
                         <p className="text-xs text-gray-500">Address</p>
-                        <p className="text-sm text-gray-900">{user.company_address}</p>
+                        <p className="text-sm text-gray-900">{employerUser.company_address}</p>
                       </div>
                     </div>
                   )}
-                  {user.company_size && (
+                  {employerUser.company_size && (
                     <div className="flex items-center gap-3 p-3 bg-orange-50 rounded-lg">
                       <FaUsers className="text-orange-500" size={16} />
                       <div>
                         <p className="text-xs text-gray-500">Company Size</p>
-                        <p className="text-sm text-gray-900">{user.company_size}</p>
+                        <p className="text-sm text-gray-900">{employerUser.company_size}</p>
                       </div>
                     </div>
                   )}
@@ -384,15 +499,15 @@ export default function EmployerShow({ user, stats }) {
                     <FaUserTie className="text-gray-500" size={16} />
                     <div>
                       <p className="text-xs text-gray-500">Name</p>
-                      <p className="text-sm font-medium text-gray-900">{user.name}</p>
+                      <p className="text-sm font-medium text-gray-900">{employerUser.name}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                     <FaEnvelope className="text-gray-500" size={16} />
                     <div>
                       <p className="text-xs text-gray-500">Email</p>
-                      <a href={`mailto:${user.email}`} className="text-sm text-blue-600 hover:underline">
-                        {user.email}
+                      <a href={`mailto:${employerUser.email}`} className="text-sm text-blue-600 hover:underline">
+                        {employerUser.email}
                       </a>
                     </div>
                   </div>
@@ -402,39 +517,40 @@ export default function EmployerShow({ user, stats }) {
                   <FaCalendarAlt className="text-gray-500" size={16} />
                   <div>
                     <p className="text-xs text-gray-500">Member Since</p>
-                    <p className="text-sm font-medium text-gray-900">{formatDate(user.created_at)}</p>
+                    <p className="text-sm font-medium text-gray-900">{formatDate(employerUser.created_at)}</p>
                   </div>
                 </div>
               </div>
 
               {/* Job Listings */}
-              {user.job_listings && user.job_listings.length > 0 && (
+              {employerUser.job_listings && employerUser.job_listings.length > 0 && (
                 <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
                   <div className="flex items-center justify-between mb-6 border-b border-gray-100 pb-4">
                     <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                       <FaBriefcase className="text-blue-500" size={22} />
                       Job Listings
                       <span className="text-sm font-normal text-gray-500">
-                        ({user.job_listings.length} total)
+                        ({employerUser.job_listings.length} total)
                       </span>
                     </h2>
-                    <Link
-                      // href={route('employer.jobs.index')}
-                      className="text-sm text-blue-600 hover:text-blue-800"
-                    >
-                      View All
-                    </Link>
+                    {isOwnProfile && (
+                      <Link
+                        href={route('employer.jobs.index')}
+                        className="text-sm text-blue-600 hover:text-blue-800"
+                      >
+                        View All
+                      </Link>
+                    )}
                   </div>
 
                   <div className="space-y-3 max-h-96 overflow-y-auto">
-                    {user.job_listings.slice(0, 10).map((job) => (
+                    {employerUser.job_listings.slice(0, 10).map((job) => (
                       <div
                         key={job.id}
                         className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
                       >
                         <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <div className={`w-2 h-2 rounded-full ${job.is_active ? 'bg-green-500' : 'bg-gray-400'
-                            }`} />
+                          <div className={`w-2 h-2 rounded-full ${job.is_active ? 'bg-green-500' : 'bg-gray-400'}`} />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-gray-900 truncate">
                               {job.title}
@@ -455,12 +571,14 @@ export default function EmployerShow({ user, stats }) {
                             </div>
                           </div>
                         </div>
-                        <Link
-                          // href={route('employer.applications.index', { job: job.id })}
-                          className="shrink-0 px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-                        >
-                          View Applications
-                        </Link>
+                        {isOwnProfile && (
+                          <Link
+                            href={route('employer.applications.index', { job: job.id })}
+                            className="shrink-0 px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                          >
+                            View Applications
+                          </Link>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -488,13 +606,11 @@ export default function EmployerShow({ user, stats }) {
                       ) : (
                         <FaCheckCircle className="text-green-500" size={16} />
                       )}
-                      <span className={`text-sm font-semibold ${isTrashed ? 'text-red-700' : 'text-green-700'
-                        }`}>
+                      <span className={`text-sm font-semibold ${isTrashed ? 'text-red-700' : 'text-green-700'}`}>
                         {isTrashed ? 'Deactivated' : 'Active'}
                       </span>
                     </div>
-                    <p className={`text-xs ${isTrashed ? 'text-red-600' : 'text-green-600'
-                      }`}>
+                    <p className={`text-xs ${isTrashed ? 'text-red-600' : 'text-green-600'}`}>
                       {isTrashed
                         ? 'This account has been deactivated. Restore to reactivate.'
                         : 'Account is active and in good standing.'}
@@ -504,7 +620,7 @@ export default function EmployerShow({ user, stats }) {
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">Role</span>
-                      <span className="font-medium text-gray-900 capitalize">{user.role}</span>
+                      <span className="font-medium text-gray-900 capitalize">{getUserRoleDisplay()}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">Total Jobs</span>
@@ -525,51 +641,38 @@ export default function EmployerShow({ user, stats }) {
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="space-y-2 pt-3 border-t border-gray-100">
-                    {isTrashed ? (
-                      <>
-                        <button
-                          onClick={handleRestore}
-                          disabled={isRestoring}
-                          className="w-full px-4 py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
-                        >
-                          {isRestoring ? <FaSpinner className="animate-spin" size={14} /> : <FaUndo size={14} />}
-                          Restore Account
-                        </button>
-                        {(isOwnProfile || isAdmin) && (
-                          <button
-                            onClick={handleForceDelete}
-                            disabled={isDeleting}
-                            className="w-full px-4 py-2.5 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                  {(canEdit || canDelete) && !isTrashed && (
+                    <div className="space-y-2 pt-3 border-t border-gray-100">
+                      {isOwnProfile && canEdit && (
+                        <>
+                          <Link
+                            href={route('backend.employer.profile.edit', employerUser.id)}
+                            className="w-full px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition flex items-center justify-center gap-2"
                           >
-                            {isDeleting ? <FaSpinner className="animate-spin" size={14} /> : <FaTrash size={14} />}
-                            Delete Permanently
-                          </button>
-                        )}
-                      </>
-                    ) : (
-                      <>
-                        {isOwnProfile && (
-                          <>
-                            <Link
-                              href={route('backend.employer.profile.edit')}
-                              className="w-full px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition flex items-center justify-center gap-2"
-                            >
-                              <FaEdit size={14} />
-                              Edit Profile
-                            </Link>
-                            <Link
-                              // href={route('backend.employer.profile.change-password')}
-                              className="w-full px-4 py-2.5 bg-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-300 transition flex items-center justify-center gap-2"
-                            >
-                              <FaLock size={14} />
-                              Change Password
-                            </Link>
-                          </>
-                        )}
-                      </>
-                    )}
-                  </div>
+                            <FaEdit size={14} />
+                            Edit Profile
+                          </Link>
+                          <Link
+                            href={route('backend.employer.profile.change-password', employerUser.id)}
+                            className="w-full px-4 py-2.5 bg-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-300 transition flex items-center justify-center gap-2"
+                          >
+                            <FaLock size={14} />
+                            Change Password
+                          </Link>
+                        </>
+                      )}
+                      {canDelete && !isOwnProfile && (
+                        <button
+                          onClick={handleForceDelete}
+                          disabled={isDeleting}
+                          className="w-full px-4 py-2.5 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                          {isDeleting ? <FaSpinner className="animate-spin" size={14} /> : <FaTrash size={14} />}
+                          Delete Account
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

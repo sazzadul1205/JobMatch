@@ -1,9 +1,20 @@
 // resources/js/Pages/Backend/Profile/Admin/Create.jsx
 
+// React
 import React, { useState } from 'react';
+
+// Inertia
 import { Head, useForm, router } from '@inertiajs/react';
+
+// Layout
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+
+// Sweetalert
 import Swal from 'sweetalert2';
+
+// Auth
+import { useAuth } from '@/hooks/useAuth';
+import { Can } from '../../../../components/Auth/Can';
 
 // Icons
 import {
@@ -18,9 +29,23 @@ import {
   FaExclamationCircle,
   FaUserShield,
   FaKey,
+  FaShieldAlt,
 } from 'react-icons/fa';
 
 export default function Create() {
+  // Use centralized auth hook
+  const {
+    user: currentUser,
+    hasAnyPermission,
+    hasRole,
+    isAuthenticated,
+  } = useAuth();
+
+  // Check permissions for admin management
+  const isSuperAdmin = hasRole('super-admin');
+  const canViewAdmins = hasAnyPermission(['admin.view', 'admin.manage']);
+  const canCreateAdmins = hasAnyPermission(['admin.create', 'admin.manage']);
+
   // Profile form
   const { data, setData, post, processing, errors } = useForm({
     name: '',
@@ -29,10 +54,50 @@ export default function Create() {
     password_confirmation: '',
   });
 
+  // show Password form
   const [showPassword, setShowPassword] = useState(false);
 
+  // If user doesn't have permission to create admins, show access denied
+  if (!canCreateAdmins) {
+    return (
+      <AuthenticatedLayout>
+        <Head title="Access Denied" />
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <FaShieldAlt className="w-10 h-10 text-red-500" />
+            </div>
+            <h2 className="text-xl font-semibold text-gray-900">Access Denied</h2>
+            <p className="text-gray-500 mt-2">You don't have permission to create admin accounts.</p>
+            {canViewAdmins && (
+              <button
+                onClick={() => router.visit(route('backend.admin-profile.index'))}
+                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+              >
+                Back to Admin List
+              </button>
+            )}
+          </div>
+        </div>
+      </AuthenticatedLayout>
+    );
+  }
+
+  // Handle form submission
   const handleSubmit = (e) => {
     e.preventDefault();
+
+    // Additional security check before submission
+    if (!canCreateAdmins) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Permission Denied',
+        text: 'You do not have permission to create admin accounts.',
+        confirmButtonColor: '#2563eb',
+      });
+      return;
+    }
+
     post(route('backend.admin-profile.store'), {
       onSuccess: () => {
         Swal.fire({
@@ -54,6 +119,7 @@ export default function Create() {
     });
   };
 
+  // Handle cancel
   const handleCancel = () => {
     router.visit(route('backend.admin-profile.index'));
   };
@@ -69,6 +135,7 @@ export default function Create() {
     return strength;
   };
 
+  // Calculate password strength
   const passwordStrength = getPasswordStrength(data.password);
   const strengthLabels = ['Very Weak', 'Weak', 'Fair', 'Good', 'Strong'];
   const strengthColors = ['bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-blue-500', 'bg-green-500'];
@@ -78,7 +145,7 @@ export default function Create() {
       <Head title="Create Admin Profile" />
 
       <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 py-8">
-        <div className="mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header with Back Button */}
           <div className="mb-6">
             <button
@@ -222,6 +289,23 @@ export default function Create() {
                     {errors.password_confirmation && (
                       <p className="text-red-500 text-xs mt-1">{errors.password_confirmation}</p>
                     )}
+
+                    {/* Password Match Indicator */}
+                    {data.password && data.password_confirmation && (
+                      <div className="mt-1">
+                        {data.password === data.password_confirmation ? (
+                          <p className="text-xs text-green-600 flex items-center gap-1">
+                            <FaCheckCircle size={10} />
+                            Passwords match
+                          </p>
+                        ) : (
+                          <p className="text-xs text-red-600 flex items-center gap-1">
+                            <FaExclamationCircle size={10} />
+                            Passwords do not match
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -260,7 +344,7 @@ export default function Create() {
                   </ul>
                 </div>
 
-                {/* Info Box */}
+                {/* Info Box - Shows different info based on user role */}
                 <div className="bg-purple-50 rounded-lg p-4 flex items-start gap-3">
                   <FaUserShield className="text-purple-500 mt-0.5" size={18} />
                   <div className="text-sm text-purple-800">
@@ -270,6 +354,9 @@ export default function Create() {
                       <li>They can manage users, jobs, and all platform settings</li>
                       <li>Make sure to provide a secure password</li>
                       <li>The admin will receive a welcome email with login instructions</li>
+                      {isSuperAdmin && (
+                        <li className="text-purple-900 font-medium">You are creating this as a super admin</li>
+                      )}
                     </ul>
                   </div>
                 </div>
@@ -284,14 +371,16 @@ export default function Create() {
                     <FaTimes size={14} />
                     Cancel
                   </button>
-                  <button
-                    type="submit"
-                    disabled={processing}
-                    className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 flex items-center gap-2"
-                  >
-                    {processing ? <FaSpinner className="animate-spin" size={14} /> : <FaSave size={14} />}
-                    {processing ? 'Creating...' : 'Create Admin'}
-                  </button>
+                  <Can permission="admin.create" fallback={null}>
+                    <button
+                      type="submit"
+                      disabled={processing}
+                      className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 flex items-center gap-2"
+                    >
+                      {processing ? <FaSpinner className="animate-spin" size={14} /> : <FaSave size={14} />}
+                      {processing ? 'Creating...' : 'Create Admin'}
+                    </button>
+                  </Can>
                 </div>
               </div>
             </form>

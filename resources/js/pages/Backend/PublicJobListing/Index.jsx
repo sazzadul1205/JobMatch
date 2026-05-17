@@ -9,6 +9,10 @@ import { Head, router, usePage } from '@inertiajs/react';
 // Layout
 import AuthenticatedLayout from '../../../layouts/AuthenticatedLayout';
 
+// Auth
+import { useAuth } from '../../../hooks/useAuth';
+import { Can } from '../../../components/Auth/Can';
+
 // Icons
 import {
   FaSearch,
@@ -26,6 +30,10 @@ import {
   FaChevronRight,
   FaBuilding,
   FaChartLine,
+  FaUserCheck,
+  FaRegBookmark,
+  FaBookmark,
+  FaShareAlt,
 } from 'react-icons/fa';
 
 // SweetAlert
@@ -43,11 +51,26 @@ export default function PublicJobListingsIndex({
 }) {
   const { flash } = usePage().props;
 
+  // Use centralized auth hook
+  const {
+    user: currentUser,
+    isAuthenticated,
+    hasRole,
+    hasAnyPermission,
+  } = useAuth();
+
+  // Check user roles/permissions
+  const isEmployer = hasRole('employer') || hasRole('employer-admin');
+  const canPostJobs = hasAnyPermission(['jobs.create', 'jobs.manage']);
+  const isSuperAdmin = hasRole('super-admin');
+
   // States
-  const [jobListings, setJobListings] = useState(initialJobListings);
-  const [showMobileFilters, setShowMobileFilters] = useState(false);
-  const [showSortMenu, setShowSortMenu] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [savedJobs, setSavedJobs] = useState([]);
+  const [savingJobId, setSavingJobId] = useState(null);
+  const [showSortMenu, setShowSortMenu] = useState(false);
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [jobListings, setJobListings] = useState(initialJobListings);
 
   // Filter states
   const [filters, setFilters] = useState({
@@ -77,7 +100,7 @@ export default function PublicJobListingsIndex({
   // Apply filters
   const applyFilters = () => {
     setLoading(true);
-    router.get(route('backend.public-jobs.index'), filters, {
+    router.get(route('public.jobs.index'), filters, {
       preserveState: true,
       preserveScroll: true,
       replace: true,
@@ -140,7 +163,7 @@ export default function PublicJobListingsIndex({
     if (page < 1 || page > pagination?.lastPage) return;
 
     setLoading(true);
-    router.get(route('backend.public-jobs.index'), { ...filters, page }, {
+    router.get(route('public.jobs.index'), { ...filters, page }, {
       preserveState: true,
       preserveScroll: true,
       replace: true,
@@ -153,6 +176,88 @@ export default function PublicJobListingsIndex({
         setLoading(false);
       },
     });
+  };
+
+  // Save/Unsave job
+  const handleSaveJob = async (jobId) => {
+    if (!isAuthenticated) {
+      Swal.fire({
+        icon: 'info',
+        title: 'Login Required',
+        text: 'Please login to save jobs to your profile.',
+        confirmButtonColor: '#2563eb',
+        showCancelButton: true,
+        confirmButtonText: 'Login Now',
+        cancelButtonText: 'Cancel',
+      }).then((result) => {
+        if (result.isConfirmed) {
+          router.visit(route('login'));
+        }
+      });
+      return;
+    }
+
+    setSavingJobId(jobId);
+
+    try {
+      const isSaved = savedJobs.includes(jobId);
+      const response = await router.post(route('public.jobs.save', jobId), {}, {
+        preserveScroll: true,
+        onSuccess: () => {
+          if (isSaved) {
+            setSavedJobs(prev => prev.filter(id => id !== jobId));
+            Swal.fire({
+              icon: 'success',
+              title: 'Removed',
+              text: 'Job removed from saved list.',
+              timer: 1500,
+              showConfirmButton: false,
+            });
+          } else {
+            setSavedJobs(prev => [...prev, jobId]);
+            Swal.fire({
+              icon: 'success',
+              title: 'Saved!',
+              text: 'Job saved to your profile.',
+              timer: 1500,
+              showConfirmButton: false,
+            });
+          }
+        },
+        onError: (error) => {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: error?.message || 'Failed to save job.',
+          });
+        },
+        onFinish: () => setSavingJobId(null),
+      });
+    } catch (error) {
+      setSavingJobId(null);
+    }
+  };
+
+  // Share job
+  const handleShareJob = (job) => {
+    const url = window.location.origin + route('public.jobs.show', job.slug);
+
+    if (navigator.share) {
+      navigator.share({
+        title: job.title,
+        text: `Check out this job opportunity: ${job.title}`,
+        url: url,
+      }).catch(() => { });
+    } else {
+      navigator.clipboard.writeText(url);
+      Swal.fire({
+        icon: 'success',
+        title: 'Link Copied!',
+        text: 'Job link copied to clipboard.',
+        timer: 1500,
+        showConfirmButton: false,
+      });
+    }
   };
 
   // Check if any filter is active
@@ -244,6 +349,21 @@ export default function PublicJobListingsIndex({
     }
   }, [flash]);
 
+  // Load saved jobs on mount if authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      // Fetch saved jobs from API
+      router.get(route('public.jobs.saved'), {}, {
+        preserveState: true,
+        onSuccess: (page) => {
+          if (page.props.savedJobIds) {
+            setSavedJobs(page.props.savedJobIds);
+          }
+        },
+      });
+    }
+  }, [isAuthenticated]);
+
   return (
     <AuthenticatedLayout>
       <Head title="Find Your Dream Job" />
@@ -273,12 +393,25 @@ export default function PublicJobListingsIndex({
                   />
                 </div>
               </div>
+
+              {/* Quick Links for Employers */}
+              <Can permission="jobs.create">
+                <div className="mt-6">
+                  <a
+                    href={route('employer.jobs.create')}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur-sm rounded-lg hover:bg-white/30 transition text-sm"
+                  >
+                    <FaBriefcase size={14} />
+                    Post a Job
+                  </a>
+                </div>
+              </Can>
             </div>
           </div>
         </div>
 
         {/* Main Content */}
-        <div className=" mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex flex-col lg:flex-row gap-6">
             {/* Sidebar Filters - Desktop */}
             <div className="hidden lg:block w-80 shrink-0">
@@ -431,7 +564,6 @@ export default function PublicJobListingsIndex({
 
               {showMobileFilters && (
                 <div className="mt-4 space-y-4">
-                  {/* Mobile filters - same as desktop but stacked */}
                   <select
                     value={filters.category}
                     onChange={(e) => handleFilterChange('category', e.target.value)}
@@ -484,6 +616,14 @@ export default function PublicJobListingsIndex({
                   <span className="font-semibold">{pagination?.to || 0}</span> of{' '}
                   <span className="font-semibold">{pagination?.total || 0}</span> jobs
                 </div>
+
+                {/* Welcome Message for Authenticated Users */}
+                {isAuthenticated && (
+                  <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 px-3 py-1 rounded-full">
+                    <FaUserCheck size={14} />
+                    <span>Welcome back, {currentUser?.name}!</span>
+                  </div>
+                )}
 
                 <div className="relative">
                   <button
@@ -590,96 +730,138 @@ export default function PublicJobListingsIndex({
               {/* Job Cards Grid */}
               {!loading && (
                 <div className="space-y-4">
-                  {jobListingItems.map((job, index) => (
-                    <div
-                      key={job.id}
-                      className="bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden animate-fade-in"
-                      style={{ animationDelay: `${index * 50}ms` }}
-                    >
-                      <div className="p-5">
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                          {/* Job Info */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-2 flex-wrap">
-                              <h2 className="text-xl font-bold text-gray-900 hover:text-blue-600 transition">
-                                <a href={route('backend.public-jobs.show', job.slug)}>
-                                  {job.title}
+                  {jobListingItems.map((job, index) => {
+                    const isSaved = savedJobs.includes(job.id);
+                    const isJobOwner = isEmployer && currentUser?.employer_id === job.employer_id;
+
+                    return (
+                      <div
+                        key={job.id}
+                        className="bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden animate-fade-in"
+                        style={{ animationDelay: `${index * 50}ms` }}
+                      >
+                        <div className="p-5">
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            {/* Job Info */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                <h2 className="text-xl font-bold text-gray-900 hover:text-blue-600 transition">
+                                  <a href={route('public.jobs.show', job.slug)}>
+                                    {job.title}
+                                  </a>
+                                </h2>
+                                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getJobTypeColor(job.job_type)}`}>
+                                  {job.job_type?.replace('-', ' ').toUpperCase()}
+                                </span>
+                                {job.experience_level && (
+                                  <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-700">
+                                    {job.experience_level}
+                                  </span>
+                                )}
+                                {isJobOwner && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-700">
+                                    <FaBuilding size={10} />
+                                    Your Job
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="flex flex-wrap gap-3 text-sm text-gray-500 mb-3">
+                                <div className="flex items-center gap-1">
+                                  <FaBuilding size={14} />
+                                  <span>{job.employer?.name || 'Company'}</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <FaMapMarkerAlt size={14} />
+                                  <span>
+                                    {job.locations?.length > 0
+                                      ? job.locations.map(l => l.name).join(', ')
+                                      : 'Location not specified'}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <FaDollarSign size={14} />
+                                  <span className="font-medium text-green-600">
+                                    {formatSalary(job)}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <p className="text-gray-600 text-sm mb-3 line-clamp-2">
+                                {job.description}
+                              </p>
+
+                              <div className="flex flex-wrap gap-3 text-xs">
+                                <div className={`flex items-center gap-1 px-2 py-1 rounded-full ${getDeadlineColor(job.application_deadline)}`}>
+                                  <FaCalendarAlt size={12} />
+                                  <span>{formatDate(job.application_deadline)}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Stats and Actions */}
+                            <div className="flex flex-col items-end gap-3">
+                              <div className="flex gap-3 text-sm">
+                                <div className="text-center">
+                                  <div className="flex items-center gap-1 text-blue-600">
+                                    <FaEye size={14} />
+                                    <span className="font-semibold">{job.views_count?.toLocaleString() || 0}</span>
+                                  </div>
+                                  <span className="text-xs text-gray-500">Views</span>
+                                </div>
+                                <div className="text-center">
+                                  <div className="flex items-center gap-1 text-purple-600">
+                                    <FaUsers size={14} />
+                                    <span className="font-semibold">{job.applications_count || 0}</span>
+                                  </div>
+                                  <span className="text-xs text-gray-500">Applied</span>
+                                </div>
+                              </div>
+
+                              <div className="flex gap-2">
+                                {/* Save Job Button */}
+                                <button
+                                  onClick={() => handleSaveJob(job.id)}
+                                  disabled={savingJobId === job.id}
+                                  className={`p-2 rounded-lg transition-all duration-200 ${isSaved
+                                    ? 'text-yellow-600 bg-yellow-50 hover:bg-yellow-100'
+                                    : 'text-gray-400 hover:text-yellow-600 hover:bg-yellow-50'
+                                    } ${savingJobId === job.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                  title={isSaved ? 'Remove from saved' : 'Save job'}
+                                >
+                                  {savingJobId === job.id ? (
+                                    <div className="w-5 h-5 border-2 border-gray-300 border-t-transparent rounded-full animate-spin" />
+                                  ) : isSaved ? (
+                                    <FaBookmark size={18} />
+                                  ) : (
+                                    <FaRegBookmark size={18} />
+                                  )}
+                                </button>
+
+                                {/* Share Button */}
+                                <button
+                                  onClick={() => handleShareJob(job)}
+                                  className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
+                                  title="Share job"
+                                >
+                                  <FaShareAlt size={16} />
+                                </button>
+
+                                {/* Apply Button */}
+                                <a
+                                  href={route('public.jobs.show', job.slug)}
+                                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium"
+                                >
+                                  View Details
+                                  <FaChevronRight size={12} />
                                 </a>
-                              </h2>
-                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getJobTypeColor(job.job_type)}`}>
-                                {job.job_type?.replace('-', ' ').toUpperCase()}
-                              </span>
-                              {job.experience_level && (
-                                <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-700">
-                                  {job.experience_level}
-                                </span>
-                              )}
-                            </div>
-
-                            <div className="flex flex-wrap gap-3 text-sm text-gray-500 mb-3">
-                              <div className="flex items-center gap-1">
-                                <FaBuilding size={14} />
-                                <span>{job.employer?.name || 'Company'}</span>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <FaMapMarkerAlt size={14} />
-                                <span>
-                                  {job.locations?.length > 0
-                                    ? job.locations.map(l => l.name).join(', ')
-                                    : 'Location not specified'}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <FaDollarSign size={14} />
-                                <span className="font-medium text-green-600">
-                                  {formatSalary(job)}
-                                </span>
                               </div>
                             </div>
-
-                            <p className="text-gray-600 text-sm mb-3 line-clamp-2">
-                              {job.description}
-                            </p>
-
-                            <div className="flex flex-wrap gap-3 text-xs">
-                              <div className={`flex items-center gap-1 px-2 py-1 rounded-full ${getDeadlineColor(job.application_deadline)}`}>
-                                <FaCalendarAlt size={12} />
-                                <span>{formatDate(job.application_deadline)}</span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Stats and Actions */}
-                          <div className="flex flex-col items-end gap-3">
-                            <div className="flex gap-3 text-sm">
-                              <div className="text-center">
-                                <div className="flex items-center gap-1 text-blue-600">
-                                  <FaEye size={14} />
-                                  <span className="font-semibold">{job.views_count?.toLocaleString() || 0}</span>
-                                </div>
-                                <span className="text-xs text-gray-500">Views</span>
-                              </div>
-                              <div className="text-center">
-                                <div className="flex items-center gap-1 text-purple-600">
-                                  <FaUsers size={14} />
-                                  <span className="font-semibold">{job.applications_count || 0}</span>
-                                </div>
-                                <span className="text-xs text-gray-500">Applied</span>
-                              </div>
-                            </div>
-
-                            <a
-                              href={route('backend.public-jobs.show', job.slug)}
-                              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium"
-                            >
-                              View Details
-                              <FaChevronRight size={12} />
-                            </a>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 

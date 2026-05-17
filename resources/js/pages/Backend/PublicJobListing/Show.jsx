@@ -1,7 +1,10 @@
 // resources/js/Pages/Public/JobListings/Show.jsx
 
-import { useState } from 'react';
-import { Head, router } from '@inertiajs/react';
+// React
+import { useState, useEffect } from 'react';
+
+// Inertia
+import { Head, router, usePage } from '@inertiajs/react';
 
 // Icons
 import {
@@ -27,6 +30,7 @@ import {
   FaChartLine,
   FaRocket,
   FaInfoCircle,
+  FaSpinner,
 } from 'react-icons/fa';
 import { FaListUl, FaListCheck } from "react-icons/fa6";
 
@@ -36,6 +40,10 @@ import Swal from 'sweetalert2';
 // Layout
 import AuthenticatedLayout from '../../../layouts/AuthenticatedLayout';
 
+// Auth
+import { useAuth } from '../../../hooks/useAuth';
+import { Can } from '../../../components/Auth/Can';
+
 export default function PublicJobListingShow({
   jobListing,
   userData,
@@ -43,9 +51,31 @@ export default function PublicJobListingShow({
   relatedJobs,
   applicationStats,
   averageAtsScore,
+  isBookmarked: initialIsBookmarked = false,
+  bookmarkId: initialBookmarkId = null,
 }) {
-  const [isBookmarked, setIsBookmarked] = useState(false);
+  // Use centralized auth hook
+  const {
+    user: currentUser,
+    isAuthenticated,
+    hasRole,
+    hasAnyPermission,
+  } = useAuth();
+
+  // Check user roles/permissions
+  const isSuperAdmin = hasRole('super-admin');
+  const isEmployer = hasRole('employer') || hasRole('employer-admin');
+  const canManageJobs = hasAnyPermission(['jobs.manage', 'jobs.update']);
+
+  // Check if current user owns this job
+  const isJobOwner = isEmployer && currentUser?.employer_id === jobListing?.employer_id;
+
+  // States
+  const [isApplying, setIsApplying] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
+  const [isSavingBookmark, setIsSavingBookmark] = useState(false);
+  const [bookmarkId, setBookmarkId] = useState(initialBookmarkId);
+  const [isBookmarked, setIsBookmarked] = useState(initialIsBookmarked);
 
   // Format currency in BDT
   const formatCurrency = (amount) => {
@@ -58,6 +88,7 @@ export default function PublicJobListingShow({
     }).format(amount).replace('BDT', '৳');
   };
 
+  // Format date
   const formatDate = (date) => {
     if (!date) return 'N/A';
     return new Date(date).toLocaleDateString('en-US', {
@@ -67,6 +98,7 @@ export default function PublicJobListingShow({
     });
   };
 
+  // Format date and time
   const formatDateTime = (date) => {
     if (!date) return 'N/A';
     return new Date(date).toLocaleDateString('en-US', {
@@ -78,6 +110,7 @@ export default function PublicJobListingShow({
     });
   };
 
+  // Get days left
   const getDaysLeft = (deadline) => {
     const daysLeft = Math.ceil((new Date(deadline) - new Date()) / (1000 * 60 * 60 * 24));
     if (daysLeft < 0) return 'Expired';
@@ -86,6 +119,7 @@ export default function PublicJobListingShow({
     return `${daysLeft} days left`;
   };
 
+  // Get deadline color
   const getDeadlineColor = () => {
     const daysLeft = Math.ceil((new Date(jobListing.application_deadline) - new Date()) / (1000 * 60 * 60 * 24));
     if (daysLeft <= 3) return 'from-red-50 to-red-100 border-red-200 text-red-800';
@@ -93,6 +127,7 @@ export default function PublicJobListingShow({
     return 'from-green-50 to-emerald-100 border-green-200 text-green-800';
   };
 
+  // Get job type label
   const getJobTypeLabel = (type) => {
     const types = {
       'full-time': 'Full Time',
@@ -105,6 +140,7 @@ export default function PublicJobListingShow({
     return types[type] || type;
   };
 
+  // Get job type badge
   const getJobTypeBadge = (type) => {
     const types = {
       'full-time': 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-200',
@@ -117,6 +153,7 @@ export default function PublicJobListingShow({
     return types[type] || 'bg-gray-100 text-gray-800 ring-1 ring-gray-200';
   };
 
+  // Get experience level label
   const getExperienceLabel = (level) => {
     const levels = {
       'entry': 'Entry Level',
@@ -129,6 +166,7 @@ export default function PublicJobListingShow({
     return levels[level] || level;
   };
 
+  // Get salary display
   const getSalaryDisplay = () => {
     if (jobListing.as_per_companies_policy) {
       return 'As per company policy';
@@ -148,6 +186,7 @@ export default function PublicJobListingShow({
     return 'Not specified';
   };
 
+  // Get formatted salary range
   const getFormattedSalaryRange = () => {
     if (jobListing.as_per_companies_policy) {
       return 'As per company policy';
@@ -167,6 +206,7 @@ export default function PublicJobListingShow({
     return 'Not specified';
   };
 
+  // Get ATS score color
   const getAtsScoreColor = (score) => {
     if (!score) return 'bg-gray-100 text-gray-600';
     if (score >= 80) return 'bg-emerald-100 text-emerald-800';
@@ -177,7 +217,7 @@ export default function PublicJobListingShow({
 
   // Apply Handler
   const handleApply = () => {
-    if (!userData) {
+    if (!isAuthenticated) {
       Swal.fire({
         title: 'Login Required',
         text: 'Please login or create an account to apply for this job.',
@@ -189,16 +229,94 @@ export default function PublicJobListingShow({
         cancelButtonText: 'Cancel',
       }).then((result) => {
         if (result.isConfirmed) {
-          router.visit(route('login'));
+          router.visit(route('login', { redirect: route('public.jobs.show', jobListing.slug) }));
         }
       });
       return;
     }
 
-    router.visit(route('backend.apply.create', jobListing.slug));
+    setIsApplying(true);
+    router.visit(route('apply.create', jobListing.slug), {
+      onFinish: () => setIsApplying(false),
+    });
   };
 
-  // Share and Bookmark Handlers
+  // Bookmark Handler
+  const handleBookmark = () => {
+    if (!isAuthenticated) {
+      Swal.fire({
+        title: 'Login Required',
+        text: 'Please login to save jobs to your bookmarks.',
+        icon: 'info',
+        showCancelButton: true,
+        confirmButtonColor: '#2563eb',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Login Now',
+        cancelButtonText: 'Cancel',
+      }).then((result) => {
+        if (result.isConfirmed) {
+          router.visit(route('login', { redirect: route('public.jobs.show', jobListing.slug) }));
+        }
+      });
+      return;
+    }
+
+    setIsSavingBookmark(true);
+
+    if (isBookmarked) {
+      // Remove bookmark
+      router.delete(route('bookmarks.destroy', bookmarkId), {
+        preserveScroll: true,
+        onSuccess: () => {
+          setIsBookmarked(false);
+          setBookmarkId(null);
+          Swal.fire({
+            icon: 'success',
+            title: 'Removed',
+            text: 'Job removed from your bookmarks.',
+            timer: 1500,
+            showConfirmButton: false,
+          });
+        },
+        onError: (error) => {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: error?.message || 'Failed to remove bookmark.',
+          });
+        },
+        onFinish: () => setIsSavingBookmark(false),
+      });
+    } else {
+      // Add bookmark
+      router.post(route('bookmarks.store'), {
+        job_listing_id: jobListing.id,
+      }, {
+        preserveScroll: true,
+        onSuccess: (response) => {
+          setIsBookmarked(true);
+          setBookmarkId(response.props.bookmarkId);
+          Swal.fire({
+            icon: 'success',
+            title: 'Saved!',
+            text: 'Job saved to your bookmarks.',
+            timer: 1500,
+            showConfirmButton: false,
+          });
+        },
+        onError: (error) => {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: error?.message || 'Failed to save bookmark.',
+          });
+        },
+        onFinish: () => setIsSavingBookmark(false),
+      });
+    }
+  };
+
+  // Share Handler
   const handleShare = () => {
     const url = window.location.href;
     navigator.clipboard.writeText(url);
@@ -212,21 +330,19 @@ export default function PublicJobListingShow({
     setShowShareMenu(false);
   };
 
-  // Bookmark Handler
-  const handleBookmark = () => {
-    setIsBookmarked(!isBookmarked);
-    Swal.fire({
-      icon: 'success',
-      title: isBookmarked ? 'Removed from Bookmarks' : 'Added to Bookmarks',
-      text: isBookmarked ? 'Job removed from your bookmarks.' : 'Job saved to your bookmarks.',
-      timer: 1500,
-      showConfirmButton: false,
-    });
-  };
-
   // Print Handler
   const handlePrint = () => {
     window.print();
+  };
+
+  // Edit Job Handler (for employers)
+  const handleEditJob = () => {
+    router.visit(route('employer.jobs.edit', jobListing.slug));
+  };
+
+  // Manage Applications Handler (for employers)
+  const handleManageApplications = () => {
+    router.visit(route('employer.jobs.applications', jobListing.slug));
   };
 
   // Info Section Component
@@ -305,8 +421,10 @@ export default function PublicJobListingShow({
     );
   };
 
+  // Deadline Card Component
   const deadlineColor = getDeadlineColor();
   const isExpired = new Date(jobListing.application_deadline) < new Date();
+  const canEditJob = isJobOwner || isSuperAdmin || canManageJobs;
 
   return (
     <AuthenticatedLayout>
@@ -337,6 +455,12 @@ export default function PublicJobListingShow({
                       {getExperienceLabel(jobListing.experience_level)}
                     </span>
                   )}
+                  {isJobOwner && (
+                    <span className="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/30 backdrop-blur-sm ring-1 ring-amber-400/50">
+                      <FaBuilding size={12} className="mr-1" />
+                      Your Job
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-white/80">
@@ -363,10 +487,18 @@ export default function PublicJobListingShow({
               <div className="flex gap-2 shrink-0">
                 <button
                   onClick={handleBookmark}
-                  className="p-2.5 bg-white/10 rounded-xl hover:bg-white/20 transition-all duration-200 backdrop-blur-sm hover:scale-105"
+                  disabled={isSavingBookmark}
+                  className={`p-2.5 rounded-xl transition-all duration-200 backdrop-blur-sm hover:scale-105 ${isSavingBookmark
+                      ? 'bg-white/10 opacity-50 cursor-not-allowed'
+                      : 'bg-white/10 hover:bg-white/20'
+                    }`}
                   title="Bookmark"
                 >
-                  <FaBookmark className={isBookmarked ? 'text-amber-400' : 'text-white/80'} size={16} />
+                  {isSavingBookmark ? (
+                    <FaSpinner className="animate-spin text-white/80" size={16} />
+                  ) : (
+                    <FaBookmark className={isBookmarked ? 'text-amber-400' : 'text-white/80'} size={16} />
+                  )}
                 </button>
                 <div className="relative">
                   <button
@@ -415,7 +547,7 @@ export default function PublicJobListingShow({
         </div>
 
         {/* Main Content */}
-        <div className=" mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-10">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Left Column - Main Content */}
             <div className="lg:col-span-2 space-y-6">
@@ -439,8 +571,39 @@ export default function PublicJobListingShow({
                 </div>
               )}
 
-              {/* Apply Button */}
-              {!isExpired && !hasApplied && (
+              {/* Employer Actions - Only visible to job owner */}
+              {canEditJob && !isExpired && (
+                <div className="bg-linear-to-r from-amber-50 to-orange-50 rounded-2xl border border-amber-200 p-5">
+                  <div className="flex items-center justify-between flex-wrap gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-amber-100 rounded-xl">
+                        <FaBuilding className="text-amber-600" size={18} />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-amber-800">Employer Actions</h3>
+                        <p className="text-sm text-amber-600">Manage your job posting</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={handleEditJob}
+                        className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition text-sm font-medium"
+                      >
+                        Edit Job
+                      </button>
+                      <button
+                        onClick={handleManageApplications}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium"
+                      >
+                        View Applications ({applicationStats.total || 0})
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Apply Button - Only for job seekers */}
+              {!isExpired && !hasApplied && !isJobOwner && (
                 <div className="bg-linear-to-r from-emerald-50 to-green-50 rounded-2xl border border-emerald-200 p-5">
                   <div className="flex items-center justify-between flex-wrap gap-4">
                     <div className="flex items-center gap-3">
@@ -454,15 +617,23 @@ export default function PublicJobListingShow({
                     </div>
                     <button
                       onClick={handleApply}
-                      className="px-6 py-2.5 bg-linear-to-r from-emerald-600 to-green-600 text-white rounded-xl hover:from-emerald-700 hover:to-green-700 transition-all duration-200 shadow-md hover:shadow-lg font-medium text-sm"
+                      disabled={isApplying}
+                      className="px-6 py-2.5 bg-linear-to-r from-emerald-600 to-green-600 text-white rounded-xl hover:from-emerald-700 hover:to-green-700 transition-all duration-200 shadow-md hover:shadow-lg font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
-                      Apply Now
+                      {isApplying ? (
+                        <>
+                          <FaSpinner className="animate-spin" size={16} />
+                          Processing...
+                        </>
+                      ) : (
+                        'Apply Now'
+                      )}
                     </button>
                   </div>
                 </div>
               )}
 
-              {hasApplied && (
+              {hasApplied && !isJobOwner && (
                 <div className="bg-linear-to-r from-sky-50 to-blue-50 rounded-2xl border border-sky-200 p-5">
                   <div className="flex items-center gap-4">
                     <div className="p-2 bg-sky-100 rounded-xl">
@@ -628,7 +799,7 @@ export default function PublicJobListingShow({
                 {relatedJobs.map((job) => (
                   <a
                     key={job.id}
-                    // href={route('public.job-listings.show', job.slug)}
+                    href={route('public.jobs.show', job.slug)}
                     className="group bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 p-5 border border-gray-100 hover:border-blue-200 block"
                   >
                     <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-1 mb-2">

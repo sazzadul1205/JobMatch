@@ -24,27 +24,55 @@ import {
   FaEye,
   FaBuilding,
   FaExclamationTriangle,
+  FaShieldAlt,
 } from 'react-icons/fa';
 
 // Layout
 import AuthenticatedLayout from '../../../layouts/AuthenticatedLayout';
 
+// Auth
+import { useAuth } from '../../../hooks/useAuth';
+import { Can } from '../../../components/Auth/Can';
+
 // SweetAlert2
 import Swal from 'sweetalert2';
 
-export default function LocationsIndex({locations: initialLocations,filters: initialFilters = {},stats = {},}) {
+export default function LocationsIndex({ locations: initialLocations, filters: initialFilters = {}, stats = {} }) {
   const { flash } = usePage().props;
 
+  // Use centralized auth hook
+  const {
+    user: currentUser,
+    hasAnyPermission,
+    hasRole,
+    isAuthenticated,
+  } = useAuth();
+
+  // Check permissions for location management
+  const isSuperAdmin = hasRole('super-admin');
+  const canViewLocations = hasAnyPermission(['locations.view', 'locations.manage']);
+  const canEditLocations = hasAnyPermission(['locations.update', 'locations.manage']);
+  const canToggleLocations = hasAnyPermission(['locations.update', 'locations.manage']);
+  const canCreateLocations = hasAnyPermission(['locations.create', 'locations.manage']);
+  const canDeleteLocations = hasAnyPermission(['locations.destroy', 'locations.manage']);
+  const canRestoreLocations = hasAnyPermission(['locations.restore', 'locations.manage']);
+  const canBulkDeleteLocations = hasAnyPermission(['locations.bulk_delete', 'locations.manage']);
+  const canBulkRestoreLocations = hasAnyPermission(['locations.bulk_restore', 'locations.manage']);
+  const canForceDeleteLocations = hasAnyPermission(['locations.force_delete', 'locations.manage']);
+  const canBulkActivateLocations = hasAnyPermission(['locations.bulk_activate', 'locations.manage']);
+  const canBulkDeactivateLocations = hasAnyPermission(['locations.bulk_deactivate', 'locations.manage']);
+  const canBulkForceDeleteLocations = hasAnyPermission(['locations.bulk_force_delete', 'locations.manage']);
+
   // States
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingLocation, setEditingLocation] = useState(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [togglingId, setTogglingId] = useState(null);
   const [restoringId, setRestoringId] = useState(null);
-  const [forceDeletingId, setForceDeletingId] = useState(null);
-  const [selectedLocations, setSelectedLocations] = useState([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [forceDeletingId, setForceDeletingId] = useState(null);
+  const [editingLocation, setEditingLocation] = useState(null);
+  const [selectedLocations, setSelectedLocations] = useState([]);
   const [isBulkProcessing, setIsBulkProcessing] = useState(false);
 
   // Pagination state
@@ -63,6 +91,24 @@ export default function LocationsIndex({locations: initialLocations,filters: ini
     address: '',
     is_active: true,
   });
+
+  // If user doesn't have permission to view locations, show access denied
+  if (!canViewLocations) {
+    return (
+      <AuthenticatedLayout>
+        <Head title="Access Denied" />
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <FaShieldAlt className="w-10 h-10 text-red-500" />
+            </div>
+            <h2 className="text-xl font-semibold text-gray-900">Access Denied</h2>
+            <p className="text-gray-500 mt-2">You don't have permission to view locations.</p>
+          </div>
+        </div>
+      </AuthenticatedLayout>
+    );
+  }
 
   // Get locations array from paginated response
   const locationItems = useMemo(() => {
@@ -174,9 +220,10 @@ export default function LocationsIndex({locations: initialLocations,filters: ini
   }, [locationItems, filters]);
 
   // Stats
-  const activeCount = locationItems.filter(loc => !loc.deleted_at && loc.is_active).length;
-  const inactiveCount = locationItems.filter(loc => !loc.deleted_at && !loc.is_active).length;
-  const deletedCount = locationItems.filter(loc => loc.deleted_at).length;
+  const activeCount = stats?.active || locationItems.filter(loc => !loc.deleted_at && loc.is_active).length;
+  const inactiveCount = stats?.inactive || locationItems.filter(loc => !loc.deleted_at && !loc.is_active).length;
+  const deletedCount = stats?.total_deleted || locationItems.filter(loc => loc.deleted_at).length;
+  const totalCount = stats?.total || locationItems.length;
 
   // Handle filter change
   const handleFilterChange = (key, value) => {
@@ -198,14 +245,15 @@ export default function LocationsIndex({locations: initialLocations,filters: ini
 
   // Bulk selection handlers
   const handleSelectAll = () => {
-    const nonDeletedLocations = filteredLocations.filter(loc => !loc.deleted_at);
-    if (selectedLocations.length === nonDeletedLocations.length) {
+    const selectableLocations = filteredLocations.filter(loc => !loc.deleted_at && canEditLocations);
+    if (selectedLocations.length === selectableLocations.length) {
       setSelectedLocations([]);
     } else {
-      setSelectedLocations(nonDeletedLocations.map(loc => loc.id));
+      setSelectedLocations(selectableLocations.map(loc => loc.id));
     }
   };
 
+  // Selection handlers
   const handleSelectLocation = (locationId) => {
     setSelectedLocations(prev =>
       prev.includes(locationId)
@@ -216,6 +264,11 @@ export default function LocationsIndex({locations: initialLocations,filters: ini
 
   // Bulk activate
   const handleBulkActivate = () => {
+    if (!canBulkActivateLocations) {
+      Swal.fire('Permission Denied', 'You do not have permission to bulk activate locations.', 'error');
+      return;
+    }
+
     if (selectedLocations.length === 0) {
       Swal.fire('No Selection', 'Please select at least one location.', 'warning');
       return;
@@ -265,6 +318,11 @@ export default function LocationsIndex({locations: initialLocations,filters: ini
 
   // Bulk deactivate
   const handleBulkDeactivate = () => {
+    if (!canBulkDeactivateLocations) {
+      Swal.fire('Permission Denied', 'You do not have permission to bulk deactivate locations.', 'error');
+      return;
+    }
+
     if (selectedLocations.length === 0) {
       Swal.fire('No Selection', 'Please select at least one location.', 'warning');
       return;
@@ -314,6 +372,11 @@ export default function LocationsIndex({locations: initialLocations,filters: ini
 
   // Bulk delete
   const handleBulkDelete = () => {
+    if (!canBulkDeleteLocations) {
+      Swal.fire('Permission Denied', 'You do not have permission to bulk delete locations.', 'error');
+      return;
+    }
+
     if (selectedLocations.length === 0) {
       Swal.fire('No Selection', 'Please select at least one location.', 'warning');
       return;
@@ -372,8 +435,13 @@ export default function LocationsIndex({locations: initialLocations,filters: ini
     });
   };
 
-  // Bulk force delete (permanently delete multiple locations)
+  // Bulk force delete
   const handleBulkForceDelete = () => {
+    if (!canBulkForceDeleteLocations) {
+      Swal.fire('Permission Denied', 'You do not have permission to permanently delete locations.', 'error');
+      return;
+    }
+
     if (selectedLocations.length === 0) {
       Swal.fire('No Selection', 'Please select at least one location.', 'warning');
       return;
@@ -408,33 +476,31 @@ export default function LocationsIndex({locations: initialLocations,filters: ini
       if (result.isConfirmed) {
         setIsBulkProcessing(true);
 
-        // Send requests for each selected trashed location
-        const deletePromises = trashedSelected.map(id => {
-          return router.delete(route('backend.locations.force-delete', id), {
-            preserveScroll: true,
-            onError: () => { }
-          });
-        });
-
-        Promise.all(deletePromises).then(() => {
-          Swal.fire({
-            icon: 'success',
-            title: 'Deleted!',
-            text: `${trashedSelected.length} location(s) have been permanently deleted.`,
-            timer: 1500,
-            showConfirmButton: false
-          });
-          setSelectedLocations([]);
-          setIsBulkProcessing(false);
-          router.reload();
-        }).catch(() => {
-          Swal.fire({
-            icon: 'error',
-            title: 'Failed',
-            text: 'Failed to permanently delete some locations.',
-          });
-          setIsBulkProcessing(false);
-          router.reload();
+        router.post(route('backend.locations.bulk-force-delete'), {
+          location_ids: trashedSelected
+        }, {
+          preserveScroll: true,
+          onSuccess: () => {
+            Swal.fire({
+              icon: 'success',
+              title: 'Deleted!',
+              text: `${trashedSelected.length} location(s) have been permanently deleted.`,
+              timer: 1500,
+              showConfirmButton: false
+            });
+            setSelectedLocations([]);
+            setIsBulkProcessing(false);
+            router.reload();
+          },
+          onError: (error) => {
+            Swal.fire({
+              icon: 'error',
+              title: 'Failed',
+              text: error?.message || 'Failed to permanently delete locations.',
+            });
+            setIsBulkProcessing(false);
+            router.reload();
+          }
         });
       }
     });
@@ -442,6 +508,11 @@ export default function LocationsIndex({locations: initialLocations,filters: ini
 
   // Bulk restore
   const handleBulkRestore = () => {
+    if (!canBulkRestoreLocations) {
+      Swal.fire('Permission Denied', 'You do not have permission to bulk restore locations.', 'error');
+      return;
+    }
+
     if (selectedLocations.length === 0) {
       Swal.fire('No Selection', 'Please select at least one location.', 'warning');
       return;
@@ -489,14 +560,23 @@ export default function LocationsIndex({locations: initialLocations,filters: ini
     });
   };
 
-  // Modal handlers
+  // Modal handlers - Create
   const handleOpenCreate = () => {
+    if (!canCreateLocations) {
+      Swal.fire('Permission Denied', 'You do not have permission to create locations.', 'error');
+      return;
+    }
     setEditingLocation(null);
     setFormData({ name: '', address: '', is_active: true });
     setIsModalOpen(true);
   };
 
+  // Modal handlers - Edit
   const handleOpenEdit = (location) => {
+    if (!canEditLocations) {
+      Swal.fire('Permission Denied', 'You do not have permission to edit locations.', 'error');
+      return;
+    }
     setEditingLocation(location);
     setFormData({
       name: location.name,
@@ -506,13 +586,21 @@ export default function LocationsIndex({locations: initialLocations,filters: ini
     setIsModalOpen(true);
   };
 
+  // Modal handlers - Close
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingLocation(null);
   };
 
+  // Modal handlers - Submit
   const handleSubmit = (e) => {
     e.preventDefault();
+
+    if (!canCreateLocations && !canEditLocations) {
+      Swal.fire('Permission Denied', 'You do not have permission to save locations.', 'error');
+      return;
+    }
+
     setIsSubmitting(true);
 
     if (editingLocation) {
@@ -566,6 +654,11 @@ export default function LocationsIndex({locations: initialLocations,filters: ini
 
   // Single location actions
   const handleDelete = (id, name) => {
+    if (!canDeleteLocations) {
+      Swal.fire('Permission Denied', 'You do not have permission to delete locations.', 'error');
+      return;
+    }
+
     Swal.fire({
       title: 'Delete Location?',
       text: `Are you sure you want to delete "${name}"? This will move it to trash.`,
@@ -624,6 +717,11 @@ export default function LocationsIndex({locations: initialLocations,filters: ini
 
   // Force delete (permanently delete a trashed location)
   const handleForceDelete = (id, name) => {
+    if (!canForceDeleteLocations) {
+      Swal.fire('Permission Denied', 'You do not have permission to permanently delete locations.', 'error');
+      return;
+    }
+
     Swal.fire({
       title: 'Permanently Delete Location?',
       html: `Are you sure you want to <strong>permanently delete</strong> "${name}"?<br/><br/>This action <strong>cannot be undone</strong> and will remove this location from the database completely.`,
@@ -680,7 +778,13 @@ export default function LocationsIndex({locations: initialLocations,filters: ini
     });
   };
 
+  // Restore a trashed location
   const handleRestore = (id, name) => {
+    if (!canRestoreLocations) {
+      Swal.fire('Permission Denied', 'You do not have permission to restore locations.', 'error');
+      return;
+    }
+
     Swal.fire({
       title: 'Restore Location?',
       text: `Are you sure you want to restore "${name}"?`,
@@ -720,7 +824,13 @@ export default function LocationsIndex({locations: initialLocations,filters: ini
     });
   };
 
+  // Toggle location status
   const handleToggle = (location) => {
+    if (!canToggleLocations) {
+      Swal.fire('Permission Denied', 'You do not have permission to change location status.', 'error');
+      return;
+    }
+
     Swal.fire({
       title: location.is_active ? 'Deactivate Location?' : 'Activate Location?',
       text: `This will ${location.is_active ? 'deactivate' : 'activate'} "${location.name}".`,
@@ -871,6 +981,13 @@ export default function LocationsIndex({locations: initialLocations,filters: ini
     }
   }, [flash]);
 
+  // Check Permissions
+  const canBulkActivate = canBulkActivateLocations && selectedLocations.length > 0;
+  const canBulkDeactivate = canBulkDeactivateLocations && selectedLocations.length > 0;
+  const canBulkDelete = canBulkDeleteLocations && selectedLocations.length > 0;
+  const canBulkForceDelete = canBulkForceDeleteLocations && selectedLocations.length > 0;
+  const canBulkRestore = canBulkRestoreLocations && selectedLocations.length > 0;
+
   return (
     <AuthenticatedLayout>
       <Head title="Locations" />
@@ -889,22 +1006,22 @@ export default function LocationsIndex({locations: initialLocations,filters: ini
               <div className="flex gap-3 mt-2 flex-wrap">
                 <span className="inline-flex items-center gap-1 text-xs">
                   <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                  Active: {stats?.active ?? 0}
+                  Active: {activeCount}
                 </span>
 
                 <span className="inline-flex items-center gap-1 text-xs">
                   <span className="w-2 h-2 rounded-full bg-red-500"></span>
-                  Inactive: {stats?.inactive ?? 0}
+                  Inactive: {inactiveCount}
                 </span>
 
                 <span className="inline-flex items-center gap-1 text-xs">
                   <span className="w-2 h-2 rounded-full bg-gray-400"></span>
-                  Deleted: {stats?.total_deleted ?? 0}
+                  Deleted: {deletedCount}
                 </span>
 
                 <span className="inline-flex items-center gap-1 text-xs text-gray-500">
                   <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                  Total: {stats?.total ?? 0}
+                  Total: {totalCount}
                 </span>
               </div>
             </div>
@@ -927,13 +1044,15 @@ export default function LocationsIndex({locations: initialLocations,filters: ini
                 {showFilters ? <FaChevronUp size={12} /> : <FaChevronDown size={12} />}
               </button>
 
-              <button
-                onClick={handleOpenCreate}
-                className="bg-linear-to-r from-blue-600 to-blue-700 text-white px-5 py-2.5 rounded-lg flex items-center gap-2 hover:from-blue-700 hover:to-blue-800 transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg"
-              >
-                <FaPlus size={16} />
-                Add Location
-              </button>
+              <Can permission="locations.create" fallback={null}>
+                <button
+                  onClick={handleOpenCreate}
+                  className="bg-linear-to-r from-blue-600 to-blue-700 text-white px-5 py-2.5 rounded-lg flex items-center gap-2 hover:from-blue-700 hover:to-blue-800 transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg"
+                >
+                  <FaPlus size={16} />
+                  Add Location
+                </button>
+              </Can>
             </div>
           </div>
 
@@ -948,46 +1067,56 @@ export default function LocationsIndex({locations: initialLocations,filters: ini
                   </span>
                 </div>
                 <div className="flex gap-2 flex-wrap">
-                  <button
-                    onClick={handleBulkActivate}
-                    disabled={isBulkProcessing}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-200 flex items-center gap-2 disabled:opacity-50"
-                  >
-                    <FaCheckCircle size={14} />
-                    Activate All
-                  </button>
-                  <button
-                    onClick={handleBulkDeactivate}
-                    disabled={isBulkProcessing}
-                    className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-all duration-200 flex items-center gap-2 disabled:opacity-50"
-                  >
-                    <FaBan size={14} />
-                    Deactivate All
-                  </button>
-                  <button
-                    onClick={handleBulkRestore}
-                    disabled={isBulkProcessing}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-200 flex items-center gap-2 disabled:opacity-50"
-                  >
-                    <FaUndo size={14} />
-                    Restore All
-                  </button>
-                  <button
-                    onClick={handleBulkForceDelete}
-                    disabled={isBulkProcessing}
-                    className="px-4 py-2 bg-red-700 text-white rounded-lg hover:bg-red-800 transition-all duration-200 flex items-center gap-2 disabled:opacity-50"
-                  >
-                    <FaExclamationTriangle size={14} />
-                    Permanently Delete
-                  </button>
-                  <button
-                    onClick={handleBulkDelete}
-                    disabled={isBulkProcessing}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-200 flex items-center gap-2 disabled:opacity-50"
-                  >
-                    <FaTrash size={14} />
-                    Delete All
-                  </button>
+                  {canBulkActivate && (
+                    <button
+                      onClick={handleBulkActivate}
+                      disabled={isBulkProcessing}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-200 flex items-center gap-2 disabled:opacity-50"
+                    >
+                      <FaCheckCircle size={14} />
+                      Activate All
+                    </button>
+                  )}
+                  {canBulkDeactivate && (
+                    <button
+                      onClick={handleBulkDeactivate}
+                      disabled={isBulkProcessing}
+                      className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-all duration-200 flex items-center gap-2 disabled:opacity-50"
+                    >
+                      <FaBan size={14} />
+                      Deactivate All
+                    </button>
+                  )}
+                  {canBulkRestore && (
+                    <button
+                      onClick={handleBulkRestore}
+                      disabled={isBulkProcessing}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-200 flex items-center gap-2 disabled:opacity-50"
+                    >
+                      <FaUndo size={14} />
+                      Restore All
+                    </button>
+                  )}
+                  {canBulkForceDelete && (
+                    <button
+                      onClick={handleBulkForceDelete}
+                      disabled={isBulkProcessing}
+                      className="px-4 py-2 bg-red-700 text-white rounded-lg hover:bg-red-800 transition-all duration-200 flex items-center gap-2 disabled:opacity-50"
+                    >
+                      <FaExclamationTriangle size={14} />
+                      Permanently Delete
+                    </button>
+                  )}
+                  {canBulkDelete && (
+                    <button
+                      onClick={handleBulkDelete}
+                      disabled={isBulkProcessing}
+                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-200 flex items-center gap-2 disabled:opacity-50"
+                    >
+                      <FaTrash size={14} />
+                      Delete All
+                    </button>
+                  )}
                   <button
                     onClick={() => setSelectedLocations([])}
                     className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all duration-200"
@@ -1056,10 +1185,10 @@ export default function LocationsIndex({locations: initialLocations,filters: ini
                     <th className="px-4 py-4 text-left">
                       <input
                         type="checkbox"
-                        checked={selectedLocations.length === filteredLocations.filter(loc => !loc.deleted_at).length && filteredLocations.filter(loc => !loc.deleted_at).length > 0}
+                        checked={selectedLocations.length === filteredLocations.filter(loc => !loc.deleted_at && canEditLocations).length && filteredLocations.filter(loc => !loc.deleted_at && canEditLocations).length > 0}
                         onChange={handleSelectAll}
                         className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                        disabled={filteredLocations.filter(loc => !loc.deleted_at).length === 0}
+                        disabled={filteredLocations.filter(loc => !loc.deleted_at && canEditLocations).length === 0}
                       />
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
@@ -1105,6 +1234,11 @@ export default function LocationsIndex({locations: initialLocations,filters: ini
 
                   {filteredLocations.map((location, index) => {
                     const trashed = location.deleted_at !== null;
+                    const canEdit = canEditLocations && !trashed;
+                    const canDelete = canDeleteLocations && !trashed;
+                    const canRestore = canRestoreLocations && trashed;
+                    const canForceDelete = canForceDeleteLocations && trashed;
+                    const canToggle = canToggleLocations && !trashed;
 
                     return (
                       <tr
@@ -1113,7 +1247,7 @@ export default function LocationsIndex({locations: initialLocations,filters: ini
                         style={{ animationDelay: `${index * 50}ms` }}
                       >
                         <td className="px-4 py-4">
-                          {!trashed && (
+                          {!trashed && canEdit && (
                             <input
                               type="checkbox"
                               checked={selectedLocations.includes(location.id)}
@@ -1154,11 +1288,12 @@ export default function LocationsIndex({locations: initialLocations,filters: ini
                           {!trashed ? (
                             <button
                               onClick={() => handleToggle(location)}
-                              disabled={togglingId === location.id}
+                              disabled={togglingId === location.id || !canToggle}
                               className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 transform hover:scale-105 flex items-center gap-2 ${location.is_active
                                 ? 'bg-green-100 text-green-800 hover:bg-green-200'
                                 : 'bg-red-100 text-red-800 hover:bg-red-200'
-                                } ${togglingId === location.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                } ${(togglingId === location.id || !canToggle) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                              title={!canToggle ? 'You do not have permission to change location status' : ''}
                             >
                               {togglingId === location.id ? (
                                 <FaSpinner className="animate-spin" size={12} />
@@ -1185,60 +1320,62 @@ export default function LocationsIndex({locations: initialLocations,filters: ini
                         {/* ACTIONS */}
                         <td className="px-6 py-4 whitespace-nowrap text-right">
                           <div className="flex justify-end gap-2">
-                            {!trashed && (
-                              <>
-                                <button
-                                  onClick={() => handleOpenEdit(location)}
-                                  className="p-2 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded-lg transition-all duration-200"
-                                  title="Edit Location"
-                                >
-                                  <FaEdit size={18} />
-                                </button>
-                                <button
-                                  onClick={() => handleDelete(location.id, location.name)}
-                                  disabled={deletingId === location.id}
-                                  className={`p-2 text-red-600 hover:text-red-900 hover:bg-red-50 rounded-lg transition-all duration-200 ${deletingId === location.id ? 'opacity-50 cursor-not-allowed' : ''
-                                    }`}
-                                  title="Delete Location"
-                                >
-                                  {deletingId === location.id ? (
-                                    <FaSpinner className="animate-spin" size={18} />
-                                  ) : (
-                                    <FaTrash size={18} />
-                                  )}
-                                </button>
-                              </>
+                            {!trashed && canEdit && (
+                              <button
+                                onClick={() => handleOpenEdit(location)}
+                                className="p-2 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded-lg transition-all duration-200"
+                                title="Edit Location"
+                              >
+                                <FaEdit size={18} />
+                              </button>
                             )}
 
-                            {trashed && (
-                              <>
-                                <button
-                                  onClick={() => handleRestore(location.id, location.name)}
-                                  disabled={restoringId === location.id}
-                                  className={`p-2 text-green-600 hover:text-green-900 hover:bg-green-50 rounded-lg transition-all duration-200 ${restoringId === location.id ? 'opacity-50 cursor-not-allowed' : ''
-                                    }`}
-                                  title="Restore Location"
-                                >
-                                  {restoringId === location.id ? (
-                                    <FaSpinner className="animate-spin" size={18} />
-                                  ) : (
-                                    <FaUndo size={18} />
-                                  )}
-                                </button>
-                                <button
-                                  onClick={() => handleForceDelete(location.id, location.name)}
-                                  disabled={forceDeletingId === location.id}
-                                  className={`p-2 text-red-700 hover:text-red-900 hover:bg-red-100 rounded-lg transition-all duration-200 ${forceDeletingId === location.id ? 'opacity-50 cursor-not-allowed' : ''
-                                    }`}
-                                  title="Permanently Delete (Cannot be undone)"
-                                >
-                                  {forceDeletingId === location.id ? (
-                                    <FaSpinner className="animate-spin" size={18} />
-                                  ) : (
-                                    <FaExclamationTriangle size={18} />
-                                  )}
-                                </button>
-                              </>
+                            {!trashed && canDelete && (
+                              <button
+                                onClick={() => handleDelete(location.id, location.name)}
+                                disabled={deletingId === location.id}
+                                className={`p-2 text-red-600 hover:text-red-900 hover:bg-red-50 rounded-lg transition-all duration-200 ${deletingId === location.id ? 'opacity-50 cursor-not-allowed' : ''
+                                  }`}
+                                title="Delete Location"
+                              >
+                                {deletingId === location.id ? (
+                                  <FaSpinner className="animate-spin" size={18} />
+                                ) : (
+                                  <FaTrash size={18} />
+                                )}
+                              </button>
+                            )}
+
+                            {trashed && canRestore && (
+                              <button
+                                onClick={() => handleRestore(location.id, location.name)}
+                                disabled={restoringId === location.id}
+                                className={`p-2 text-green-600 hover:text-green-900 hover:bg-green-50 rounded-lg transition-all duration-200 ${restoringId === location.id ? 'opacity-50 cursor-not-allowed' : ''
+                                  }`}
+                                title="Restore Location"
+                              >
+                                {restoringId === location.id ? (
+                                  <FaSpinner className="animate-spin" size={18} />
+                                ) : (
+                                  <FaUndo size={18} />
+                                )}
+                              </button>
+                            )}
+
+                            {trashed && canForceDelete && (
+                              <button
+                                onClick={() => handleForceDelete(location.id, location.name)}
+                                disabled={forceDeletingId === location.id}
+                                className={`p-2 text-red-700 hover:text-red-900 hover:bg-red-100 rounded-lg transition-all duration-200 ${forceDeletingId === location.id ? 'opacity-50 cursor-not-allowed' : ''
+                                  }`}
+                                title="Permanently Delete (Cannot be undone)"
+                              >
+                                {forceDeletingId === location.id ? (
+                                  <FaSpinner className="animate-spin" size={18} />
+                                ) : (
+                                  <FaExclamationTriangle size={18} />
+                                )}
+                              </button>
                             )}
                           </div>
                         </td>
@@ -1255,8 +1392,8 @@ export default function LocationsIndex({locations: initialLocations,filters: ini
         </div>
       </div>
 
-      {/* MODAL - Create/Edit Location */}
-      {isModalOpen && (
+      {/* MODAL - Create/Edit Location - Only shown if user has permission */}
+      {isModalOpen && (canCreateLocations || canEditLocations) && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-fade-in">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 transform transition-all duration-300 animate-slide-up">
             <div className="flex justify-between items-center p-6 border-b">
