@@ -363,7 +363,7 @@ export default function ApplyCreate({ jobListing, applicantProfile, cvs }) {
       <Head title={`Apply for ${jobListing.title}`} />
 
       <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 py-6 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-6xl mx-auto">
+        <div className=" mx-auto">
           {/* Back Button */}
           <button
             onClick={() => window.history.back()}

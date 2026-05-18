@@ -236,7 +236,7 @@ export default function PublicJobListingShow({
     }
 
     setIsApplying(true);
-    router.visit(route('apply.create', jobListing.slug), {
+    router.visit(route('backend.apply.create', jobListing.slug), {
       onFinish: () => setIsApplying(false),
     });
   };
@@ -489,8 +489,8 @@ export default function PublicJobListingShow({
                   onClick={handleBookmark}
                   disabled={isSavingBookmark}
                   className={`p-2.5 rounded-xl transition-all duration-200 backdrop-blur-sm hover:scale-105 ${isSavingBookmark
-                      ? 'bg-white/10 opacity-50 cursor-not-allowed'
-                      : 'bg-white/10 hover:bg-white/20'
+                    ? 'bg-white/10 opacity-50 cursor-not-allowed'
+                    : 'bg-white/10 hover:bg-white/20'
                     }`}
                   title="Bookmark"
                 >

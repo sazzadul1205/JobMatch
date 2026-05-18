@@ -54,7 +54,7 @@ export default function ApplyIndex({ applications: initialApplications, stats: i
   } = useAuth();
 
   // Check user role and permissions
-  const isJobSeeker = hasRole('job_seeker');
+  const isJobSeeker = hasRole('job-seeker') || hasRole('job_seeker');
   const canViewAllApplications = hasAnyPermission(['applications.view', 'applications.manage']);
   const isAdmin = canViewAllApplications;
 

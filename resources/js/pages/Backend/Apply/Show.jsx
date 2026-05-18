@@ -54,8 +54,16 @@ export default function ApplyShow({ application, jobListing, statusTimeline, ats
   } = useAuth();
 
   // Check permissions
-  const isJobSeeker = hasRole('job_seeker');
-  const canViewAllApplications = hasAnyPermission(['applications.view', 'applications.manage']);
+  // Check permissions - FIXED: Use correct permission slugs
+  const isJobSeeker = hasRole('job-seeker') || hasRole('job_seeker');
+  // Check for both apply.* and applications.* permissions
+  const canViewAllApplications = hasAnyPermission([
+    'apply.view',
+    'apply.view.any',
+    'apply.show',
+    'applications.view',
+    'applications.manage'
+  ]);
   const isAdmin = canViewAllApplications;
 
   // Check if user is the owner of this application
@@ -447,7 +455,7 @@ export default function ApplyShow({ application, jobListing, statusTimeline, ats
       <Head title={`Application for ${jobListing.title}`} />
 
       <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 py-8 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-6xl mx-auto">
+        <div className=" mx-auto">
           {/* Back Button */}
           <button
             onClick={() => router.get(route('backend.apply.index'))}

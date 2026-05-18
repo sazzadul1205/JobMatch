@@ -55,7 +55,7 @@ export default function ApplyEdit({ application, jobListing, cvs, currentCvId })
   // Check if user is the owner of this application
   const isJobSeeker = hasRole('job_seeker');
   const isOwner = currentUser?.id === application?.user_id;
-  const canEditApplications = hasAnyPermission(['applications.update', 'applications.manage']);
+  const canEditApplications = hasAnyPermission(['apply.update', 'apply.edit', 'applications.update', 'applications.manage']);
 
   // Authorization check - only the applicant or admin can edit
   const canEdit = isOwner || canEditApplications;
@@ -620,7 +620,7 @@ export default function ApplyEdit({ application, jobListing, cvs, currentCvId })
       <Head title={`Edit Application for ${jobListing.title}`} />
 
       <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 py-8 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-6xl mx-auto">
+        <div className=" mx-auto">
           {/* Back Button */}
           <button
             onClick={() => window.history.back()}
