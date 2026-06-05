@@ -7,6 +7,37 @@ const OurProgramsSection = ({ programsData }) => {
   const [visibleCards, setVisibleCards] = useState([]);
   const cardsRef = useRef([]);
 
+  // Function to strip HTML tags and get plain text
+  const stripHtmlTags = (html) => {
+    const temp = document.createElement('div');
+    temp.innerHTML = html;
+    return temp.textContent || temp.innerText || '';
+  };
+
+  // Function to truncate HTML content to ~9 lines
+  const truncateHtml = (html, maxLines = 9) => {
+    if (!html) return '';
+
+    // Strip HTML to get plain text
+    const plainText = stripHtmlTags(html);
+    const words = plainText.split(' ');
+
+    // Estimate: roughly 15 words per line (adjust based on your font size)
+    const wordsPerLine = 20;
+    const maxWords = maxLines * wordsPerLine;
+
+    if (words.length <= maxWords) {
+      return html;
+    }
+
+    // Find where to cut
+    let truncatedText = words.slice(0, maxWords).join(' ');
+    truncatedText = truncatedText + '...';
+
+    // Return as simple paragraph with ellipsis
+    return `<p class="font-400 text-[16px] sm:text-[18px] lg:text-[20px] text-[#524B48] leading-relaxed">${truncatedText}</p>`;
+  };
+
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -95,104 +126,111 @@ const OurProgramsSection = ({ programsData }) => {
               height: `${programs.length * 100}vh`,
             }}
           >
-            {programs.map((program, index) => (
-              <div
-                key={program.id}
-                ref={(el) => (cardsRef.current[index] = el)}
-                data-id={program.id}
-                className={`
-                  sticky top-25 w-full
-                  transition-all duration-700 ease-out
-                  ${visibleCards.includes(program.id)
-                    ? "opacity-100 translate-y-0"
-                    : "opacity-0 translate-y-16"
-                  }
-                `}
-                style={{
-                  zIndex: index + 1,
-                }}
-              >
+            {programs.map((program, index) => {
+              // Truncate description to 9 lines
+              const truncatedDescription = truncateHtml(program.description, 9);
+
+              return (
                 <div
+                  key={program.id}
+                  ref={(el) => (cardsRef.current[index] = el)}
+                  data-id={program.id}
                   className={`
-                    ${program.bgColor}
-                    flex flex-col lg:flex-row
-                    justify-between
-                    items-center
-                    gap-8 lg:gap-25
-                    p-5 sm:p-6 md:p-8 lg:p-25
-                    rounded-3xl
-                    min-h-162.5
-                    lg:h-187.5
-                    shadow-lg
+                    sticky top-25 w-full
+                    transition-all duration-700 ease-out
+                    ${visibleCards.includes(program.id)
+                      ? "opacity-100 translate-y-0"
+                      : "opacity-0 translate-y-16"
+                    }
                   `}
+                  style={{
+                    zIndex: index + 1,
+                  }}
                 >
-                  {/* Left Content */}
-                  <div className="w-full lg:w-1/2 flex flex-col justify-center">
-                    <h3 className="bricolage-grotesque font-600 text-[24px] sm:text-[28px] md:text-[36px] lg:text-[46px] text-[#080C14] leading-tight mb-5">
-                      {program.title &&
-                        program.title
-                          .split("<br />")
-                          .map((line, idx) => (
-                            <React.Fragment key={idx}>
-                              {line}
-                              {idx !==
-                                program.title.split("<br />").length -
-                                1 && <br />}
-                            </React.Fragment>
-                          ))}
-                    </h3>
+                  <div
+                    className={`
+                      ${program.bgColor}
+                      flex flex-col lg:flex-row
+                      justify-between
+                      items-center
+                      gap-8 lg:gap-25
+                      p-5 sm:p-6 md:p-8 lg:p-25
+                      rounded-3xl
+                      min-h-162.5
+                      lg:h-187.5
+                      shadow-lg
+                    `}
+                  >
+                    {/* Left Content */}
+                    <div className="w-full lg:w-1/2 flex flex-col justify-center">
+                      <h3 className="bricolage-grotesque font-600 text-[24px] sm:text-[28px] md:text-[36px] lg:text-[46px] text-[#080C14] leading-tight mb-5">
+                        {program.title &&
+                          program.title
+                            .split("<br />")
+                            .map((line, idx) => (
+                              <React.Fragment key={idx}>
+                                {line}
+                                {idx !==
+                                  program.title.split("<br />").length -
+                                  1 && <br />}
+                              </React.Fragment>
+                            ))}
+                      </h3>
 
-                    {program.description && (
-                      <p
-                        className="
-                          bricolage-grotesque
-                          font-400
-                          text-[14px]
-                          sm:text-[16px]
-                          lg:text-[20px]
-                          text-[#524B48]
-                          leading-relaxed
-                          line-clamp-9
-                        "
-                      >
-                        { program.description}
-                      </p>
-                    )}
+                      {program.description && (
+                        <div
+                          className="
+                            bricolage-grotesque
+                            font-400
+                            text-[16px]
+                            sm:text-[18px]
+                            lg:text-[20px]
+                            text-[#524B48]
+                            leading-relaxed
+                            line-clamp-9
+                          "
+                          dangerouslySetInnerHTML={{ __html: truncatedDescription }}
+                        />
+                      )}
 
-                    {program.link && (
-                      <button
-                        onClick={() =>
-                          (window.location.href = program.link)
-                        }
-                        className="mt-6 bricolage-grotesque flex items-center gap-2 font-500 lg:font-600 text-[16px] sm:text-[17px] lg:text-[20px] text-[#009BE2] group hover:text-[#080C14] transition-colors duration-300"
-                      >
-                        Read more
+                      {program.link && (
+                        <button
+                          onClick={() =>
+                            (window.location.href = program.link)
+                          }
+                          className="mt-6 bricolage-grotesque flex items-center gap-2 font-500 lg:font-600 text-[16px] sm:text-[17px] lg:text-[20px] text-[#009BE2] group hover:text-[#080C14] transition-colors duration-300 w-fit"
+                        >
+                          Read more
 
-                        <ArrowIcon className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-all duration-300" />
-                      </button>
-                    )}
-                  </div>
+                          <ArrowIcon className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-all duration-300" />
+                        </button>
+                      )}
+                    </div>
 
-                  {/* Right Image */}
-                  <div className="w-full lg:w-1/2">
-                    {program.image && (
-                      <img
-                        src={program.image}
-                        alt={program.title || "Program image"}
-                        className="
-                          w-full
-                          h-75
-                          sm:h-100
-                          lg:h-150
-                          object-cover
-                          rounded-3xl
-                        "
-                      />
-                    )}
+                    {/* Right Image */}
+                    <div className="w-full lg:w-1/2">
+                      {program.image && (
+                        <img
+                          src={program.image}
+                          alt={program.title || "Program image"}
+                          className="
+                            w-full
+                            h-75
+                            sm:h-100
+                            lg:h-150
+                            object-cover
+                            rounded-3xl
+                            hover:scale-105
+                            transition-transform
+                            duration-300
+                          "
+                        />
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <div className="h-50" />

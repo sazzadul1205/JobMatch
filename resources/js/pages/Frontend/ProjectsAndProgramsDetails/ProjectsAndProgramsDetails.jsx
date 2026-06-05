@@ -1,4 +1,4 @@
-// resources/js/Pages/Frontend/About/AboutSub.jsx
+// pages/Frontend/ProjectsAndProgramsDetails/ProjectsAndProgramsDetails.jsx
 
 import React from 'react';
 import { Head, Link } from "@inertiajs/react";
@@ -11,7 +11,7 @@ import FAQSection from '../About/FAQSection/FAQSection';
 import BannerSection from '../About/BannerSection/BannerSection';
 import UpcomingEventsSection from '../Home/UpcomingEventsSection/UpcomingEventsSection';
 
-const AboutSub = ({
+const ProjectsAndProgramsDetails = ({
   // Shared data
   topBarData,
   navbarData,
@@ -21,7 +21,7 @@ const AboutSub = ({
   slug,
   faqData,
   bannerData,
-  subPageData,
+  programData,
   upcomingEventsData,
 }) => {
 
@@ -30,9 +30,10 @@ const AboutSub = ({
     return { __html: htmlString };
   };
 
+
   return (
     <PublicLayout topBarData={topBarData} navbarData={navbarData} footerData={footerData}>
-      <Head title={`${subPageData.title} | DUS - Dwip Unnayan Society`} />
+      <Head title={`${programData.title} | DUS - Dwip Unnayan Society`} />
 
       {/* Banner */}
       <BannerSection bannerData={bannerData} sectionId={`about-${slug}-banner`} />
@@ -40,10 +41,22 @@ const AboutSub = ({
       {/* Main Content Section - No height limit, shows full content */}
       <section className="bg-white py-37.5 px-100">
 
+
         {/* Title */}
         <h1 className='font-700 text-[100px] leading-tight pb-12.5'>
-          {subPageData?.title}
+          {programData?.title}
         </h1>
+
+        {/* Image - Responsive sizing */}
+        {programData?.image && (
+          <div className="mb-6 sm:mb-8 md:mb-10 lg:mb-12.5">
+            <img
+              src={programData.image}
+              alt={programData?.title || 'Program image'}
+              className="w-full h-auto max-h-64 sm:max-h-80 md:max-h-96 lg:max-h-125 object-cover"
+            />
+          </div>
+        )}
 
 
         {/* Content */}
@@ -54,7 +67,7 @@ const AboutSub = ({
               prose-ul:text-[#333333] prose-ul:leading-relaxed
               prose-li:text-[#333333] prose-li:leading-relaxed
               prose-strong:text-[#009BE2]"
-          dangerouslySetInnerHTML={renderHTML(subPageData.content)}
+          dangerouslySetInnerHTML={renderHTML(programData.content)}
         />
       </section>
 
@@ -68,4 +81,4 @@ const AboutSub = ({
   );
 };
 
-export default AboutSub;
+export default ProjectsAndProgramsDetails;
