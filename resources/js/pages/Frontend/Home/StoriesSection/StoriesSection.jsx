@@ -6,7 +6,11 @@ import React, { useRef, useEffect, useState } from 'react';
 // Arrow Icon
 import ArrowIcon from '../../../../components/Shared/ArrowIcon';
 
-const StoriesSection = ({ storiesData }) => {
+const StoriesSection = ({
+  storiesData,
+  bgColor = 'bg-[#F5F5F5]',  // Default background color
+  sectionClassName = '',      // Additional custom classes
+}) => {
   // Refs for DOM elements and drag state
   const scrollContainerRef = useRef(null);
   const startX = useRef(0);
@@ -113,7 +117,7 @@ const StoriesSection = ({ storiesData }) => {
   return (
     <section
       id='stories'
-      className='bg-[#F5F5F5] py-12 sm:py-16 md:py-25 lg:py-37.5'
+      className={`${bgColor} ${sectionClassName} py-12 sm:py-16 md:py-25 lg:py-37.5`}
     >
       {/* Section Header - Full width with responsive padding */}
       <div className="text-center mx-auto px-5 sm:px-10 md:px-20 lg:px-50">
@@ -170,8 +174,8 @@ const StoriesSection = ({ storiesData }) => {
 
       {/* Optional: Scroll hint indicator (subtle gradient on edges) - Hidden on mobile for better UX */}
       <div className="relative mt-5 pointer-events-none hidden md:block">
-        <div className="absolute left-0 top-0 bottom-0 w-8 sm:w-10 lg:w-12 bg-linear-to-r from-[#F5F5F5] to-transparent"></div>
-        <div className="absolute right-0 top-0 bottom-0 w-8 sm:w-10 lg:w-12 bg-linear-to-l from-[#F5F5F5] to-transparent"></div>
+        <div className={`absolute left-0 top-0 bottom-0 w-8 sm:w-10 lg:w-12 bg-linear-to-r from-${bgColor.replace('bg-', '')} to-transparent`}></div>
+        <div className={`absolute right-0 top-0 bottom-0 w-8 sm:w-10 lg:w-12 bg-linear-to-l from-${bgColor.replace('bg-', '')} to-transparent`}></div>
       </div>
 
       {/* Hide scrollbar globally for this component */}

@@ -75,6 +75,9 @@ Route::get('/projects-programs/{slug}', [FrontendController::class, 'projectsPro
 Route::get('/blogs', [FrontendController::class, 'blogs'])->name('frontend.blogs');
 Route::get('/blogs/{slug}', [FrontendController::class, 'blogDetails'])->name('frontend.blogs.details');
 
+// Contact
+Route::get('/contact', [FrontendController::class, 'contactUs'])->name('frontend.contact');
+
 // Public job listings (no auth) - Using PublicJobListingController
 Route::get('/jobs', [PublicJobListingController::class, 'index'])->name('public.jobs.index');
 Route::get('/jobs/{slug}', [PublicJobListingController::class, 'show'])->name('public.jobs.show');

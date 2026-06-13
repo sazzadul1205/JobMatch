@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 
-const FAQSection = ({ faqData }) => {
-
+const FAQSection = ({
+  faqData,
+  bgColor = 'bg-[#F5F5F5]',  // Default background color
+  sectionClassName = '',      // Additional custom classes
+}) => {
   const [openId, setOpenId] = useState(1); // First FAQ open by default
 
   const toggleFAQ = (id) => {
@@ -11,7 +14,7 @@ const FAQSection = ({ faqData }) => {
   return (
     <section
       id='faq'
-      className='bg-[#F5F5F5] px-4 sm:px-6 md:px-10 lg:px-20 xl:px-50 py-10 sm:py-15 md:py-20 lg:py-37.5'
+      className={`${bgColor} ${sectionClassName} px-4 sm:px-6 md:px-10 lg:px-20 xl:px-50 py-10 sm:py-15 md:py-20 lg:py-37.5`}
     >
       <div className='max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto text-center'>
         <h1 className='font-700 text-[28px] sm:text-[32px] md:text-[36px] lg:text-[40px] leading-tight mb-3 sm:mb-4 bricolage-grotesque'>
