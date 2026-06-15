@@ -6,7 +6,7 @@ import PublicLayout from "../../layouts/PublicLayout";
 import DynamicSectionRenderer from '../../components/Shared/DynamicSectionRenderer';
 
 const DynamicPage = ({
-  topBarData,
+  topbarData,
   navbarData,
   footerData,
   storageUrl,
@@ -21,12 +21,18 @@ const DynamicPage = ({
 
   return (
     <PublicLayout
-      topBarData={topBarData}
+      topBarData={topbarData}
       navbarData={navbarData}
       footerData={footerData}
       storageUrl={storageUrl}
-    >
-      <Head title={pageTitle || "DUS - Dwip Unnayan Society | Empowering Communities"} />
+      >
+        <Head title={pageTitle || "DUS - Dwip Unnayan Society | Empowering Communities"} />
+
+      {sectionsToRender.length === 0 && (
+        <div className="mx-auto max-w-5xl px-4 py-16 text-center text-slate-500">
+          No page sections were found for this page.
+        </div>
+      )}
 
       {sectionsToRender.map((section) => (
         <DynamicSectionRenderer
