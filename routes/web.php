@@ -23,7 +23,12 @@ use App\Http\Controllers\Backend\ApplicationsController;
 use App\Http\Controllers\Backend\NotificationController;
 use App\Http\Controllers\Backend\RoleController;
 use App\Http\Controllers\Backend\UserController;
+use App\Http\Controllers\Frontend\AboutController;
+use App\Http\Controllers\Frontend\BlogController;
+use App\Http\Controllers\Frontend\ContactController;
 use App\Http\Controllers\Frontend\FrontendController;
+use App\Http\Controllers\Frontend\HomeController;
+use App\Http\Controllers\Frontend\ProjectsProgramsController;
 use App\Http\Controllers\Profile\AdminProfileController;
 use App\Http\Controllers\Settings\PasswordController;
 use App\Http\Controllers\Settings\ProfileController;
@@ -60,23 +65,23 @@ Route::get('/unauthorized', function () {
 })->name('unauthorized.access');
 
 // Home page (main landing page)
-Route::get('/', [FrontendController::class, 'home'])->name('home');
+Route::get('/', [HomeController::class, 'home'])->name('home');
 
 // Other frontend pages
 // About
-Route::get('/about', [FrontendController::class, 'about'])->name('frontend.about');
-Route::get('/about/{slug}', [FrontendController::class, 'aboutDetails'])->name('frontend.about.details');
+Route::get('/about', [AboutController::class, 'about'])->name('frontend.about');
+Route::get('/about/{slug}', [AboutController::class, 'aboutDetails'])->name('frontend.about.details');
 
 // Projects & Programs
-Route::get('/projects-programs', [FrontendController::class, 'projectsPrograms'])->name('frontend.projects-programs');
-Route::get('/projects-programs/{slug}', [FrontendController::class, 'projectsProgramsDetails'])->name('frontend.projects-programs.details');
+Route::get('/projects-programs', [ProjectsProgramsController::class, 'projectsPrograms'])->name('frontend.projects-programs');
+Route::get('/projects-programs/{slug}', [ProjectsProgramsController::class, 'projectsProgramsDetails'])->name('frontend.projects-programs.details');
 
 // Blogs
-Route::get('/blogs', [FrontendController::class, 'blogs'])->name('frontend.blogs');
-Route::get('/blogs/{slug}', [FrontendController::class, 'blogDetails'])->name('frontend.blogs.details');
+Route::get('/blogs', [BlogController::class, 'blogs'])->name('frontend.blogs');
+Route::get('/blogs/{slug}', [BlogController::class, 'blogDetails'])->name('frontend.blogs.details');
 
 // Contact
-Route::get('/contact', [FrontendController::class, 'contactUs'])->name('frontend.contact');
+Route::get('/contact', [ContactController::class, 'contactUs'])->name('frontend.contact');
 
 // Public job listings (no auth) - Using PublicJobListingController
 Route::get('/jobs', [PublicJobListingController::class, 'index'])->name('public.jobs.index');
