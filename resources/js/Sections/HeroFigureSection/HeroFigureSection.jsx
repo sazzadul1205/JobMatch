@@ -1,33 +1,56 @@
-// pages/About/HeroFigureSection/HeroFigureSection.jsx
+// js/Sections/HeroFigureSection/HeroFigureSection.jsx
 
 // React
 import React from 'react';
 
 // Components
-import ArrowIcon from '../../../../components/Shared/ArrowIcon';
+import ArrowIcon from '../../components/Shared/ArrowIcon';
+
+// Utility function to check if value exists (SAME as other sections)
+const hasValue = (value) => {
+  if (value === undefined || value === null) return false;
+  if (typeof value === 'string') return value.trim().length > 0;
+  if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === 'object') return Object.keys(value).length > 0;
+  return true;
+};
 
 const HeroFigureSection = ({
-  data,                   /// Data object containing section content and image details
-  sectionId,              // Optional section ID for anchor linking
-  bgImage = null,         // Customizable background image
-  bgOverlay = null,       // Customizable overlay for background image
+  data,                   // Data object containing section content and image details
+  sectionId = 'hero-figure',
   layout = 'text-left',   // 'text-left' or 'text-right'
   bgColor = 'bg-white',   // Customizable background color
-  customClassName = '',   // Custom class name for additional styling
+  bgImage = null,         // Customizable background image
+  bgOverlay = null,       // Customizable overlay for background image
+  paddingY = 'py-10 sm:py-15 md:py-25 lg:py-37.5',
+  paddingX = 'px-5 sm:px-10 md:px-20 lg:px-50',
+  sectionClassName = '',
 }) => {
-  // No default data - expects data to be passed from parent
-  if (!data) {
+  // Early return if no data
+  if (!hasValue(data)) {
     console.warn('HeroFigureSection: No data provided');
     return null;
   }
 
-  // Destructure data for easier access
+  // Safe destructuring with defaults
   const {
-    section,
-    content,
-    image,
-    btn  // Renamed from 'functions' to 'btn'
+    section = {},
+    content = {},
+    image = {},
+    btn = {}
   } = data;
+
+  // Check if there's any content to display
+  const hasTitle = hasValue(section?.title);
+  const hasContent = hasValue(content?.html);
+  const hasButton = hasValue(btn?.text) && hasValue(btn?.link);
+  const hasImage = hasValue(image?.src);
+
+  const hasAnyContent = hasTitle || hasContent || hasButton || hasImage;
+
+  if (!hasAnyContent) {
+    return null;
+  }
 
   // Function to render HTML content safely
   const renderHTML = (htmlString) => {
@@ -41,14 +64,14 @@ const HeroFigureSection = ({
   const TextContent = () => (
     <div className='w-full lg:w-1/2 flex flex-col justify-between relative z-10'>
       {/* Only render section title if it exists */}
-      {section?.title && (
+      {hasTitle && (
         <h1 className='bricolage-grotesque font-700 text-[32px] sm:text-[36px] lg:text-[40px] text-black pb-2'>
           {section.title}
         </h1>
       )}
 
       {/* Render HTML content with 730px max height and ellipsis */}
-      {content?.html && (
+      {hasContent && (
         <div className="relative">
           <div
             className='bricolage-grotesque text-[16px] sm:text-[18px] lg:text-[20px] text-[#333333] leading-snug overflow-hidden'
@@ -61,13 +84,13 @@ const HeroFigureSection = ({
             }}
             dangerouslySetInnerHTML={renderHTML(content.html)}
           />
-          {/* Ellipsis indicator */}
+          {/* Ellipsis indicator - Only show if content overflows */}
           <div className="absolute bottom-0 left-0 right-0 h-8 bg-linear-to-t from-white to-transparent pointer-events-none"></div>
         </div>
       )}
 
       {/* Render button if btn exists */}
-      {btn && btn.text && btn.link && (
+      {hasButton && (
         <div className='pt-8'>
           <button
             onClick={() => window.location.href = btn.link}
@@ -83,7 +106,7 @@ const HeroFigureSection = ({
 
   // Image component
   const ImageComponent = () => (
-    image && image.src && (
+    hasImage && (
       <div className='w-full lg:w-1/2 flex mt-8 lg:mt-0 relative z-10'>
         <img
           src={image.src}
@@ -96,7 +119,7 @@ const HeroFigureSection = ({
 
   // Generate background style
   const getBackgroundStyle = () => {
-    if (bgImage) {
+    if (hasValue(bgImage)) {
       return {
         backgroundImage: `url(${bgImage})`,
         backgroundSize: 'cover',
@@ -110,15 +133,15 @@ const HeroFigureSection = ({
   return (
     <section
       id={sectionId}
-      className={`relative ${bgColor} ${customClassName}`}
+      className={`relative ${bgColor} ${paddingY} ${paddingX} ${sectionClassName}`}
       style={getBackgroundStyle()}
     >
       {/* Background overlay if bgImage is provided */}
-      {bgImage && bgOverlay && (
+      {hasValue(bgImage) && hasValue(bgOverlay) && (
         <div className={`absolute inset-0 ${bgOverlay}`}></div>
       )}
 
-      <div className={`flex flex-col lg:flex-row justify-between items-stretch gap-8 lg:gap-15 px-5 sm:px-10 md:px-20 lg:px-50 py-10 sm:py-15 md:py-25 lg:py-37.5 relative z-10`}>
+      <div className={`flex flex-col lg:flex-row justify-between items-stretch gap-8 lg:gap-15 relative z-10`}>
         {isImageLeft ? (
           <>
             <ImageComponent />
