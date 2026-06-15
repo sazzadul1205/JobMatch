@@ -2,19 +2,12 @@
 
 // Inertia
 import { Head } from "@inertiajs/react";
-import { Suspense, lazy } from "react";
 
 // Layout
 import PublicLayout from '../../../layouts/PublicLayout';
 
-// ============================================
-// LAZY LOAD SECTIONS - Only load when needed
-// ============================================
-const FAQSection = lazy(() => import("../../../Sections/FAQSection/FAQSection"));
-const CardsSection = lazy(() => import("../../../Sections/CardsSection/CardsSection"));
-const LegalSection = lazy(() => import("../../../Sections/LegalSection/LegalSection"));
-const PageBannerSection = lazy(() => import("../../../Sections/BannerSection/PageBannerSection"));
-const HeroFigureSection = lazy(() => import("../../../Sections/HeroFigureSection/HeroFigureSection"));
+// Components
+import DynamicSectionRenderer from '../../../components/Shared/DynamicSectionRenderer';
 
 // ============================================
 // SECTION ORDER CONFIGURATION (JSON)
@@ -23,22 +16,18 @@ const SECTION_ORDER_CONFIG = {
   sections: [
     {
       id: "banner",
-      component: PageBannerSection,
+      component: "PageBannerSection",
       enabled: true,
       propName: "bannerData",
       dataKey: "bannerData",
       order: 1,
       customProps: {
         sectionId: 'about-us-banner',
-        // bgColor: '',
-        // height: 'h-125 md:h-147.25',
-        // paddingY: '',
-        // paddingX: '',
       }
     },
     {
       id: "background",
-      component: HeroFigureSection,
+      component: "HeroFigureSection",
       enabled: true,
       propName: "data",
       dataKey: "backgroundData",
@@ -46,12 +35,11 @@ const SECTION_ORDER_CONFIG = {
       customProps: {
         layout: "text-left",
         sectionId: "background",
-        // bgColor: '',
       }
     },
     {
       id: "vision-and-mission",
-      component: HeroFigureSection,
+      component: "HeroFigureSection",
       enabled: true,
       propName: "data",
       dataKey: "visionAndMissionData",
@@ -64,7 +52,7 @@ const SECTION_ORDER_CONFIG = {
     },
     {
       id: "interventional-approaches",
-      component: HeroFigureSection,
+      component: "HeroFigureSection",
       enabled: true,
       propName: "data",
       dataKey: "interventionalData",
@@ -72,25 +60,20 @@ const SECTION_ORDER_CONFIG = {
       customProps: {
         layout: "text-left",
         sectionId: "interventional-approaches",
-        // bgColor: '',
       }
     },
     {
       id: "legal",
-      component: LegalSection,
+      component: "LegalSection",
       enabled: true,
       propName: "legalData",
       dataKey: "legalData",
       order: 5,
-      customProps: {
-        // bgColor: '',
-        // paddingY: '',
-        // paddingX: '',
-      }
+      customProps: {}
     },
     {
       id: "evolutionary-changes",
-      component: HeroFigureSection,
+      component: "HeroFigureSection",
       enabled: true,
       propName: "data",
       dataKey: "evolutionaryChangesData",
@@ -98,12 +81,11 @@ const SECTION_ORDER_CONFIG = {
       customProps: {
         layout: "text-left",
         sectionId: "evolutionary-changes",
-        // bgColor: '',
       }
     },
     {
       id: "governance",
-      component: HeroFigureSection,
+      component: "HeroFigureSection",
       enabled: true,
       propName: "data",
       dataKey: "governanceData",
@@ -116,20 +98,16 @@ const SECTION_ORDER_CONFIG = {
     },
     {
       id: "cards",
-      component: CardsSection,
+      component: "CardsSection",
       enabled: true,
       propName: "cardsData",
       dataKey: "cardsData",
       order: 8,
-      customProps: {
-        // bgColor: '',
-        // paddingY: '',
-        // paddingX: '',
-      }
+      customProps: {}
     },
     {
       id: "programs-activities",
-      component: HeroFigureSection,
+      component: "HeroFigureSection",
       enabled: true,
       propName: "data",
       dataKey: "programsData",
@@ -142,7 +120,7 @@ const SECTION_ORDER_CONFIG = {
     },
     {
       id: "training",
-      component: HeroFigureSection,
+      component: "HeroFigureSection",
       enabled: true,
       propName: "data",
       dataKey: "trainingData",
@@ -150,43 +128,25 @@ const SECTION_ORDER_CONFIG = {
       customProps: {
         layout: "text-left",
         sectionId: "training",
-        // bgColor: '',
       }
     },
     {
       id: "faq",
-      component: FAQSection,
+      component: "FAQSection",
       enabled: true,
       propName: "faqData",
       dataKey: "faqData",
       order: 11,
-      customProps: {
-        // bgColor: '',
-        // paddingY: '',
-        // paddingX: '',
-      }
+      customProps: {}
     },
   ],
 };
 
-// Loading fallback component
-const SectionLoader = () => (
-  <div className="w-full py-20 flex justify-center items-center min-h-screen">
-    <div className="animate-pulse flex flex-col items-center">
-      <div className="w-12 h-12 border-4 border-[#009BE2] border-t-transparent rounded-full animate-spin"></div>
-      <p className="mt-4 text-[#515151] font-400">Loading section...</p>
-    </div>
-  </div>
-);
-
 const About = ({
-  // Shared 
   topBarData,
   navbarData,
   footerData,
   storageUrl,
-
-  // Page Specific Data
   faqData,
   cardsData,
   legalData,
@@ -201,7 +161,7 @@ const About = ({
 }) => {
 
   // Prepare data mapping
-  const sectionDataMap = {
+  const pageData = {
     bannerData,
     backgroundData,
     visionAndMissionData,
@@ -216,14 +176,9 @@ const About = ({
   };
 
   // Get enabled sections sorted by order
-  const getSectionsToRender = () => {
-    return SECTION_ORDER_CONFIG.sections
-      .filter(section => section.enabled === true)
-      .sort((a, b) => a.order - b.order);
-  };
-
-  // Get sections to render
-  const sectionsToRender = getSectionsToRender();
+  const sectionsToRender = SECTION_ORDER_CONFIG.sections
+    .filter(section => section.enabled === true)
+    .sort((a, b) => a.order - b.order);
 
   return (
     <PublicLayout
@@ -234,26 +189,14 @@ const About = ({
     >
       <Head title="About Us | DUS - Dwip Unnayan Society | Empowering Communities" />
 
-      {/* Wrap all lazy sections in Suspense */}
-      <Suspense fallback={<SectionLoader />}>
-        {sectionsToRender.map((section) => {
-          const SectionComponent = section.component;
-          const sectionData = sectionDataMap[section.dataKey];
-
-          if (!SectionComponent || !sectionData) {
-            console.warn(`Missing component or data for: ${section.id}`);
-            return null;
-          }
-
-          // Merge the required prop with custom props from config
-          const props = {
-            [section.propName]: sectionData,
-            ...(section.customProps || {})
-          };
-
-          return <SectionComponent key={section.id} {...props} />;
-        })}
-      </Suspense>
+      {sectionsToRender.map((section) => (
+        <DynamicSectionRenderer
+          key={section.id}
+          section={section}
+          pageData={pageData}
+          globalProps={{ storageUrl }}
+        />
+      ))}
     </PublicLayout>
   );
 };

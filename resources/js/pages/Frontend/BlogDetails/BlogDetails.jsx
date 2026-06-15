@@ -4,7 +4,6 @@ import React from 'react';
 
 // Inertia
 import { Head, Link } from '@inertiajs/react';
-import { Suspense, lazy } from "react";
 
 import { CiCalendar } from "react-icons/ci";
 import { FaRegClock, FaFacebookF, FaLinkedinIn, FaInstagram } from "react-icons/fa";
@@ -12,65 +11,12 @@ import { FaRegClock, FaFacebookF, FaLinkedinIn, FaInstagram } from "react-icons/
 // Layout
 import PublicLayout from '../../../layouts/PublicLayout';
 
-// ============================================
-// LAZY LOAD SECTIONS - Only load when needed
-// ============================================
-const BlogSection = lazy(() => import("../../../Sections/BlogSection/BlogSection"));
-const UpcomingEventsSection = lazy(() => import("../../../Sections/UpcomingEventsSection/UpcomingEventsSection"));
+// Components
+import DynamicSectionRenderer from '../../../components/Shared/DynamicSectionRenderer';
 
 // ============================================
-// SECTION ORDER CONFIGURATION (JSON)
+// SPECIAL COMPONENTS (Not in registry)
 // ============================================
-const SECTION_ORDER_CONFIG = {
-  sections: [
-    {
-      id: "banner",
-      component: "BannerSection", // Special component
-      isBannerSection: true,
-      enabled: true,
-      order: 1,
-    },
-    {
-      id: "blog-content",
-      component: "BlogContentSection", // Special component
-      isBlogContentSection: true,
-      enabled: true,
-      order: 2,
-      customProps: {
-        bgColor: 'bg-white',
-        paddingY: 'py-12 lg:py-16',
-        paddingX: 'px-4',
-      }
-    },
-    {
-      id: "related-blogs",
-      component: BlogSection,
-      enabled: true,
-      propName: "blogPosts",
-      dataKey: "relatedBlogs",
-      order: 3,
-      customProps: {
-        bgColor: 'bg-[#F5F5F5]',
-        sectionTitle: 'Related Blogs',
-        // paddingY: 'py-12 sm:py-16 md:py-20 lg:py-37.5',
-        // paddingX: 'px-5 sm:px-8 md:px-12 lg:px-50',
-      }
-    },
-    {
-      id: "upcoming-events",
-      component: UpcomingEventsSection,
-      enabled: true,
-      propName: "eventsData",
-      dataKey: "upcomingEventsData",
-      order: 4,
-      customProps: {
-        // bgColor: 'bg-[#FFFFFF]',
-        // paddingY: 'py-12 sm:py-16 md:py-25 lg:py-37.5',
-        // paddingX: 'px-5 sm:px-10 md:px-20 lg:px-50',
-      }
-    },
-  ],
-};
 
 // Banner Section Component
 const BannerSection = ({ bannerData, blogData, storageUrl }) => {
@@ -160,7 +106,15 @@ const BannerSection = ({ bannerData, blogData, storageUrl }) => {
 };
 
 // Blog Content Section Component
-const BlogContentSection = ({ blogData, storageUrl, bgColor = 'bg-white', paddingY = 'py-12 lg:py-16', paddingX = 'px-4', sectionClassName = '', sectionId = 'blog-content' }) => {
+const BlogContentSection = ({
+  blogData,
+  storageUrl,
+  bgColor = 'bg-white',
+  paddingY = 'py-12 lg:py-16',
+  paddingX = 'px-4',
+  sectionClassName = '',
+  sectionId = 'blog-content'
+}) => {
   const getImageUrl = (imagePath) => {
     if (!imagePath) return null;
     if (imagePath.startsWith('http')) return imagePath;
@@ -173,18 +127,21 @@ const BlogContentSection = ({ blogData, storageUrl, bgColor = 'bg-white', paddin
 
   return (
     <section id={sectionId} className={`${bgColor} ${paddingY} ${paddingX} ${sectionClassName}`}>
-      {/* Blog main image */}
-      <div className="relative z-10 w-275 mx-auto">
-        <img
-          src={getImageUrl(blogData?.image) || "https://placehold.co/1100x500"}
-          alt={blogData?.title || "Blog main image"}
-          className="w-full h-125 object-cover object-center rounded-[28px] shadow-2xl -mt-16"
-        />
+      {/* Blog main image container with proper spacing */}
+      <div className="relative z-10 max-w-275 mx-auto">
+        {/* Image with negative margin to overlap banner */}
+        <div className="-mt-16 sm:-mt-20 lg:-mt-24">
+          <img
+            src={getImageUrl(blogData?.image) || "https://placehold.co/1100x500"}
+            alt={blogData?.title || "Blog main image"}
+            className="w-full h-auto max-h-96 sm:max-h-125 object-cover object-center rounded-[28px] shadow-2xl"
+          />
+        </div>
       </div>
 
-      {/* Blog section */}
-      <div className="max-w-275 mx-auto">
-        <div className="flex flex-col lg:flex-row items-start gap-25">
+      {/* Blog content section - with proper top spacing */}
+      <div className="max-w-275 mx-auto mt-12 sm:mt-16 lg:mt-20">
+        <div className="flex flex-col lg:flex-row items-start gap-8 lg:gap-25">
           {/* Social media icons */}
           <div className="hidden lg:flex flex-col items-center gap-4 pt-2 sticky top-25">
             <a href="#" className="w-8 h-8 rounded-full bg-[#080C14] text-white flex items-center justify-center hover:bg-[#009BE2] transition-colors">
@@ -206,7 +163,10 @@ const BlogContentSection = ({ blogData, storageUrl, bgColor = 'bg-white', paddin
                 prose-p:text-[#333333] prose-p:leading-relaxed
                 prose-ul:text-[#333333] prose-ul:leading-relaxed
                 prose-li:text-[#333333] prose-li:leading-relaxed
-                prose-strong:text-[#009BE2]"
+                prose-strong:text-[#009BE2]
+                prose-p:mt-4 prose-p:mb-4
+                prose-h2:mt-8 prose-h2:mb-4
+                prose-h3:mt-6 prose-h3:mb-3"
               dangerouslySetInnerHTML={renderHTML(blogData?.fullContent)}
             />
           </div>
@@ -216,24 +176,58 @@ const BlogContentSection = ({ blogData, storageUrl, bgColor = 'bg-white', paddin
   );
 };
 
-// Loading fallback component
-const SectionLoader = () => (
-  <div className="w-full py-20 flex justify-center items-center min-h-screen">
-    <div className="animate-pulse flex flex-col items-center">
-      <div className="w-12 h-12 border-4 border-[#009BE2] border-t-transparent rounded-full animate-spin"></div>
-      <p className="mt-4 text-[#515151] font-400">Loading section...</p>
-    </div>
-  </div>
-);
+// ============================================
+// SECTION ORDER CONFIGURATION (JSON)
+// ============================================
+const SECTION_ORDER_CONFIG = {
+  sections: [
+    {
+      id: "banner",
+      component: "BannerSection",
+      isSpecialComponent: true,
+      enabled: true,
+      order: 1,
+    },
+    {
+      id: "blog-content",
+      component: "BlogContentSection",
+      isSpecialComponent: true,
+      enabled: true,
+      order: 2,
+      customProps: {
+        bgColor: 'bg-white',
+        paddingY: 'py-12 lg:py-16',
+        paddingX: 'px-4',
+      }
+    },
+    {
+      id: "related-blogs",
+      component: "BlogSection",
+      enabled: true,
+      // No propName/dataKey needed - handled by registry config
+      order: 3,
+      customProps: {
+        bgColor: 'bg-[#F5F5F5]',
+        sectionTitle: 'Related Blogs',
+      }
+    },
+    {
+      id: "upcoming-events",
+      component: "UpcomingEventsSection",
+      enabled: true,
+      propName: "eventsData",
+      dataKey: "upcomingEventsData",
+      order: 4,
+      customProps: {}
+    },
+  ],
+};
 
 const BlogDetails = ({
-  // Shared
   topBarData,
   navbarData,
   footerData,
   storageUrl,
-
-  // Page Specific
   slug,
   blogData,
   bannerData,
@@ -242,22 +236,49 @@ const BlogDetails = ({
 }) => {
 
   // Prepare data mapping
-  const sectionDataMap = {
-    relatedBlogs,
+  const pageData = {
     bannerData,
-    upcomingEventsData,
     blogData,
+    relatedBlogs,
+    upcomingEventsData,
     storageUrl,
+    slug,
   };
 
   // Get enabled sections sorted by order
-  const getSectionsToRender = () => {
-    return SECTION_ORDER_CONFIG.sections
-      .filter(section => section.enabled === true)
-      .sort((a, b) => a.order - b.order);
-  };
+  const sectionsToRender = SECTION_ORDER_CONFIG.sections
+    .filter(section => section.enabled === true)
+    .sort((a, b) => a.order - b.order);
 
-  const sectionsToRender = getSectionsToRender();
+  // Helper to render special components
+  const renderSpecialComponent = (section) => {
+    const { component, customProps = {} } = section;
+
+    if (component === 'BannerSection') {
+      return (
+        <BannerSection
+          key={section.id}
+          bannerData={pageData.bannerData}
+          blogData={pageData.blogData}
+          storageUrl={pageData.storageUrl}
+          {...customProps}
+        />
+      );
+    }
+
+    if (component === 'BlogContentSection') {
+      return (
+        <BlogContentSection
+          key={section.id}
+          blogData={pageData.blogData}
+          storageUrl={pageData.storageUrl}
+          {...customProps}
+        />
+      );
+    }
+
+    return null;
+  };
 
   return (
     <PublicLayout
@@ -268,55 +289,20 @@ const BlogDetails = ({
     >
       <Head title={`${blogData?.title || 'Blog Details'} | DUS - Dwip Unnayan Society | Empowering Communities`} />
 
-      <Suspense fallback={<SectionLoader />}>
-        {sectionsToRender.map((section) => {
-          // Handle banner section
-          if (section.isBannerSection) {
-            return (
-              <BannerSection
-                key={section.id}
-                bannerData={sectionDataMap.bannerData}
-                blogData={sectionDataMap.blogData}
-                storageUrl={sectionDataMap.storageUrl}
-              />
-            );
-          }
+      {sectionsToRender.map((section) => {
+        if (section.isSpecialComponent) {
+          return renderSpecialComponent(section);
+        }
 
-          // Handle blog content section
-          if (section.isBlogContentSection) {
-            const ContentComp = BlogContentSection;
-            const props = {
-              blogData: sectionDataMap.blogData,
-              storageUrl: sectionDataMap.storageUrl,
-              ...(section.customProps || {})
-            };
-            return <ContentComp key={section.id} {...props} />;
-          }
-
-          // Handle regular section components
-          const SectionComponent = section.component;
-          const sectionData = sectionDataMap[section.dataKey];
-
-          if (!SectionComponent) {
-            console.warn(`Missing component for: ${section.id}`);
-            return null;
-          }
-
-          // For sections that don't require data (like those with defaults)
-          if (!sectionData && section.id !== 'blog-section') {
-            console.warn(`Missing data for: ${section.id}`);
-            return null;
-          }
-
-          // Merge the required prop with custom props from config
-          const props = {
-            [section.propName]: sectionData,
-            ...(section.customProps || {})
-          };
-
-          return <SectionComponent key={section.id} {...props} />;
-        })}
-      </Suspense>
+        return (
+          <DynamicSectionRenderer
+            key={section.id}
+            section={section}
+            pageData={pageData}
+            globalProps={{ storageUrl }}
+          />
+        );
+      })}
     </PublicLayout>
   );
 };
