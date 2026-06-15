@@ -9,6 +9,15 @@ import { FaFacebook, FaInstagram, FaLinkedin, FaXTwitter, FaUser } from "react-i
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, usePage, router } from '@inertiajs/react';
 
+// Utility function to check if value exists
+const hasValue = (value) => {
+  if (value === undefined || value === null) return false;
+  if (typeof value === 'string') return value.trim().length > 0;
+  if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === 'object') return Object.keys(value).length > 0;
+  return true;
+};
+
 // Map icon names to components
 const iconMap = {
   FaFacebook: FaFacebook,
@@ -29,8 +38,21 @@ const TopBar = ({ topBarData, storageUrl }) => {
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Hardcoded user menu items
-  const userMenu = {
+  // Don't render if no data
+  if (!hasValue(topBarData)) {
+    return null;
+  }
+
+  // Safe destructuring with defaults
+  const {
+    contactInfo = {},
+    languages = [],
+    socialLinks = [],
+    userMenu = {}
+  } = topBarData;
+
+  // Hardcoded user menu items (can be moved to controller)
+  const defaultUserMenu = {
     guest: [
       { label: 'Login', route: 'login', type: 'link' },
       { label: 'Register', route: 'register', type: 'link' }
@@ -42,47 +64,28 @@ const TopBar = ({ topBarData, storageUrl }) => {
     ]
   };
 
-  // Function to get saved language from localStorage
-  const getSavedLanguage = () => {
-    try {
-      const savedLang = localStorage.getItem('selectedLanguage');
-      if (savedLang) {
-        return JSON.parse(savedLang);
-      }
-    } catch (error) {
-      console.error('Error loading language from localStorage:', error);
-    }
-    return null;
-  };
-
-  // Function to save language to localStorage
-  const saveLanguage = (language) => {
-    try {
-      localStorage.setItem('selectedLanguage', JSON.stringify(language));
-    } catch (error) {
-      console.error('Error saving language to localStorage:', error);
-    }
-  };
+  const finalUserMenu = hasValue(userMenu) ? userMenu : defaultUserMenu;
 
   // Filter to only show English (us) and Bengali (bd) from server data
-  const languagesToShow = topBarData.languages.filter(lang =>
+  const languagesToShow = languages.filter(lang =>
     lang.code === 'us' || lang.code === 'bd'
   );
 
   // Initialize language from localStorage or default to English from server data
   const [selectedLanguage, setSelectedLanguage] = useState(() => {
-    const savedLang = getSavedLanguage();
-    const englishLang = languagesToShow.find(lang => lang.code === 'us');
-
-    if (savedLang && (savedLang.code === 'us' || savedLang.code === 'bd')) {
-      // Check if saved language exists in current languages
-      const existsInData = languagesToShow.find(lang => lang.code === savedLang.code);
-      if (existsInData) {
-        return savedLang;
+    try {
+      const savedLang = localStorage.getItem('selectedLanguage');
+      if (savedLang) {
+        const parsedLang = JSON.parse(savedLang);
+        const existsInData = languagesToShow.find(lang => lang.code === parsedLang.code);
+        if (existsInData) return parsedLang;
       }
+    } catch (error) {
+      console.error('Error loading language from localStorage:', error);
     }
 
     // Default to English if found, otherwise first language
+    const englishLang = languagesToShow.find(lang => lang.code === 'us');
     return englishLang || languagesToShow[0] || {
       code: 'us',
       name: 'English',
@@ -117,7 +120,7 @@ const TopBar = ({ topBarData, storageUrl }) => {
 
   const handleLanguageSelect = (language) => {
     setSelectedLanguage(language);
-    saveLanguage(language);
+    localStorage.setItem('selectedLanguage', JSON.stringify(language));
     setIsLangDropdownOpen(false);
 
     // Dispatch custom event to notify other components
@@ -135,89 +138,117 @@ const TopBar = ({ topBarData, storageUrl }) => {
     router.post('/logout');
   };
 
+  // Check if contact info exists
+  const hasContactInfo = hasValue(contactInfo.email?.text) ||
+    hasValue(contactInfo.phone?.text) ||
+    hasValue(contactInfo.hours?.text);
+
+  // Check if social links exist
+  const hasSocialLinks = hasValue(socialLinks);
+  const hasLanguages = hasValue(languagesToShow);
+
+  // If no content at all, don't render
+  if (!hasContactInfo && !hasSocialLinks && !hasLanguages) {
+    return null;
+  }
+
   return (
     <>
       {/* Desktop Top Bar - Hidden on mobile */}
       <div className='hidden lg:flex justify-between items-center px-10 py-3 bg-[#080C14] relative z-50'>
         {/* Left - Contact Info */}
-        <div className='flex items-center space-x-6'>
+        {hasContactInfo && (
+          <div className='flex items-center space-x-6'>
+            {/* Email */}
+            {hasValue(contactInfo.email?.text) && (
+              <div className='flex items-center space-x-2'>
+                {hasValue(contactInfo.email?.icon) && (
+                  <img src={contactInfo.email.icon} alt={contactInfo.email.alt || 'Email'} className="w-4 h-4" />
+                )}
+                <a href={`mailto:${contactInfo.email.text}`} className='text-white text-sm hover:text-[#009BE2] transition-colors'>
+                  {contactInfo.email.text}
+                </a>
+              </div>
+            )}
 
-          {/* Email */}
-          <div className='flex items-center space-x-2'>
-            <img src={topBarData.contactInfo.email.icon} alt={topBarData.contactInfo.email.alt} className="w-4 h-4" />
-            <a href={`mailto:${topBarData.contactInfo.email.text}`} className='text-white text-sm hover:text-[#009BE2] transition-colors'>
-              {topBarData.contactInfo.email.text}
-            </a>
-          </div>
+            {/* Phone */}
+            {hasValue(contactInfo.phone?.text) && (
+              <div className='flex items-center space-x-2'>
+                {hasValue(contactInfo.phone?.icon) && (
+                  <img src={contactInfo.phone.icon} alt={contactInfo.phone.alt || 'Phone'} className="w-4 h-4" />
+                )}
+                <a href={`tel:${contactInfo.phone.text.replace(/\s/g, '')}`} className='text-white text-sm hover:text-[#009BE2] transition-colors'>
+                  {contactInfo.phone.text}
+                </a>
+              </div>
+            )}
 
-          {/* Phone */}
-          <div className='flex items-center space-x-2'>
-            <img src={topBarData.contactInfo.phone.icon} alt={topBarData.contactInfo.phone.alt} className="w-4 h-4" />
-            <a href={`tel:${topBarData.contactInfo.phone.text.replace(/\s/g, '')}`} className='text-white text-sm hover:text-[#009BE2] transition-colors'>
-              {topBarData.contactInfo.phone.text}
-            </a>
+            {/* Hours */}
+            {hasValue(contactInfo.hours?.text) && (
+              <div className='flex items-center space-x-2'>
+                {hasValue(contactInfo.hours?.icon) && (
+                  <img src={contactInfo.hours.icon} alt={contactInfo.hours.alt || 'Hours'} className="w-4 h-4" />
+                )}
+                <p className='text-white text-sm'>{contactInfo.hours.text}</p>
+              </div>
+            )}
           </div>
-
-          {/* Hours */}
-          <div className='flex items-center space-x-2'>
-            <img src={topBarData.contactInfo.hours.icon} alt={topBarData.contactInfo.hours.alt} className="w-4 h-4" />
-            <p className='text-white text-sm'>{topBarData.contactInfo.hours.text}</p>
-          </div>
-        </div>
+        )}
 
         {/* Right - Social Media Section */}
         <div className="flex items-center gap-3 space-x-4">
           {/* Language Dropdown */}
-          <div className="relative" ref={langRef}>
-            <button
-              onClick={() => {
-                setIsLangDropdownOpen(!isLangDropdownOpen);
-                setIsUserDropdownOpen(false);
-              }}
-              className="flex items-center gap-2 hover:opacity-80 transition-opacity"
-              aria-label="Select language"
-            >
-              <img src={selectedLanguage.flag} alt={selectedLanguage.name} className="w-5 h-5" />
-              <span className="text-white text-sm hidden md:inline">{selectedLanguage.name}</span>
-              {isLangDropdownOpen ? <FaAngleUp className="text-white transition-transform duration-200" /> : <FaAngleDown className="text-white transition-transform duration-200" />}
-            </button>
+          {hasLanguages && (
+            <div className="relative" ref={langRef}>
+              <button
+                onClick={() => {
+                  setIsLangDropdownOpen(!isLangDropdownOpen);
+                  setIsUserDropdownOpen(false);
+                }}
+                className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                aria-label="Select language"
+              >
+                {hasValue(selectedLanguage?.flag) && (
+                  <img src={selectedLanguage.flag} alt={selectedLanguage.name} className="w-5 h-5" />
+                )}
+                <span className="text-white text-sm hidden md:inline">{selectedLanguage.name}</span>
+                {isLangDropdownOpen ? <FaAngleUp className="text-white transition-transform duration-200" /> : <FaAngleDown className="text-white transition-transform duration-200" />}
+              </button>
 
-            {/* Language Dropdown Menu with Animation */}
-            <div
-              className={`absolute top-full mt-2 right-0 bg-white rounded-md shadow-lg py-2 w-40 z-50 transition-all duration-300 origin-top-right
-                                ${isLangDropdownOpen
-                  ? 'opacity-100 scale-100 visible'
-                  : 'opacity-0 scale-95 invisible'}`}
-            >
-              {languagesToShow.map((lang) => (
-                <button
-                  key={lang.code}
-                  onClick={() => handleLanguageSelect(lang)}
-                  className={`flex items-center gap-2 px-4 py-2 hover:bg-gray-100 w-full text-left transition-colors duration-150 ${selectedLanguage.code === lang.code ? 'bg-blue-50' : ''
-                    }`}
-                >
-                  <img src={lang.flag} alt={lang.name} className="w-5 h-5" />
-                  <span className={`text-sm ${selectedLanguage.code === lang.code ? 'text-blue-600 font-medium' : 'text-gray-700'}`}>
-                    {lang.name}
-                  </span>
-                  {selectedLanguage.code === lang.code && (
-                    <span className="ml-auto text-blue-600">✓</span>
-                  )}
-                </button>
-              ))}
+              {/* Language Dropdown Menu with Animation */}
+              <div
+                className={`absolute top-full mt-2 right-0 bg-white rounded-md shadow-lg py-2 w-40 z-50 transition-all duration-300 origin-top-right
+                  ${isLangDropdownOpen ? 'opacity-100 scale-100 visible' : 'opacity-0 scale-95 invisible'}`}
+              >
+                {languagesToShow.map((lang) => (
+                  <button
+                    key={lang.code}
+                    onClick={() => handleLanguageSelect(lang)}
+                    className={`flex items-center gap-2 px-4 py-2 hover:bg-gray-100 w-full text-left transition-colors duration-150 ${selectedLanguage.code === lang.code ? 'bg-blue-50' : ''
+                      }`}
+                  >
+                    <img src={lang.flag} alt={lang.name} className="w-5 h-5" />
+                    <span className={`text-sm ${selectedLanguage.code === lang.code ? 'text-blue-600 font-medium' : 'text-gray-700'}`}>
+                      {lang.name}
+                    </span>
+                    {selectedLanguage.code === lang.code && (
+                      <span className="ml-auto text-blue-600">✓</span>
+                    )}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Vertical Line */}
-          <div className="w-px h-5 bg-gray-600"></div>
+          {/* Vertical Line - Only if both sides have content */}
+          {hasLanguages && (hasSocialLinks || true) && (
+            <div className="w-px h-5 bg-gray-600"></div>
+          )}
 
           {/* Expandable Search with Animation */}
           <div className="relative" ref={searchRef}>
             <div className="overflow-hidden">
-              <div
-                className={`transition-all duration-300 ease-in-out
-                                    ${isSearchExpanded ? 'w-64 opacity-100' : 'w-6 opacity-100'}`}
-              >
+              <div className={`transition-all duration-300 ease-in-out ${isSearchExpanded ? 'w-64 opacity-100' : 'w-6 opacity-100'}`}>
                 {isSearchExpanded ? (
                   <form onSubmit={handleSearchSubmit} className="flex items-center animate-slideIn">
                     <input
@@ -225,7 +256,7 @@ const TopBar = ({ topBarData, storageUrl }) => {
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       placeholder="Search ..."
-                      className="px-3 py-1 rounded-l-md text-sm focus:outline-none text-white focus:ring-1 focus:ring-[#009BE2] w-full"
+                      className="px-3 py-1 rounded-l-md text-sm focus:outline-none text-white focus:ring-1 focus:ring-[#009BE2] w-full bg-gray-700"
                       autoFocus
                     />
                     <button
@@ -267,9 +298,7 @@ const TopBar = ({ topBarData, storageUrl }) => {
             {/* User Dropdown Menu with Animation */}
             <div
               className={`absolute top-full mt-2 right-0 bg-white rounded-md shadow-lg py-2 w-48 z-50 transition-all duration-300 origin-top-right
-                                ${isUserDropdownOpen
-                  ? 'opacity-100 scale-100 visible'
-                  : 'opacity-0 scale-95 invisible'}`}
+                ${isUserDropdownOpen ? 'opacity-100 scale-100 visible' : 'opacity-0 scale-95 invisible'}`}
             >
               {user ? (
                 // Authenticated User Menu
@@ -278,7 +307,7 @@ const TopBar = ({ topBarData, storageUrl }) => {
                     <p className="text-sm font-medium text-gray-900">{user.name}</p>
                     <p className="text-xs text-gray-500 truncate">{user.email}</p>
                   </div>
-                  {userMenu.authenticated.map((item, index) => (
+                  {finalUserMenu.authenticated?.map((item, index) => (
                     item.divider ? (
                       <div key={index} className="border-t border-gray-200 my-1"></div>
                     ) : item.type === 'link' ? (
@@ -306,7 +335,7 @@ const TopBar = ({ topBarData, storageUrl }) => {
                 </>
               ) : (
                 // Guest User Menu
-                userMenu.guest.map((item) => (
+                finalUserMenu.guest?.map((item) => (
                   <Link
                     key={item.label}
                     href={route(item.route)}
@@ -321,10 +350,10 @@ const TopBar = ({ topBarData, storageUrl }) => {
           </div>
 
           {/* Vertical Line */}
-          <div className="w-px h-5 bg-gray-600"></div>
+          {hasSocialLinks && <div className="w-px h-5 bg-gray-600"></div>}
 
           {/* Social Icons with Hover Animation */}
-          {topBarData.socialLinks.map((social) => {
+          {hasSocialLinks && socialLinks.map((social) => {
             const IconComponent = iconMap[social.iconName];
             if (!IconComponent) return null;
             return (
@@ -333,7 +362,7 @@ const TopBar = ({ topBarData, storageUrl }) => {
                 href={social.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`text-xl text-white ${social.hoverColor} transition-all duration-200 hover:scale-110`}
+                className={`text-xl text-white ${social.hoverColor || ''} transition-all duration-200 hover:scale-110`}
                 aria-label={social.name}
               >
                 <IconComponent />
@@ -347,7 +376,6 @@ const TopBar = ({ topBarData, storageUrl }) => {
       <div className='lg:hidden bg-[#080C14] px-4 py-2 relative z-50'>
         {/* Mobile Header with Logo and Menu Button */}
         <div className='flex justify-between items-center'>
-
           {/* Mobile Menu Button */}
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -368,30 +396,43 @@ const TopBar = ({ topBarData, storageUrl }) => {
 
         {/* Mobile Dropdown Menu */}
         <div
-          className={`transition-all duration-300 ease-in-out overflow-hidden ${isMobileMenuOpen ? 'max-h-96 opacity-100 mt-4' : 'max-h-0 opacity-0'
-            }`}
+          className={`transition-all duration-300 ease-in-out overflow-hidden ${isMobileMenuOpen ? 'max-h-150 opacity-100 mt-4' : 'max-h-0 opacity-0'}`}
         >
           <div className="space-y-4 pb-4">
             {/* Contact Info - Mobile */}
-            <div className="space-y-3">
-              <a href={`mailto:${topBarData.contactInfo.email.text}`} className="flex items-center gap-2 text-white text-sm hover:text-[#009BE2] transition-colors">
-                <img src={topBarData.contactInfo.email.icon} alt={topBarData.contactInfo.email.alt} className="w-4 h-4" />
-                <span>{topBarData.contactInfo.email.text}</span>
-              </a>
+            {hasContactInfo && (
+              <div className="space-y-3">
+                {hasValue(contactInfo.email?.text) && (
+                  <a href={`mailto:${contactInfo.email.text}`} className="flex items-center gap-2 text-white text-sm hover:text-[#009BE2] transition-colors">
+                    {hasValue(contactInfo.email?.icon) && (
+                      <img src={contactInfo.email.icon} alt={contactInfo.email.alt || 'Email'} className="w-4 h-4" />
+                    )}
+                    <span>{contactInfo.email.text}</span>
+                  </a>
+                )}
 
-              <a href={`tel:${topBarData.contactInfo.phone.text.replace(/\s/g, '')}`} className="flex items-center gap-2 text-white text-sm hover:text-[#009BE2] transition-colors">
-                <img src={topBarData.contactInfo.phone.icon} alt={topBarData.contactInfo.phone.alt} className="w-4 h-4" />
-                <span>{topBarData.contactInfo.phone.text}</span>
-              </a>
+                {hasValue(contactInfo.phone?.text) && (
+                  <a href={`tel:${contactInfo.phone.text.replace(/\s/g, '')}`} className="flex items-center gap-2 text-white text-sm hover:text-[#009BE2] transition-colors">
+                    {hasValue(contactInfo.phone?.icon) && (
+                      <img src={contactInfo.phone.icon} alt={contactInfo.phone.alt || 'Phone'} className="w-4 h-4" />
+                    )}
+                    <span>{contactInfo.phone.text}</span>
+                  </a>
+                )}
 
-              <div className="flex items-center gap-2 text-white text-sm">
-                <img src={topBarData.contactInfo.hours.icon} alt={topBarData.contactInfo.hours.alt} className="w-4 h-4" />
-                <span>{topBarData.contactInfo.hours.text}</span>
+                {hasValue(contactInfo.hours?.text) && (
+                  <div className="flex items-center gap-2 text-white text-sm">
+                    {hasValue(contactInfo.hours?.icon) && (
+                      <img src={contactInfo.hours.icon} alt={contactInfo.hours.alt || 'Hours'} className="w-4 h-4" />
+                    )}
+                    <span>{contactInfo.hours.text}</span>
+                  </div>
+                )}
               </div>
-            </div>
+            )}
 
             {/* Divider */}
-            <div className="border-t border-gray-700"></div>
+            {(hasContactInfo || true) && <div className="border-t border-gray-700"></div>}
 
             {/* Mobile Search */}
             <form onSubmit={handleSearchSubmit} className="flex items-center">
@@ -414,43 +455,47 @@ const TopBar = ({ topBarData, storageUrl }) => {
             <div className="border-t border-gray-700"></div>
 
             {/* Mobile Language Selector */}
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="text-white text-sm">Language</span>
-                <button
-                  onClick={() => setIsLangDropdownOpen(!isLangDropdownOpen)}
-                  className="flex items-center gap-2"
-                >
-                  <img src={selectedLanguage.flag} alt={selectedLanguage.name} className="w-5 h-5" />
-                  <span className="text-white text-sm">{selectedLanguage.name}</span>
-                  {isLangDropdownOpen ? <FaAngleUp className="text-white" /> : <FaAngleDown className="text-white" />}
-                </button>
-              </div>
-
-              {isLangDropdownOpen && (
-                <div className="mt-2 bg-white rounded-md shadow-lg py-2">
-                  {languagesToShow.map((lang) => (
+            {hasLanguages && (
+              <>
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-white text-sm">Language</span>
                     <button
-                      key={lang.code}
-                      onClick={() => handleLanguageSelect(lang)}
-                      className={`flex items-center gap-2 px-4 py-2 hover:bg-gray-100 w-full text-left transition-colors duration-150 ${selectedLanguage.code === lang.code ? 'bg-blue-50' : ''
-                        }`}
+                      onClick={() => setIsLangDropdownOpen(!isLangDropdownOpen)}
+                      className="flex items-center gap-2"
                     >
-                      <img src={lang.flag} alt={lang.name} className="w-5 h-5" />
-                      <span className={`text-sm ${selectedLanguage.code === lang.code ? 'text-blue-600 font-medium' : 'text-gray-700'}`}>
-                        {lang.name}
-                      </span>
-                      {selectedLanguage.code === lang.code && (
-                        <span className="ml-auto text-blue-600">✓</span>
-                      )}
+                      <img src={selectedLanguage.flag} alt={selectedLanguage.name} className="w-5 h-5" />
+                      <span className="text-white text-sm">{selectedLanguage.name}</span>
+                      {isLangDropdownOpen ? <FaAngleUp className="text-white" /> : <FaAngleDown className="text-white" />}
                     </button>
-                  ))}
-                </div>
-              )}
-            </div>
+                  </div>
 
-            {/* Divider */}
-            <div className="border-t border-gray-700"></div>
+                  {isLangDropdownOpen && (
+                    <div className="mt-2 bg-white rounded-md shadow-lg py-2">
+                      {languagesToShow.map((lang) => (
+                        <button
+                          key={lang.code}
+                          onClick={() => handleLanguageSelect(lang)}
+                          className={`flex items-center gap-2 px-4 py-2 hover:bg-gray-100 w-full text-left transition-colors duration-150 ${selectedLanguage.code === lang.code ? 'bg-blue-50' : ''
+                            }`}
+                        >
+                          <img src={lang.flag} alt={lang.name} className="w-5 h-5" />
+                          <span className={`text-sm ${selectedLanguage.code === lang.code ? 'text-blue-600 font-medium' : 'text-gray-700'}`}>
+                            {lang.name}
+                          </span>
+                          {selectedLanguage.code === lang.code && (
+                            <span className="ml-auto text-blue-600">✓</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Divider */}
+                <div className="border-t border-gray-700"></div>
+              </>
+            )}
 
             {/* Mobile User Menu */}
             <div>
@@ -471,7 +516,7 @@ const TopBar = ({ topBarData, storageUrl }) => {
                         <p className="text-sm font-medium text-gray-900">{user.name}</p>
                         <p className="text-xs text-gray-500 truncate">{user.email}</p>
                       </div>
-                      {userMenu.authenticated.map((item, index) => (
+                      {finalUserMenu.authenticated?.map((item, index) => (
                         item.divider ? (
                           <div key={index} className="border-t border-gray-200 my-1"></div>
                         ) : item.type === 'link' ? (
@@ -502,7 +547,7 @@ const TopBar = ({ topBarData, storageUrl }) => {
                       ))}
                     </>
                   ) : (
-                    userMenu.guest.map((item) => (
+                    finalUserMenu.guest?.map((item) => (
                       <Link
                         key={item.label}
                         href={route(item.route)}
@@ -521,48 +566,50 @@ const TopBar = ({ topBarData, storageUrl }) => {
             </div>
 
             {/* Divider */}
-            <div className="border-t border-gray-700"></div>
+            {hasSocialLinks && <div className="border-t border-gray-700"></div>}
 
             {/* Mobile Social Icons */}
-            <div className="flex justify-center gap-4">
-              {topBarData.socialLinks.map((social) => {
-                const IconComponent = iconMap[social.iconName];
-                if (!IconComponent) return null;
-                return (
-                  <a
-                    key={social.id}
-                    href={social.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`text-white text-xl ${social.hoverColor} transition-all duration-200`}
-                    aria-label={social.name}
-                  >
-                    <IconComponent />
-                  </a>
-                );
-              })}
-            </div>
+            {hasSocialLinks && (
+              <div className="flex justify-center gap-4">
+                {socialLinks.map((social) => {
+                  const IconComponent = iconMap[social.iconName];
+                  if (!IconComponent) return null;
+                  return (
+                    <a
+                      key={social.id}
+                      href={social.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`text-white text-xl ${social.hoverColor || ''} transition-all duration-200`}
+                      aria-label={social.name}
+                    >
+                      <IconComponent />
+                    </a>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>
 
       {/* Add custom animation keyframes */}
       <style>{`
-                @keyframes slideIn {
-                    from {
-                        opacity: 0;
-                        transform: translateX(-10px);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: translateX(0);
-                    }
-                }
-                
-                .animate-slideIn {
-                    animation: slideIn 0.3s ease-out;
-                }
-            `}</style>
+        @keyframes slideIn {
+          from {
+            opacity: 0;
+            transform: translateX(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+        
+        .animate-slideIn {
+          animation: slideIn 0.3s ease-out;
+        }
+      `}</style>
     </>
   );
 };

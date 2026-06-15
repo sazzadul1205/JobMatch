@@ -3,9 +3,6 @@
 // React
 import React from 'react';
 
-// Icons
-import { Dumbbell } from 'lucide-react';
-
 // Components
 import Navbar from '../components/Shared/Navbar';
 import TopBar from '../components/Shared/TopBar';
@@ -13,7 +10,7 @@ import Footer from '../components/Shared/Footer';
 
 const PublicLayout = ({ children, topBarData, navbarData, footerData, storageUrl }) => {
   return (
-    <main >
+    <div className="min-h-screen flex flex-col">
       {/* TopBar */}
       <TopBar topBarData={topBarData} storageUrl={storageUrl} />
 
@@ -21,13 +18,13 @@ const PublicLayout = ({ children, topBarData, navbarData, footerData, storageUrl
       <Navbar navbarData={navbarData} />
 
       {/* Main Content */}
-      <main className="mx-auto">
+      <main className="grow">
         {children}
       </main>
 
       {/* Footer */}
       <Footer footerData={footerData} storageUrl={storageUrl} />
-    </main>
+    </div>
   );
 };
 
