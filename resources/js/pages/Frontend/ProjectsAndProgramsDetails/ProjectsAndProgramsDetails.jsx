@@ -2,39 +2,20 @@
 
 import React from 'react';
 import { Head } from "@inertiajs/react";
-
-// Layout
 import PublicLayout from '../../../layouts/PublicLayout';
-
-// Components
 import DynamicSectionRenderer from '../../../components/Shared/DynamicSectionRenderer';
 
-// ============================================
-// SPECIAL COMPONENTS (Not in registry)
-// ============================================
-
 // Program Content Section Component
-const ProgramContentSection = ({
-  programData,
-  slug,
-  bgColor = 'bg-white',
-  paddingY = 'py-37.5',
-  paddingX = 'px-100',
-  sectionClassName = '',
-  sectionId = 'program-content',
-}) => {
+const ProgramContentSection = ({ programData, slug, bgColor, paddingY, paddingX, sectionClassName, sectionId }) => {
   const renderHTML = (htmlString) => ({ __html: htmlString });
-
   if (!programData) return null;
 
   return (
     <section id={sectionId} className={`${bgColor} ${paddingY} ${paddingX} ${sectionClassName}`}>
-      {/* Title */}
       <h1 className='font-700 text-[100px] leading-tight pb-12.5'>
         {programData?.title}
       </h1>
 
-      {/* Image - Responsive sizing */}
       {programData?.image && (
         <div className="mb-6 sm:mb-8 md:mb-10 lg:mb-12.5">
           <img
@@ -45,7 +26,6 @@ const ProgramContentSection = ({
         </div>
       )}
 
-      {/* Content */}
       <div
         className="bricolage-grotesque prose prose-lg max-w-none
           prose-headings:font-700 prose-headings:text-[#080C14] 
@@ -59,113 +39,30 @@ const ProgramContentSection = ({
   );
 };
 
-// ============================================
-// SECTION ORDER CONFIGURATION (JSON)
-// ============================================
-const SECTION_ORDER_CONFIG = {
-  sections: [
-    {
-      id: "banner",
-      component: "PageBannerSection",
-      enabled: true,
-      propName: "bannerData",
-      dataKey: "bannerData",
-      order: 1,
-      customProps: {
-        // sectionId will be dynamically generated below
-      }
-    },
-    {
-      id: "program-content",
-      component: "ProgramContentSection",
-      isSpecialComponent: true,
-      enabled: true,
-      order: 2,
-      customProps: {
-        bgColor: 'bg-white',
-        paddingY: 'py-37.5',
-        paddingX: 'px-100',
-      }
-    },
-    {
-      id: "faq",
-      component: "FAQSection",
-      enabled: true,
-      propName: "faqData",
-      dataKey: "faqData",
-      order: 3,
-      customProps: {}
-    },
-    {
-      id: "upcoming-events",
-      component: "UpcomingEventsSection",
-      enabled: true,
-      propName: "eventsData",
-      dataKey: "upcomingEventsData",
-      order: 4,
-      customProps: {}
-    },
-  ],
-};
-
 const ProjectsAndProgramsDetails = ({
   topBarData,
   navbarData,
   footerData,
   storageUrl,
+  sectionConfig,
   slug,
-  faqData,
-  bannerData,
-  programData,
-  upcomingEventsData,
+  ...pageData
 }) => {
+  const sectionsToRender = (sectionConfig?.sections || [])
+    .filter(section => section.enabled === true)
+    .sort((a, b) => a.order - b.order);
 
-  // Prepare data mapping
-  const pageData = {
-    bannerData,
-    faqData,
-    upcomingEventsData,
-    programData,
-    slug,
-  };
-
-  // Get enabled sections sorted by order with dynamic banner sectionId
-  const getSectionsToRender = () => {
-    return SECTION_ORDER_CONFIG.sections
-      .map(section => {
-        // Dynamically update banner sectionId based on slug
-        if (section.id === 'banner') {
-          return {
-            ...section,
-            customProps: {
-              ...section.customProps,
-              sectionId: `program-${slug}-banner`
-            }
-          };
-        }
-        return section;
-      })
-      .filter(section => section.enabled === true)
-      .sort((a, b) => a.order - b.order);
-  };
-
-  const sectionsToRender = getSectionsToRender();
-
-  // Helper to render special components
   const renderSpecialComponent = (section) => {
-    const { component, customProps = {} } = section;
-
-    if (component === 'ProgramContentSection') {
+    if (section.component === 'ProgramContentSection') {
       return (
         <ProgramContentSection
           key={section.id}
           programData={pageData.programData}
-          slug={pageData.slug}
-          {...customProps}
+          slug={slug}
+          {...section.customProps}
         />
       );
     }
-
     return null;
   };
 
@@ -176,13 +73,12 @@ const ProjectsAndProgramsDetails = ({
       footerData={footerData}
       storageUrl={storageUrl}
     >
-      <Head title={`${programData?.title || 'Program'} | DUS - Dwip Unnayan Society`} />
+      <Head title={`${pageData.programData?.title || 'Program'} | DUS - Dwip Unnayan Society`} />
 
       {sectionsToRender.map((section) => {
         if (section.isSpecialComponent) {
           return renderSpecialComponent(section);
         }
-
         return (
           <DynamicSectionRenderer
             key={section.id}
