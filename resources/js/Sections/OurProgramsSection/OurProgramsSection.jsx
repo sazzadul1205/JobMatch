@@ -1,14 +1,38 @@
-// resources/js/pages/Frontend/Home/Sections/OurPrograms.jsx
+// js/Sections/OurProgramsSection/OurProgramsSection.jsx
 
+// React
 import React, { useRef, useEffect, useState } from "react";
-import ArrowIcon from "../../../../components/Shared/ArrowIcon";
 
-const OurProgramsSection = ({ programsData }) => {
+// Arrow Icon
+import ArrowIcon from "../../components/Shared/ArrowIcon";
+
+// Utility function to check if value exists
+const hasValue = (value) => {
+  if (value === undefined || value === null) return false;
+  if (typeof value === 'string') return value.trim().length > 0;
+  if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === 'object') return Object.keys(value).length > 0;
+  return true;
+};
+
+const OurProgramsSection = ({
+  programsData,
+  bgColor = 'bg-white',
+  paddingY = 'py-12 sm:py-16 lg:py-20',
+  paddingX = 'px-5 sm:px-10 md:px-20 lg:px-50',
+  sectionClassName = '',
+}) => {
   const [visibleCards, setVisibleCards] = useState([]);
   const cardsRef = useRef([]);
 
+  // Don't render if no data
+  if (!hasValue(programsData)) {
+    return null;
+  }
+
   // Function to strip HTML tags and get plain text
   const stripHtmlTags = (html) => {
+    if (!html) return '';
     const temp = document.createElement('div');
     temp.innerHTML = html;
     return temp.textContent || temp.innerText || '';
@@ -18,11 +42,8 @@ const OurProgramsSection = ({ programsData }) => {
   const truncateHtml = (html, maxLines = 9) => {
     if (!html) return '';
 
-    // Strip HTML to get plain text
     const plainText = stripHtmlTags(html);
     const words = plainText.split(' ');
-
-    // Estimate: roughly 15 words per line (adjust based on your font size)
     const wordsPerLine = 20;
     const maxWords = maxLines * wordsPerLine;
 
@@ -30,14 +51,13 @@ const OurProgramsSection = ({ programsData }) => {
       return html;
     }
 
-    // Find where to cut
     let truncatedText = words.slice(0, maxWords).join(' ');
     truncatedText = truncatedText + '...';
 
-    // Return as simple paragraph with ellipsis
     return `<p class="font-400 text-[16px] sm:text-[18px] lg:text-[20px] text-[#524B48] leading-relaxed">${truncatedText}</p>`;
   };
 
+  // Function to handle card visibility
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -66,58 +86,68 @@ const OurProgramsSection = ({ programsData }) => {
     return () => observer.disconnect();
   }, []);
 
-  const hasTitle = programsData?.section?.title;
-  const hasDescription = programsData?.section?.description;
-  const hasButton = programsData?.section?.button?.text;
+  // Safe destructuring with defaults
+  const {
+    section = {},
+    programs = []
+  } = programsData;
+
+  const hasTitle = hasValue(section.title);
+  const hasDescription = hasValue(section.description);
+  const hasButton = hasValue(section.button?.text);
 
   const showHeader = hasTitle || hasDescription || hasButton;
+  const hasPrograms = hasValue(programs);
 
-  const programs = programsData?.programs || [];
+  if (!showHeader && !hasPrograms) {
+    return null;
+  }
 
   return (
     <section
       id="our-programs"
-      className="bg-white py-12 sm:py-16 lg:py-20 px-5 sm:px-10 md:px-20 lg:px-50"
+      className={`${bgColor} ${paddingX} ${paddingY} ${sectionClassName}`}
     >
-      {/* Header */}
+      {/* Header - Only show if there's header content */}
       {showHeader && (
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center pb-8 sm:pb-10 lg:pb-15 gap-5">
           {(hasTitle || hasDescription) && (
             <div className="max-w-250">
+              {/* Section Title */}
               {hasTitle && (
                 <h1 className="bricolage-grotesque font-700 text-[28px] sm:text-[32px] md:text-[36px] lg:text-[40px] text-[#080C14] pb-3 sm:pb-4 lg:pb-5">
-                  {programsData.section.title}
+                  {section.title}
                 </h1>
               )}
 
+              {/* Section Description */}
               {hasDescription && (
                 <p className="font-400 text-[16px] sm:text-[18px] lg:text-[20px] text-[#515151]">
-                  {programsData.section.description}
+                  {section.description}
                 </p>
               )}
             </div>
           )}
 
+          {/* Section Button */}
           {hasButton && (
             <button
               onClick={() => {
-                if (programsData.section.button.link) {
-                  window.location.href =
-                    programsData.section.button.link;
+                if (section.button?.link) {
+                  window.location.href = section.button.link;
                 }
               }}
               className="bricolage-grotesque border border-[#009BE2] rounded-md text-[#009BE2] px-5 sm:px-6 lg:px-7.5 py-3 sm:py-4 lg:py-5 font-600 text-[14px] sm:text-[15px] lg:text-[16px] inline-flex items-center gap-3 group hover:bg-[#009BE2] hover:text-white transition-all duration-300 whitespace-nowrap"
             >
-              {programsData.section.button.text}
-
+              {section.button.text}
               <ArrowIcon className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-all duration-300" />
             </button>
           )}
         </div>
       )}
 
-      {/* Programs */}
-      {programs.length > 0 && (
+      {/* Programs - Only show if there are programs */}
+      {hasPrograms && (
         <>
           <div
             className={`relative ${showHeader ? "mt-16 sm:mt-24 lg:mt-32" : ""
@@ -127,18 +157,23 @@ const OurProgramsSection = ({ programsData }) => {
             }}
           >
             {programs.map((program, index) => {
+              // Skip rendering if program has no content
+              if (!hasValue(program) && !program.title && !program.description) {
+                return null;
+              }
+
               // Truncate description to 9 lines
               const truncatedDescription = truncateHtml(program.description, 9);
 
               return (
                 <div
-                  key={program.id}
+                  key={program.id || index}
                   ref={(el) => (cardsRef.current[index] = el)}
-                  data-id={program.id}
+                  data-id={program.id || index}
                   className={`
                     sticky top-25 w-full
                     transition-all duration-700 ease-out
-                    ${visibleCards.includes(program.id)
+                    ${visibleCards.includes(program.id || index)
                       ? "opacity-100 translate-y-0"
                       : "opacity-0 translate-y-16"
                     }
@@ -148,85 +183,52 @@ const OurProgramsSection = ({ programsData }) => {
                   }}
                 >
                   <div
-                    className={`
-                      ${program.bgColor}
-                      flex flex-col lg:flex-row
-                      justify-between
-                      items-center
-                      gap-8 lg:gap-25
-                      p-5 sm:p-6 md:p-8 lg:p-25
-                      rounded-3xl
-                      min-h-162.5
-                      lg:h-187.5
-                      shadow-lg
-                    `}
+                    className={` ${program.bgColor || 'bg-white'} flex flex-col lg:flex-row justify-between items-center gap-8 lg:gap-25 p-5 sm:p-6 md:p-8 lg:p-25 rounded-3xl min-h-162.5 lg:h-187.5 shadow-lg`}
                   >
                     {/* Left Content */}
                     <div className="w-full lg:w-1/2 flex flex-col justify-center">
-                      <h3 className="bricolage-grotesque font-600 text-[24px] sm:text-[28px] md:text-[36px] lg:text-[46px] text-[#080C14] leading-tight mb-5">
-                        {program.title &&
-                          program.title
-                            .split("<br />")
-                            .map((line, idx) => (
-                              <React.Fragment key={idx}>
-                                {line}
-                                {idx !==
-                                  program.title.split("<br />").length -
-                                  1 && <br />}
-                              </React.Fragment>
-                            ))}
-                      </h3>
+                      {/* Program Title */}
+                      {hasValue(program.title) && (
+                        <h3 className="bricolage-grotesque font-600 text-[24px] sm:text-[28px] md:text-[36px] lg:text-[46px] text-[#080C14] leading-tight mb-5">
+                          {program.title.split("<br />").map((line, idx) => (
+                            <React.Fragment key={idx}>
+                              {line}
+                              {idx !== program.title.split("<br />").length - 1 && <br />}
+                            </React.Fragment>
+                          ))}
+                        </h3>
+                      )}
 
-                      {program.description && (
+                      {/* Program Description */}
+                      {hasValue(program.description) && (
                         <div
-                          className="
-                            bricolage-grotesque
-                            font-400
-                            text-[16px]
-                            sm:text-[18px]
-                            lg:text-[20px]
-                            text-[#524B48]
-                            leading-relaxed
-                            line-clamp-9
-                          "
+                          className=" bricolage-grotesque font-400 text-[16px] sm:text-[18px] lg:text-[20px] text-[#524B48] leading-relaxed line-clamp-9"
                           dangerouslySetInnerHTML={{ __html: truncatedDescription }}
                         />
                       )}
 
-                      {program.link && (
+                      {/* Program Link/Button */}
+                      {hasValue(program.link) && (
                         <button
-                          onClick={() =>
-                            (window.location.href = program.link)
-                          }
+                          onClick={() => window.location.href = program.link}
                           className="mt-6 bricolage-grotesque flex items-center gap-2 font-500 lg:font-600 text-[16px] sm:text-[17px] lg:text-[20px] text-[#009BE2] group hover:text-[#080C14] transition-colors duration-300 w-fit"
                         >
                           Read more
-
                           <ArrowIcon className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-all duration-300" />
                         </button>
                       )}
                     </div>
 
-                    {/* Right Image */}
-                    <div className="w-full lg:w-1/2">
-                      {program.image && (
+                    {/* Right Image - Only show if image exists */}
+                    {hasValue(program.image) && (
+                      <div className="w-full lg:w-1/2">
                         <img
                           src={program.image}
                           alt={program.title || "Program image"}
-                          className="
-                            w-full
-                            h-75
-                            sm:h-100
-                            lg:h-150
-                            object-cover
-                            rounded-3xl
-                            hover:scale-105
-                            transition-transform
-                            duration-300
-                          "
+                          className=" w-full h-75 sm:h-100 lg:h-150 object-cover rounded-3xl hover:scale-105 transition-transform duration-300"
                         />
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
