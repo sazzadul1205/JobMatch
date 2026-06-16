@@ -77,5 +77,22 @@ class DatabaseSeeder extends Seeder
                 'email_verified_at' => now(),
             ]
         );
+
+        $this->call(CMS\PagesTableSeeder::class);
+        $this->call(CMS\NavbarLinksTableSeeder::class);
+        $this->call(CMS\FooterLinksTableSeeder::class);
+        $this->call(CMS\SocialLinksTableSeeder::class);
+        $this->call(CMS\SettingsTableSeeder::class);
+        $this->call(CMS\OfficesTableSeeder::class);
+        $this->call(CMS\FaqsTableSeeder::class);
+        $this->call(CMS\StoriesTableSeeder::class);
+        $this->call(CMS\StatsTableSeeder::class);
+        $this->call(CMS\BlogTagsTableSeeder::class);
+        $this->call(CMS\BlogsTableSeeder::class);
+        $this->call(CMS\BlogBlogTagTableSeeder::class);
+        $this->call(CMS\CareersTableSeeder::class);
+        $this->call(CMS\EventsTableSeeder::class);
+        $this->call(CMS\ProgramsTableSeeder::class);
+        $this->call(CMS\SectionsTableSeeder::class);
     }
 }
