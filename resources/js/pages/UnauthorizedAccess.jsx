@@ -75,7 +75,7 @@ export default function UnauthorizedAccess({ status = 403, message = null }) {
                 </button>
 
                 <Link
-                  href={route('dashboard')}
+                  href={route('backend.dashboard')}
                   className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all duration-200 font-medium"
                 >
                   <FaHome size={16} />

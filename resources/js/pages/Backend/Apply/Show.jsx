@@ -142,7 +142,7 @@ export default function ApplyShow({ application, jobListing, statusTimeline, ats
               Employer accounts cannot view application details. Please use the employer panel to manage applications for your jobs.
             </p>
             <button
-              onClick={() => router.visit(route('dashboard'))}
+              onClick={() => router.visit(route('backend.dashboard'))}
               className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
             >
               Go to Dashboard

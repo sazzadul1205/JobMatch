@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Traits\HasRoles;
+use App\Notifications\CustomResetPasswordNotification;
+use App\Notifications\CustomVerifyEmailNotification;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -64,6 +66,22 @@ class User extends Authenticatable
     public function unreadNotifications()
     {
         return $this->notifications()->whereNull('read_at');
+    }
+
+    /**
+     * Send the password reset notification using the custom email template.
+     */
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new CustomResetPasswordNotification($token));
+    }
+
+    /**
+     * Send the email verification notification using the custom email template.
+     */
+    public function sendEmailVerificationNotification(): void
+    {
+        $this->notify(new CustomVerifyEmailNotification());
     }
 
     protected $appends = ['roles_list', 'permissions_list'];

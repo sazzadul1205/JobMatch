@@ -249,7 +249,7 @@ export default function EmployerShow({ user: employerUser, stats }) {
               timer: 2000,
               showConfirmButton: false,
             });
-            router.visit(route('dashboard'));
+            router.visit(route('backend.dashboard'));
           },
           onError: (error) => {
             Swal.fire({

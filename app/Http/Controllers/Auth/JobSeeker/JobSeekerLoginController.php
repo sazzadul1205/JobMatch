@@ -64,7 +64,7 @@ class JobSeekerLoginController extends Controller
       return redirect()->route('profile.complete');
     }
 
-    return redirect()->intended(route('dashboard'));
+    return redirect()->intended(route('backend.dashboard'));
   }
 
   /**

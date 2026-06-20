@@ -28,7 +28,7 @@ class EmailVerificationPromptController extends Controller
                 }
             }
 
-            return redirect()->route('dashboard');
+            return redirect()->route('backend.dashboard');
         }
 
         // Not verified - show the verification page

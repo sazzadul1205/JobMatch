@@ -49,10 +49,41 @@ const WorkExperience = ({ data, setData }) => {
 
   const updateJobHistory = (index, field, value) => {
     const updated = [...data.job_histories];
-    updated[index][field] = value;
+
     if (field === 'is_current' && value === true) {
+      // If setting this one as current, unset all others
+      updated.forEach((job, i) => {
+        if (i !== index) {
+          job.is_current = false;
+          job.ending_year = null;
+        }
+      });
+      updated[index].is_current = true;
       updated[index].ending_year = null;
+    } else {
+      updated[index][field] = value;
     }
+
+    // Validate starting_year and ending_year
+    const job = updated[index];
+    if (field === 'starting_year' || field === 'ending_year' || field === 'is_current') {
+      if (!job.is_current && job.starting_year && job.ending_year) {
+        if (job.ending_year < job.starting_year) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Invalid Year Range',
+            text: 'Ending year cannot be before starting year.',
+            confirmButtonColor: '#ef4444',
+            confirmButtonText: 'OK'
+          });
+          // Revert the change
+          updated[index][field] = value === 'starting_year' ? job.starting_year : job.ending_year;
+          setData('job_histories', updated);
+          return;
+        }
+      }
+    }
+
     setData('job_histories', updated);
   };
 
@@ -64,6 +95,15 @@ const WorkExperience = ({ data, setData }) => {
 
   // Calculate remaining slots
   const remainingSlots = MAX_EXPERIENCES - data.job_histories.length;
+
+  // Count how many current positions exist
+  const currentCount = data.job_histories.filter(job => job.is_current).length;
+
+  // Get available years for ending year (must be >= starting year)
+  const getAvailableEndingYears = (startingYear) => {
+    if (!startingYear) return years;
+    return years.filter(year => year >= startingYear);
+  };
 
   return (
     <div className="space-y-6">
@@ -108,119 +148,140 @@ const WorkExperience = ({ data, setData }) => {
       )}
 
       {/* Work Experience List */}
-      {data.job_histories.map((job, index) => (
-        <div key={job.id} className="border border-gray-200 rounded-xl p-5 relative hover:shadow-lg transition-all duration-200 bg-white">
-          <button
-            onClick={() => removeJobHistory(index)}
-            className="absolute top-4 right-4 text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded-lg transition-colors duration-200"
-            title="Remove experience"
-          >
-            <FaTrashAlt className="h-4 w-4" />
-          </button>
+      {data.job_histories.map((job, index) => {
+        const availableEndingYears = getAvailableEndingYears(job.starting_year);
 
-          <div className="flex items-center space-x-2 mb-4 pb-2 border-b border-gray-100">
-            <MdBusinessCenter className="h-5 w-5 text-blue-500" />
-            <span className="text-sm font-semibold text-gray-600">Experience #{index + 1}</span>
-            {job.is_current && (
-              <span className="ml-2 text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full flex items-center gap-1">
-                <FaCheckCircle className="h-3 w-3" />
-                Current
-              </span>
-            )}
-          </div>
+        return (
+          <div key={job.id} className="border border-gray-200 rounded-xl p-5 relative hover:shadow-lg transition-all duration-200 bg-white">
+            <button
+              onClick={() => removeJobHistory(index)}
+              className="absolute top-4 right-4 text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded-lg transition-colors duration-200"
+              title="Remove experience"
+            >
+              <FaTrashAlt className="h-4 w-4" />
+            </button>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <span className="flex items-center gap-2">
-                  <FaBuilding className="h-4 w-4 text-gray-400" />
-                  Company Name
+            <div className="flex items-center space-x-2 mb-4 pb-2 border-b border-gray-100">
+              <MdBusinessCenter className="h-5 w-5 text-blue-500" />
+              <span className="text-sm font-semibold text-gray-600">Experience #{index + 1}</span>
+              {job.is_current && (
+                <span className="ml-2 text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <FaCheckCircle className="h-3 w-3" />
+                  Current
                 </span>
-              </label>
-              <input
-                type="text"
-                value={job.company_name}
-                onChange={(e) => updateJobHistory(index, 'company_name', e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                placeholder="e.g., Google, Microsoft, Local Company"
-              />
+              )}
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <span className="flex items-center gap-2">
-                  <FaBriefcase className="h-4 w-4 text-gray-400" />
-                  Position
-                </span>
-              </label>
-              <input
-                type="text"
-                value={job.position}
-                onChange={(e) => updateJobHistory(index, 'position', e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                placeholder="e.g., Senior Software Engineer"
-              />
-            </div>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-5">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Starting Year
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <FaCalendarAlt className="h-5 w-5 text-gray-400" />
-                </div>
-                <select
-                  value={job.starting_year}
-                  onChange={(e) => updateJobHistory(index, 'starting_year', parseInt(e.target.value))}
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white"
-                >
-                  {years.map(year => (
-                    <option key={year} value={year}>{year}</option>
-                  ))}
-                </select>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <span className="flex items-center gap-2">
+                    <FaBuilding className="h-4 w-4 text-gray-400" />
+                    Company Name
+                  </span>
+                </label>
+                <input
+                  type="text"
+                  value={job.company_name}
+                  onChange={(e) => updateJobHistory(index, 'company_name', e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                  placeholder="e.g., Google, Microsoft, Local Company"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <span className="flex items-center gap-2">
+                    <FaBriefcase className="h-4 w-4 text-gray-400" />
+                    Position
+                  </span>
+                </label>
+                <input
+                  type="text"
+                  value={job.position}
+                  onChange={(e) => updateJobHistory(index, 'position', e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                  placeholder="e.g., Senior Software Engineer"
+                />
               </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                {job.is_current ? 'Ending Year' : 'Ending Year (if applicable)'}
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <FaCalendarAlt className="h-5 w-5 text-gray-400" />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-5">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Starting Year
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <FaCalendarAlt className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <select
+                    value={job.starting_year}
+                    onChange={(e) => {
+                      const newStartingYear = parseInt(e.target.value);
+                      // If ending year exists and is less than new starting year, reset it
+                      if (job.ending_year && job.ending_year < newStartingYear) {
+                        updateJobHistory(index, 'ending_year', null);
+                      }
+                      updateJobHistory(index, 'starting_year', newStartingYear);
+                    }}
+                    className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white"
+                  >
+                    {years.map(year => (
+                      <option key={year} value={year}>{year}</option>
+                    ))}
+                  </select>
                 </div>
-                <select
-                  value={job.ending_year || ''}
-                  onChange={(e) => updateJobHistory(index, 'ending_year', e.target.value ? parseInt(e.target.value) : null)}
-                  disabled={job.is_current}
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 disabled:bg-gray-100 disabled:cursor-not-allowed bg-white"
-                >
-                  <option value="">Present</option>
-                  {years.map(year => (
-                    <option key={year} value={year}>{year}</option>
-                  ))}
-                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {job.is_current ? 'Ending Year' : 'Ending Year (if applicable)'}
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <FaCalendarAlt className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <select
+                    value={job.ending_year || ''}
+                    onChange={(e) => updateJobHistory(index, 'ending_year', e.target.value ? parseInt(e.target.value) : null)}
+                    disabled={job.is_current}
+                    className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 disabled:bg-gray-100 disabled:cursor-not-allowed bg-white"
+                  >
+                    <option value="">Present</option>
+                    {availableEndingYears.map(year => (
+                      <option key={year} value={year}>{year}</option>
+                    ))}
+                  </select>
+                </div>
+                {!job.is_current && job.starting_year && job.ending_year && job.ending_year < job.starting_year && (
+                  <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                    <FaExclamationTriangle className="h-3 w-3" />
+                    Ending year must be after starting year
+                  </p>
+                )}
               </div>
             </div>
-          </div>
 
-          <div className="mt-5 pt-2">
-            <label className="flex items-center space-x-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={job.is_current}
-                onChange={(e) => updateJobHistory(index, 'is_current', e.target.checked)}
-                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500 cursor-pointer"
-              />
-              <span className="text-sm text-gray-700 flex items-center gap-1">
-                <FaCheckCircle className="h-4 w-4 text-green-500" />
-                I currently work here
-              </span>
-            </label>
+            <div className="mt-5 pt-2">
+              <label className="flex items-center space-x-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={job.is_current}
+                  onChange={(e) => updateJobHistory(index, 'is_current', e.target.checked)}
+                  disabled={!job.is_current && currentCount >= 1}
+                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+                <span className={`text-sm flex items-center gap-1 ${!job.is_current && currentCount >= 1 ? 'text-gray-400' : 'text-gray-700'}`}>
+                  <FaCheckCircle className={`h-4 w-4 ${job.is_current ? 'text-green-500' : 'text-gray-400'}`} />
+                  I currently work here
+                  {!job.is_current && currentCount >= 1 && (
+                    <span className="text-xs text-gray-400 ml-1">(Only one current position allowed)</span>
+                  )}
+                </span>
+              </label>
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
 
       {/* Add Button - Disabled when max reached */}
       <button
@@ -255,6 +316,8 @@ const WorkExperience = ({ data, setData }) => {
             <p className="text-sm text-gray-600">
               Add all your relevant work experiences. You can add up to {MAX_EXPERIENCES} experiences.
               {remainingSlots > 0 && ` You can add ${remainingSlots} more.`}
+              <span className="block text-xs text-gray-500 mt-1">⚠️ Only one experience can be marked as "Current".</span>
+              <span className="block text-xs text-gray-500">📅 Ending year must be after starting year.</span>
             </p>
           </div>
         </div>

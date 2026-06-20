@@ -39,6 +39,8 @@ const CompleteProfile = ({ applicantProfile = null }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [uploadedPhotoUrl, setUploadedPhotoUrl] = useState(null);
+  // Track which steps have been completed
+  const [completedSteps, setCompletedSteps] = useState(new Set());
 
   // Initialize form data
   const { data, setData, post, processing, errors } = useForm({
@@ -200,19 +202,154 @@ const CompleteProfile = ({ applicantProfile = null }) => {
     }
   };
 
-  const steps = [
-    { name: 'Basic Info', component: BasicInfo, icon: FaUser },
-    { name: 'Professional', component: ProfessionalInfo, icon: MdWork },
-    { name: 'CV Upload', component: CVUpload, icon: FaFileAlt },
-    { name: 'Work Experience', component: WorkExperience, icon: FaBriefcase },
-    { name: 'Education', component: Education, icon: FaGraduationCap },
-    { name: 'Achievements', component: Achievements, icon: FaTrophy },
-    { name: 'Review', component: ReviewPage, icon: FaEye },
-  ];
+  // ==================== STEP VALIDATION FUNCTIONS ====================
 
-  const CurrentStepComponent = steps[currentStep].component;
+  // Validate Basic Info step (Step 0)
+  const validateBasicInfo = () => {
+    const errors = [];
+    if (!data.first_name?.trim()) errors.push('First name is required');
+    if (!data.last_name?.trim()) errors.push('Last name is required');
+    if (!data.phone?.trim() || data.phone === '+880' || data.phone === '+880' + '') {
+      errors.push('Phone number is required');
+    }
+    return errors;
+  };
+
+  // Validate Professional Info step (Step 1)
+  const validateProfessionalInfo = () => {
+    const errors = [];
+    // All fields are optional, so no validation needed
+    return errors;
+  };
+
+  // Validate CV Upload step (Step 2)
+  const validateCVUpload = () => {
+    const errors = [];
+    if (!data.cvs || data.cvs.length === 0) {
+      errors.push('Please upload at least one CV');
+    }
+    return errors;
+  };
+
+  // Validate Work Experience step (Step 3)
+  const validateWorkExperience = () => {
+    const errors = [];
+    // Work experience is optional, but check for incomplete entries
+    if (data.job_histories && data.job_histories.length > 0) {
+      data.job_histories.forEach((job, index) => {
+        if (!job.company_name?.trim() && !job.position?.trim()) {
+          // Both empty - this is fine, they might be filling it out
+        } else if (!job.company_name?.trim()) {
+          errors.push(`Experience #${index + 1}: Company name is required`);
+        } else if (!job.position?.trim()) {
+          errors.push(`Experience #${index + 1}: Position is required`);
+        }
+      });
+    }
+    return errors;
+  };
+
+  // Validate Education step (Step 4)
+  const validateEducation = () => {
+    const errors = [];
+    if (data.education_histories && data.education_histories.length > 0) {
+      data.education_histories.forEach((edu, index) => {
+        if (!edu.institution_name?.trim() && !edu.degree?.trim()) {
+          // Both empty - this is fine
+        } else if (!edu.institution_name?.trim()) {
+          errors.push(`Education #${index + 1}: Institution name is required`);
+        } else if (!edu.degree?.trim()) {
+          errors.push(`Education #${index + 1}: Degree is required`);
+        }
+      });
+    }
+    return errors;
+  };
+
+  // Validate Achievements step (Step 5)
+  const validateAchievements = () => {
+    const errors = [];
+    if (data.achievements && data.achievements.length > 0) {
+      data.achievements.forEach((ach, index) => {
+        if (!ach.achievement_name?.trim() && !ach.achievement_details?.trim()) {
+          // Both empty - this is fine
+        } else if (!ach.achievement_name?.trim()) {
+          errors.push(`Achievement #${index + 1}: Title is required`);
+        }
+      });
+    }
+    return errors;
+  };
+
+  // Main validation function for a step
+  const validateStep = (stepIndex) => {
+    let errors = [];
+    switch (stepIndex) {
+      case 0:
+        errors = validateBasicInfo();
+        break;
+      case 1:
+        errors = validateProfessionalInfo();
+        break;
+      case 2:
+        errors = validateCVUpload();
+        break;
+      case 3:
+        errors = validateWorkExperience();
+        break;
+      case 4:
+        errors = validateEducation();
+        break;
+      case 5:
+        errors = validateAchievements();
+        break;
+      default:
+        break;
+    }
+    return errors;
+  };
+
+  // Check if a step is completed successfully
+  const isStepCompleted = (stepIndex) => {
+    const errors = validateStep(stepIndex);
+    return errors.length === 0;
+  };
+
+  // Mark current step as completed when valid
+  const markCurrentStepCompleted = () => {
+    if (isStepCompleted(currentStep)) {
+      setCompletedSteps(prev => new Set([...prev, currentStep]));
+    }
+  };
+
+  // ==================== NAVIGATION FUNCTIONS ====================
 
   const handleNext = () => {
+    // Validate current step before proceeding
+    const errors = validateStep(currentStep);
+
+    if (errors.length > 0) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Please Complete This Step',
+        html: `
+          <div class="text-left">
+            <p class="text-gray-700 mb-2">Please fix the following before proceeding:</p>
+            <ul class="text-sm text-red-600 space-y-1">
+              ${errors.map(err => `<li>• ${err}</li>`).join('')}
+            </ul>
+          </div>
+        `,
+        confirmButtonColor: '#3b82f6',
+        confirmButtonText: 'Got it'
+      });
+      return;
+    }
+
+    // Mark current step as completed
+    setCompletedSteps(prev => new Set([...prev, currentStep]));
+
+    // Move to next step
     if (currentStep < steps.length - 1) {
       saveToLocalStorage(data);
       setCurrentStep(currentStep + 1);
@@ -229,23 +366,52 @@ const CompleteProfile = ({ applicantProfile = null }) => {
   };
 
   const handleEditStep = (stepIndex) => {
-    saveToLocalStorage(data);
-    setCurrentStep(stepIndex);
-    window.scrollTo(0, 0);
+    // Allow going to any completed step or current step
+    const isCurrentStep = stepIndex === currentStep;
+    const isCompleted = completedSteps.has(stepIndex);
+    const isPreviousStep = stepIndex < currentStep;
+
+    // Check if step index is valid
+    if (stepIndex < 0 || stepIndex >= steps.length) return;
+
+    // Can only go to current step, completed steps, or previous steps
+    if (isCurrentStep || isCompleted || isPreviousStep) {
+      saveToLocalStorage(data);
+      setCurrentStep(stepIndex);
+      window.scrollTo(0, 0);
+    } else {
+      // Show warning that they need to complete previous steps
+      Swal.fire({
+        icon: 'info',
+        title: 'Step Locked',
+        text: 'Please complete the current step before moving forward.',
+        confirmButtonColor: '#3b82f6',
+        confirmButtonText: 'Got it'
+      });
+    }
   };
 
+  // Determine if a step is accessible from the ribbon
+  const isStepAccessible = (index) => {
+    if (index === currentStep) return true;
+    if (completedSteps.has(index)) return true;
+    if (index < currentStep) return true;
+    return false;
+  };
+
+  // ==================== HANDLE SUBMIT ====================
   const handleSubmit = async () => {
     Swal.fire({
       title: 'Submit Profile?',
       html: `
-      <div class="text-left">
-        <p class="text-gray-700">Are you sure you want to submit your profile?</p>
-        <p class="text-sm text-gray-500 mt-3 pt-2 border-t border-gray-100">
-          <span class="flex items-center gap-1">📄 Your CVs are already uploaded.</span>
-          <span class="flex items-center gap-1 mt-1">✏️ You can still edit your profile later from your dashboard.</span>
-        </p>
-      </div>
-    `,
+        <div class="text-left">
+          <p class="text-gray-700">Are you sure you want to submit your profile?</p>
+          <p class="text-sm text-gray-500 mt-3 pt-2 border-t border-gray-100">
+            <span class="flex items-center gap-1">📄 Your CVs are already uploaded.</span>
+            <span class="flex items-center gap-1 mt-1">✏️ You can still edit your profile later from your dashboard.</span>
+          </p>
+        </div>
+      `,
       icon: 'question',
       showCancelButton: true,
       confirmButtonColor: '#10b981',
@@ -304,18 +470,18 @@ const CompleteProfile = ({ applicantProfile = null }) => {
               icon: 'success',
               title: 'Profile Submitted!',
               html: `
-              <div class="text-center">
-                <div class="flex justify-center mb-3">
-                  <div class="p-3 bg-green-100 rounded-full">
-                    <svg class="h-8 w-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                    </svg>
+                <div class="text-center">
+                  <div class="flex justify-center mb-3">
+                    <div class="p-3 bg-green-100 rounded-full">
+                      <svg class="h-8 w-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                      </svg>
+                    </div>
                   </div>
+                  <p class="text-gray-700">Your profile has been successfully submitted!</p>
+                  <p class="text-sm text-gray-500 mt-2">Redirecting to dashboard...</p>
                 </div>
-                <p class="text-gray-700">Your profile has been successfully submitted!</p>
-                <p class="text-sm text-gray-500 mt-2">Redirecting to dashboard...</p>
-              </div>
-            `,
+              `,
               timer: 3000,
               showConfirmButton: false,
               background: '#ffffff',
@@ -342,8 +508,28 @@ const CompleteProfile = ({ applicantProfile = null }) => {
     });
   };
 
+  const steps = [
+    { name: 'Basic Info', component: BasicInfo, icon: FaUser },
+    { name: 'Professional', component: ProfessionalInfo, icon: MdWork },
+    { name: 'CV Upload', component: CVUpload, icon: FaFileAlt },
+    { name: 'Work Experience', component: WorkExperience, icon: FaBriefcase },
+    { name: 'Education', component: Education, icon: FaGraduationCap },
+    { name: 'Achievements', component: Achievements, icon: FaTrophy },
+    { name: 'Review', component: ReviewPage, icon: FaEye },
+  ];
+
+  const CurrentStepComponent = steps[currentStep].component;
+
   const isReviewPage = currentStep === steps.length - 1;
   const progressPercentage = ((currentStep + 1) / (steps.length - 1)) * 100;
+
+  // Mark step as completed when it's valid (on each render)
+  useEffect(() => {
+    // Don't auto-mark review page
+    if (!isReviewPage && isStepCompleted(currentStep)) {
+      setCompletedSteps(prev => new Set([...prev, currentStep]));
+    }
+  }, [data, currentStep]);
 
   return (
     <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 py-8 text-black">
@@ -369,35 +555,45 @@ const CompleteProfile = ({ applicantProfile = null }) => {
             </p>
           </div>
         </div>
+
         {/* Progress Bar - Hide on Review Page */}
         {!isReviewPage && (
           <div className="mb-8 bg-white rounded-xl p-4 shadow-sm">
             <div className="flex justify-between mb-3">
               {steps.slice(0, -1).map((step, index) => {
                 const Icon = step.icon;
-                const isCompleted = index < currentStep;
+                const isCompleted = completedSteps.has(index);
                 const isActive = index === currentStep;
+                const isAccessible = isStepAccessible(index);
 
                 return (
                   <div
                     key={index}
-                    className="flex flex-col items-center text-center cursor-pointer"
+                    className={`flex flex-col items-center text-center transition-all duration-200 ${isAccessible ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'
+                      }`}
                     style={{ width: `${100 / (steps.length - 1)}%` }}
-                    onClick={() => handleEditStep(index)}
+                    onClick={() => isAccessible && handleEditStep(index)}
                   >
                     <div
                       className={`
                         w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300
                         ${isCompleted ? 'bg-green-500 text-white' : ''}
                         ${isActive ? 'bg-blue-600 text-white ring-4 ring-blue-200' : ''}
-                        ${!isCompleted && !isActive ? 'bg-gray-200 text-gray-500 hover:bg-gray-300' : ''}
+                        ${!isCompleted && !isActive ? 'bg-gray-200 text-gray-500' : ''}
+                        ${isAccessible && !isActive && !isCompleted ? 'hover:bg-gray-300' : ''}
                       `}
                     >
                       {isCompleted ? <FaCheckCircle className="h-4 w-4" /> : index + 1}
                     </div>
-                    <span className={`text-xs mt-2 font-medium ${isActive ? 'text-blue-600' : 'text-gray-500'}`}>
+                    <span className={`text-xs mt-2 font-medium ${isActive ? 'text-blue-600' :
+                      isCompleted ? 'text-green-600' :
+                        'text-gray-500'
+                      }`}>
                       {step.name}
                     </span>
+                    {!isAccessible && (
+                      <span className="text-[8px] text-gray-400 mt-0.5">🔒</span>
+                    )}
                   </div>
                 );
               })}
@@ -407,6 +603,11 @@ const CompleteProfile = ({ applicantProfile = null }) => {
                 className="bg-linear-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-500"
                 style={{ width: `${progressPercentage}%` }}
               />
+            </div>
+            {/* Step indicator text */}
+            <div className="flex justify-between mt-2 text-xs text-gray-400">
+              <span>Required</span>
+              <span>Optional</span>
             </div>
           </div>
         )}

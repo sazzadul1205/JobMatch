@@ -139,7 +139,7 @@ export default function Show({ application, atsAnalysis }) {
               You don't have permission to view this application.
             </p>
             <button
-              onClick={() => router.visit(route('dashboard'))}
+              onClick={() => router.visit(route('backend.dashboard'))}
               className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
             >
               Go to Dashboard

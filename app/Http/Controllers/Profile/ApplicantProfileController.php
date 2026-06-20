@@ -886,7 +886,7 @@ class ApplicantProfileController extends Controller
         }
 
         if (!$profile) {
-            return redirect()->route('dashboard')
+            return redirect()->route('backend.dashboard')
                 ->with('error', 'Profile not found.');
         }
 

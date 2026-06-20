@@ -180,11 +180,6 @@ Route::middleware(['auth', 'verified', 'profile.complete'])->group(function () {
         return Inertia::render('dashboard');
     })->name('backend.dashboard');
 
-    // Backward-compatible route name for existing frontend links/components
-    Route::get('/dashboard', function () {
-        return Inertia::render('dashboard');
-    })->name('dashboard');
-
     /*
     | Backend (Admin/Employer Panel)
     */

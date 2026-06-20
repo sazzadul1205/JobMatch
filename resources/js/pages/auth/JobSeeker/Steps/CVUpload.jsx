@@ -12,8 +12,7 @@ import {
   FaRegStar,
   FaFilePdf,
   FaFileWord,
-  FaSpinner,
-  FaEye
+  FaSpinner
 } from 'react-icons/fa';
 import { MdDescription } from 'react-icons/md';
 import { BiCloudUpload } from 'react-icons/bi';
@@ -21,21 +20,11 @@ import { BiCloudUpload } from 'react-icons/bi';
 // SweetAlert2 
 import Swal from 'sweetalert2';
 
-// React PDF
-import { Document, Page, pdfjs } from 'react-pdf';
-import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-
-// Configure PDF.js worker
-pdfjs.GlobalWorkerOptions.workerSrc = pdfWorker;
-
 const MAX_CVS = 3;
 
 const CVUpload = ({ data, setData }) => {
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
-  const [previewCv, setPreviewCv] = useState(null);
-  const [numPages, setNumPages] = useState(null);
-  const [pdfError, setPdfError] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -148,13 +137,6 @@ const CVUpload = ({ data, setData }) => {
 
       setData('cvs', [...data.cvs, newCv]);
 
-      Swal.fire({
-        icon: 'success',
-        title: 'CV Uploaded!',
-        text: `${file.name} uploaded and marked as pending until profile completion.`,
-        timer: 2000,
-        showConfirmButton: false
-      });
     } catch (error) {
       console.error('Upload error:', error);
       Swal.fire({
@@ -199,12 +181,6 @@ const CVUpload = ({ data, setData }) => {
         });
         setData('cvs', newCVs);
 
-        if (previewCv?.id === data.cvs[index].id) {
-          setPreviewCv(null);
-          setNumPages(null);
-          setPdfError(false);
-        }
-
         Swal.fire({
           icon: 'success',
           title: 'Removed!',
@@ -233,26 +209,6 @@ const CVUpload = ({ data, setData }) => {
         },
       });
     }
-
-    Swal.fire({
-      icon: 'success',
-      title: 'Primary CV Updated!',
-      text: 'This CV is now set as primary.',
-      timer: 1500,
-      showConfirmButton: false
-    });
-  };
-
-  const previewCV = (cv) => {
-    setPreviewCv(cv);
-    setNumPages(null);
-    setPdfError(false);
-  };
-
-  const closePreview = () => {
-    setPreviewCv(null);
-    setNumPages(null);
-    setPdfError(false);
   };
 
   const getFileIcon = (fileName) => {
@@ -266,16 +222,6 @@ const CVUpload = ({ data, setData }) => {
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-  };
-
-  const onDocumentLoadSuccess = ({ numPages }) => {
-    setNumPages(numPages);
-    setPdfError(false);
-  };
-
-  const onDocumentLoadError = (error) => {
-    console.error('PDF load error:', error);
-    setPdfError(true);
   };
 
   const remainingSlots = MAX_CVS - data.cvs.length;
@@ -397,13 +343,6 @@ const CVUpload = ({ data, setData }) => {
                 </div>
               </div>
               <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => previewCV(cv)}
-                  className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors duration-200"
-                  title="Preview CV"
-                >
-                  <FaEye className="h-4 w-4" />
-                </button>
                 {!cv.is_primary && (
                   <button
                     onClick={() => setPrimaryCV(index)}
@@ -422,131 +361,6 @@ const CVUpload = ({ data, setData }) => {
               </div>
             </div>
           ))}
-        </div>
-      )}
-
-      {/* PDF Preview Modal */}
-      {previewCv && previewCv.type === 'application/pdf' && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={closePreview}>
-          <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
-              <div>
-                <h3 className="font-semibold text-gray-900">{previewCv.original_name}</h3>
-                <p className="text-xs text-gray-500">{formatFileSize(previewCv.size)}</p>
-              </div>
-              <button
-                onClick={closePreview}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="p-6">
-              {!pdfError ? (
-                <Document
-                  file={previewCv.preview_url || previewCv.url || `/storage/${previewCv.cv_path}`}
-                  onLoadSuccess={onDocumentLoadSuccess}
-                  onLoadError={onDocumentLoadError}
-                  loading={
-                    <div className="flex items-center justify-center py-20">
-                      <FaSpinner className="animate-spin h-8 w-8 text-blue-500" />
-                      <p className="ml-2 text-gray-600">Loading PDF...</p>
-                    </div>
-                  }
-                  error={
-                    <div className="text-center py-20">
-                      <FaFilePdf className="h-16 w-16 text-red-400 mx-auto mb-4" />
-                      <p className="text-red-600 font-medium mb-2">Failed to load PDF</p>
-                      <p className="text-gray-500 text-sm">The file might be corrupted or in an unsupported format.</p>
-                      <button
-                        onClick={() => {
-                          // Create download link
-                          const link = document.createElement('a');
-                          link.href = previewCv.url || `/storage/${previewCv.cv_path}`;
-                          link.download = previewCv.original_name;
-                          link.click();
-                        }}
-                        className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                      >
-                        Download File Instead
-                      </button>
-                    </div>
-                  }
-                >
-                  {numPages && Array.from(new Array(numPages), (el, index) => (
-                    <Page
-                      key={`page_${index + 1}`}
-                      pageNumber={index + 1}
-                      scale={1.0}
-                      className="mb-4 shadow-lg"
-                      renderTextLayer={false}
-                      renderAnnotationLayer={false}
-                    />
-                  ))}
-                </Document>
-              ) : (
-                <div className="text-center py-20">
-                  <FaFilePdf className="h-16 w-16 text-red-400 mx-auto mb-4" />
-                  <p className="text-red-600 font-medium mb-2">Failed to load PDF</p>
-                  <p className="text-gray-500 text-sm mb-4">The file might be corrupted or in an unsupported format.</p>
-                  <button
-                    onClick={() => {
-                      const link = document.createElement('a');
-                      link.href = previewCv.data;
-                      link.download = previewCv.original_name;
-                      link.click();
-                    }}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                  >
-                    Download File
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* DOC/DOCX Preview Notice */}
-      {previewCv && previewCv.type !== 'application/pdf' && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={closePreview}>
-          <div className="bg-white rounded-xl max-w-2xl w-full" onClick={(e) => e.stopPropagation()}>
-            <div className="border-b border-gray-200 px-6 py-4 flex justify-between items-center">
-              <div>
-                <h3 className="font-semibold text-gray-900">{previewCv.original_name}</h3>
-                <p className="text-xs text-gray-500">{formatFileSize(previewCv.size)}</p>
-              </div>
-              <button
-                onClick={closePreview}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="p-6 text-center">
-              <div className="mb-4">
-                {getFileIcon(previewCv.original_name)}
-              </div>
-              <p className="text-gray-600 mb-4">
-                Preview not available for this file type.
-              </p>
-              <p className="text-sm text-gray-500">
-                You can download the file to view its contents.
-              </p>
-              <button
-                onClick={() => {
-                  // Create download link
-                  const link = document.createElement('a');
-                  link.href = previewCv.url || `/storage/${previewCv.cv_path}`;
-                  link.download = previewCv.original_name;
-                  link.click();
-                }}
-                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                Download File
-              </button>
-            </div>
-          </div>
         </div>
       )}
 

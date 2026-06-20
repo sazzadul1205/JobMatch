@@ -20,7 +20,7 @@ import { MdOutlineBloodtype } from 'react-icons/md';
 import { useState, useRef, useEffect } from 'react';
 
 const BasicInfo = ({ data, setData }) => {
-  const bloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'Bomby'];
+  const bloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
   const genders = ['Male', 'Female', 'Other'];
   const [dragActive, setDragActive] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(null);

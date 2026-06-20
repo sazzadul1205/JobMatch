@@ -108,7 +108,7 @@ export default function ApplyCreate({ jobListing, applicantProfile, cvs }) {
               Employer accounts are for posting jobs, not applying for them. Please create a job seeker account to apply.
             </p>
             <button
-              onClick={() => router.visit(route('dashboard'))}
+              onClick={() => router.visit(route('backend.dashboard'))}
               className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
             >
               Go to Dashboard

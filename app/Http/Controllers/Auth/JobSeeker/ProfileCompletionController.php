@@ -47,14 +47,14 @@ class ProfileCompletionController extends Controller
 
         // Check if user has permission to complete profile (job seekers only)
         if (!$user->hasPermission('profile_completion.show')) {
-            return redirect()->route('dashboard')
+            return redirect()->route('backend.dashboard')
                 ->with('error', 'You do not have permission to access profile completion.');
         }
 
         $profile = ApplicantProfile::where('user_id', $user->id)->first();
 
         if ($profile && method_exists($profile, 'isComplete') && $profile->isComplete()) {
-            return redirect()->route('dashboard');
+            return redirect()->route('backend.dashboard');
         }
 
         $profileData = null;
@@ -173,7 +173,7 @@ class ProfileCompletionController extends Controller
 
         // Check permission to complete profile
         if (!$user->hasPermission('profile_completion.store')) {
-            return redirect()->route('dashboard')
+            return redirect()->route('backend.dashboard')
                 ->with('error', 'You do not have permission to complete profile.');
         }
 
@@ -282,7 +282,7 @@ class ProfileCompletionController extends Controller
                 $this->activatePendingCvs($profile->id);
             });
 
-            return redirect()->route('dashboard')->with('success', 'Profile completed successfully!');
+            return redirect()->route('backend.dashboard')->with('success', 'Profile completed successfully!');
         } catch (ValidationException $e) {
             return back()->withErrors($e->errors())->withInput();
         } catch (\Throwable $e) {
