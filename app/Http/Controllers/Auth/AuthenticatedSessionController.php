@@ -60,15 +60,41 @@ class AuthenticatedSessionController extends Controller
             ]);
         }
 
-        // Check if user has job_seeker role using hasRole method from trait
-        if ($user && $user->hasRole('job-seeker')) {
+        // Check user role and redirect accordingly
+        $redirectRoute = $this->determineRedirectRoute($user);
+
+        return redirect()->intended(route($redirectRoute, absolute: false));
+    }
+
+    /**
+     * Determine the redirect route based on user role.
+     */
+    private function determineRedirectRoute($user): string
+    {
+        // If user has job_seeker role
+        if ($user->hasRole('job-seeker')) {
+            // Check if profile exists and is complete
             $profile = ApplicantProfile::where('user_id', $user->id)->first();
+
             if (!$profile || !$profile->isComplete()) {
-                return redirect()->route('profile.complete');
+                return 'profile.complete';
             }
+
+            return 'dashboard';
         }
 
-        return redirect()->intended(route('dashboard', absolute: false));
+        // For admin, super admin, employer, and other roles
+        if (
+            $user->hasRole('super-admin') ||
+            $user->hasRole('admin') ||
+            $user->hasRole('employer') ||
+            $user->hasRole('hr-manager')
+        ) {
+            return 'admin.dashboard'; // Or your admin dashboard route
+        }
+
+        // Fallback for any other roles
+        return 'dashboard';
     }
 
     /**

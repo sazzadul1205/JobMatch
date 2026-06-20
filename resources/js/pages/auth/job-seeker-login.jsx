@@ -1,13 +1,13 @@
-// pages/auth/login.jsx
+// pages/auth/job-seeker-login.jsx
 
 import { useState } from 'react';
 import { Head, useForm } from '@inertiajs/react';
 import {
-  LoaderCircle, Eye, EyeOff, Briefcase, User, Star, Mail, Lock, ArrowRight,
-  Shield, ShieldCheck, ChevronUp, ChevronDown, Users, Building2
+  LoaderCircle, Eye, EyeOff, User, Star, Mail, Lock, ArrowRight,
+  ChevronUp, ChevronDown, Briefcase
 } from 'lucide-react';
 
-export default function Login({ status, canResetPassword, googleAuthEnabled }) {
+export default function JobSeekerLogin({ status, canResetPassword, googleAuthEnabled }) {
   const { data, setData, post, processing, errors, reset } = useForm({
     email: '',
     password: '',
@@ -17,11 +17,10 @@ export default function Login({ status, canResetPassword, googleAuthEnabled }) {
   const [showPassword, setShowPassword] = useState(false);
   const [focusedField, setFocusedField] = useState(null);
   const [currentDemoIndex, setCurrentDemoIndex] = useState(0);
-  const [activeTab, setActiveTab] = useState('job-seeker'); // 'job-seeker' | 'admin'
 
   const submit = (e) => {
     e.preventDefault();
-    post(route('login'), {
+    post(route('job-seeker.login'), {
       onFinish: () => reset('password'),
     });
   };
@@ -37,7 +36,7 @@ export default function Login({ status, canResetPassword, googleAuthEnabled }) {
   };
 
   // Job Seeker Demo Accounts
-  const jobSeekerAccounts = [
+  const demoAccounts = [
     {
       role: 'Job Seeker',
       email: 'jobseeker@gmail.com',
@@ -72,72 +71,19 @@ export default function Login({ status, canResetPassword, googleAuthEnabled }) {
     },
   ];
 
-  // Admin/Staff Demo Accounts
-  const adminAccounts = [
-    {
-      role: 'Super Admin',
-      email: 'superadmin@jobportal.com',
-      password: 'password',
-      icon: ShieldCheck,
-      description: 'Full system access with all permissions',
-      badge: 'Highest Level',
-      badgeColor: 'bg-purple-100 text-purple-700',
-      borderColor: 'purple',
-      bgGradient: 'from-purple-50 to-purple-100',
-      iconBg: 'bg-purple-100',
-      iconColor: 'text-purple-600',
-      buttonBg: 'bg-purple-50 hover:bg-purple-100',
-      buttonBorder: 'border-purple-200',
-      buttonText: 'text-purple-700',
-    },
-    {
-      role: 'Admin',
-      email: 'admin@jobportal.com',
-      password: 'password',
-      icon: Shield,
-      description: 'Administrative access to manage platform',
-      badge: 'Admin Level',
-      badgeColor: 'bg-blue-100 text-blue-700',
-      borderColor: 'blue',
-      bgGradient: 'from-blue-50 to-blue-100',
-      iconBg: 'bg-blue-100',
-      iconColor: 'text-blue-600',
-      buttonBg: 'bg-blue-50 hover:bg-blue-100',
-      buttonBorder: 'border-blue-200',
-      buttonText: 'text-blue-700',
-    },
-    {
-      role: 'Employer / HR Manager',
-      email: 'hrmanager@company.com',
-      password: 'password',
-      icon: Building2,
-      description: 'Post jobs, manage applications, and find talent',
-      badge: 'Employer',
-      badgeColor: 'bg-green-100 text-green-700',
-      borderColor: 'green',
-      bgGradient: 'from-green-50 to-green-100',
-      iconBg: 'bg-green-100',
-      iconColor: 'text-green-600',
-      buttonBg: 'bg-green-50 hover:bg-green-100',
-      buttonBorder: 'border-green-200',
-      buttonText: 'text-green-700',
-    },
-  ];
-
-  const currentAccounts = activeTab === 'job-seeker' ? jobSeekerAccounts : adminAccounts;
-  const currentAccount = currentAccounts[currentDemoIndex % currentAccounts.length];
+  const currentAccount = demoAccounts[currentDemoIndex];
 
   const goToPrevious = () => {
-    setCurrentDemoIndex((prev) => (prev === 0 ? currentAccounts.length - 1 : prev - 1));
+    setCurrentDemoIndex((prev) => (prev === 0 ? demoAccounts.length - 1 : prev - 1));
   };
 
   const goToNext = () => {
-    setCurrentDemoIndex((prev) => (prev === currentAccounts.length - 1 ? 0 : prev + 1));
+    setCurrentDemoIndex((prev) => (prev === demoAccounts.length - 1 ? 0 : prev + 1));
   };
 
   return (
     <>
-      <Head title="Log in" />
+      <Head title="Job Seeker Login" />
       <div className="flex min-h-screen flex-col items-center bg-[#FDFDFC] p-6 text-[#1b1b18] lg:justify-center lg:p-8">
         <div className="flex w-full items-center justify-center opacity-100 transition-opacity duration-750 lg:grow starting:opacity-0">
           <main className="flex w-full max-w-83.75 flex-col lg:max-w-4xl lg:flex-row">
@@ -154,40 +100,15 @@ export default function Login({ status, canResetPassword, googleAuthEnabled }) {
                 </div>
               </div>
 
-              <h2 className="mb-1 text-2xl font-semibold">Welcome back</h2>
-              <p className="mb-8 text-[#706f6c]">
-                Enter your email and password below to log in
-              </p>
-
-              {/* Role Tabs */}
-              <div className="flex mb-6 bg-gray-100 rounded-lg p-1">
-                <button
-                  onClick={() => {
-                    setActiveTab('job-seeker');
-                    setCurrentDemoIndex(0);
-                  }}
-                  className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 ${activeTab === 'job-seeker'
-                      ? 'bg-white text-[#1b1b18] shadow-sm'
-                      : 'text-[#706f6c] hover:text-[#1b1b18]'
-                    }`}
-                >
-                  <User className="h-4 w-4" />
-                  Job Seeker
-                </button>
-                <button
-                  onClick={() => {
-                    setActiveTab('admin');
-                    setCurrentDemoIndex(0);
-                  }}
-                  className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 ${activeTab === 'admin'
-                      ? 'bg-white text-[#1b1b18] shadow-sm'
-                      : 'text-[#706f6c] hover:text-[#1b1b18]'
-                    }`}
-                >
-                  <Shield className="h-4 w-4" />
-                  Admin / Staff
-                </button>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 bg-orange-100 rounded-lg">
+                  <User className="h-5 w-5 text-orange-600" />
+                </div>
+                <h2 className="text-2xl font-semibold">Job Seeker Login</h2>
               </div>
+              <p className="mb-8 text-[#706f6c]">
+                Enter your credentials to access your job seeker account
+              </p>
 
               <form className="flex flex-col gap-6" onSubmit={submit}>
                 <div className="grid gap-5">
@@ -298,14 +219,14 @@ export default function Login({ status, canResetPassword, googleAuthEnabled }) {
                       </>
                     ) : (
                       <>
-                        Sign in
+                        Sign in as Job Seeker
                         <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
                       </>
                     )}
                   </button>
                 </div>
 
-                {/* Google Sign In */}
+                {/* Google Sign In - Only for Job Seekers */}
                 {googleAuthEnabled && (
                   <div className="grid gap-4">
                     <div className="relative">
@@ -340,7 +261,7 @@ export default function Login({ status, canResetPassword, googleAuthEnabled }) {
                   </p>
                 )}
 
-                {/* Sign up link - Only show for job seekers */}
+                {/* Sign up link */}
                 <div className="text-center text-sm text-[#706f6c]">
                   Don't have an account?{' '}
                   <a
@@ -348,7 +269,7 @@ export default function Login({ status, canResetPassword, googleAuthEnabled }) {
                     className="font-medium text-[#1b1b18] hover:underline underline-offset-4"
                     tabIndex={5}
                   >
-                    Sign up
+                    Sign up as Job Seeker
                   </a>
                 </div>
               </form>
@@ -370,14 +291,10 @@ export default function Login({ status, canResetPassword, googleAuthEnabled }) {
                 <div className="mb-6 text-center">
                   <div className="flex items-center justify-center gap-2 mb-3">
                     <Star className="h-5 w-5 text-[#F53003]" />
-                    <h3 className="text-lg font-semibold text-[#1b1b18]">
-                      {activeTab === 'job-seeker' ? 'Job Seeker' : 'Admin/Staff'} Demo Accounts
-                    </h3>
+                    <h3 className="text-lg font-semibold text-[#1b1b18]">Job Seeker Demo Accounts</h3>
                   </div>
                   <p className="text-sm text-[#706f6c]">
-                    {activeTab === 'job-seeker'
-                      ? 'Try with pre-configured job seeker accounts'
-                      : 'Try with admin and staff accounts'}
+                    Try with pre-configured job seeker accounts
                   </p>
                 </div>
 
@@ -391,7 +308,7 @@ export default function Login({ status, canResetPassword, googleAuthEnabled }) {
                     <ChevronUp className="h-5 w-5 text-[#1b1b18]" />
                   </button>
                   <div className="mx-4 px-3 py-1 rounded-full bg-white/50 text-xs font-medium text-[#706f6c]">
-                    {currentDemoIndex + 1} / {currentAccounts.length}
+                    {currentDemoIndex + 1} / {demoAccounts.length}
                   </div>
                   <button
                     onClick={goToNext}
@@ -447,7 +364,7 @@ export default function Login({ status, canResetPassword, googleAuthEnabled }) {
                         onClick={() => fillDemoAccount(currentAccount.email, currentAccount.password)}
                         className={`w-full rounded-lg border px-4 py-2.5 text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 ${currentAccount.buttonBg} ${currentAccount.buttonBorder} ${currentAccount.buttonText} hover:shadow-md group`}
                       >
-                        <span>Use {currentAccount.role.split(' ')[0]} Account</span>
+                        <span>Use This Account</span>
                         <ArrowRight className="h-3 w-3 transition-all duration-200 group-hover:translate-x-1" />
                       </button>
                     </div>
@@ -458,15 +375,6 @@ export default function Login({ status, canResetPassword, googleAuthEnabled }) {
                   <p className="text-xs text-[#706f6c] text-center">
                     <span className="inline-block mr-1">💡</span>
                     Use the navigation buttons to cycle through demo accounts
-                  </p>
-                </div>
-
-                {/* User count info */}
-                <div className="mt-4 text-center">
-                  <p className="text-xs text-[#706f6c]">
-                    {activeTab === 'job-seeker'
-                      ? '2 Job Seekers available'
-                      : '1 Super Admin + 1 Admin + 1 Employer'}
                   </p>
                 </div>
               </div>
