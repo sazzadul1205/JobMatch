@@ -8,6 +8,7 @@ use App\Models\pages\Page;
 use App\Models\pages\SectionConfig;
 use App\Models\pages\CustomSectionData;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -24,7 +25,7 @@ class SectionController extends Controller
       ->orderBy('display_order')
       ->get();
 
-    return Inertia::render('Backend/CMS/Pages/Sections', [
+    return Inertia::render('Backend/CMS/Section/Sections', [
       'page' => $page,
       'sections' => $sections,
     ]);
@@ -146,22 +147,32 @@ class SectionController extends Controller
     ]);
 
     if ($validator->fails()) {
-      return response()->json(['errors' => $validator->errors()], 422);
+      return redirect()->back()->withErrors($validator)->withInput();
     }
 
-    foreach ($request->orders as $order) {
-      $section = SectionConfig::where('id', $order['id'])
-        ->where('page_slug', $page->slug)
-        ->first();
+    try {
+      DB::beginTransaction();
 
-      if ($section && !$section->is_fixed_section) {
-        $section->update([
-          'display_order' => $order['display_order']
-        ]);
+      foreach ($request->orders as $orderData) {
+        $section = SectionConfig::where('id', $orderData['id'])
+          ->where('page_slug', $page->slug)
+          ->first();
+
+        // Only update if section exists and is not fixed
+        if ($section && !$section->is_fixed_section) {
+          $section->update([
+            'display_order' => $orderData['display_order']
+          ]);
+        }
       }
-    }
 
-    return response()->json(['success' => true]);
+      DB::commit();
+
+      return redirect()->back()->with('success', 'Section order updated successfully.');
+    } catch (\Exception $e) {
+      DB::rollBack();
+      return redirect()->back()->with('error', 'Failed to update section order: ' . $e->getMessage());
+    }
   }
 
   /**
@@ -241,7 +252,6 @@ class SectionController extends Controller
 
   /**
    * Get section defaults by component type
-   * Returns the default JSON structure and required inputs for each section
    */
   public function getSectionDefaults()
   {

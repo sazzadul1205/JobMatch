@@ -462,7 +462,7 @@ class SectionConfigsTableSeeder extends Seeder
       [
         'id' => 29,
         'page_slug' => 'projects-programs-details',
-        'section_key' => 'program-content',
+        'section_key' => 'content',
         'component' => 'ProgramContentSection',
         'data_table' => 'programs',
         'data_key' => 'programContentData',
@@ -574,7 +574,7 @@ class SectionConfigsTableSeeder extends Seeder
       [
         'id' => 36,
         'page_slug' => 'blog-details',
-        'section_key' => 'blog-content',
+        'section_key' => 'content',
         'component' => 'BlogContentSection',
         'data_table' => 'blogs',
         'data_key' => 'blogData',

@@ -1,3 +1,4 @@
+/* eslint-disable import/order */
 // resources/js/pages/Backend/CMS/Shared/Index.jsx
 
 // React
@@ -114,6 +115,7 @@ export default function SharedData({ sharedData }) {
 
     setLoading(true);
 
+    // eslint-disable-next-line no-undef
     router.put(route('backend.cms.shared.update', editingItem.id), {
       data: formData,
       is_active: editingItem.is_active,

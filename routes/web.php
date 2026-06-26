@@ -504,6 +504,7 @@ Route::middleware(['auth', 'verified', 'profile.complete'])->group(function () {
                 Route::put('/update/{pageId}/{sectionId}', [CMSSectionController::class, 'update'])->name('update');
                 Route::post('/toggle-status/{pageId}/{sectionId}', [CMSSectionController::class, 'toggleStatus'])->name('toggle-status');
                 Route::post('/update-order/{pageId}', [CMSSectionController::class, 'updateOrder'])->name('update-order');
+                Route::post('pages/{pageId}/sections/update-order', [CMSSectionController::class, 'updateOrder'])->name('update-order');
                 Route::delete('/destroy/{pageId}/{sectionId}', [CMSSectionController::class, 'destroy'])->name('destroy');
                 Route::get('/available-components', [CMSSectionController::class, 'getAvailableComponents'])->name('available-components');
                 Route::get('/data-tables', [CMSSectionController::class, 'getDataTables'])->name('data-tables');
