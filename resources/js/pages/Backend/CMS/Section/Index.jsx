@@ -1,4 +1,4 @@
-/* eslint-disable import/order */
+
 // resources/js/pages/Backend/CMS/Section/Index.jsx
 
 import React from 'react';
@@ -20,10 +20,12 @@ const Index = ({ page, sections: initialSections }) => {
   const {
     sections,
     expandedSections,
+    previewSections,
     isReordering,
     dragError,
     isSaving,
     toggleExpand,
+    togglePreview,
     hasData,
     getDataSummary,
     canMove,
@@ -54,12 +56,14 @@ const Index = ({ page, sections: initialSections }) => {
           <SectionTable
             sections={sections}
             expandedSections={expandedSections}
+            previewSections={previewSections}
             isReordering={isReordering}
             isSaving={isSaving}
             hasData={hasData}
             getDataSummary={getDataSummary}
             canMove={canMove}
             toggleExpand={toggleExpand}
+            togglePreview={togglePreview}
             handleMoveUp={handleMoveUp}
             handleMoveDown={handleMoveDown}
             handleDragStart={handleDragStart}

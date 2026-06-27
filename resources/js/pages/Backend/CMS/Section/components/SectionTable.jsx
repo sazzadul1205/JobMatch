@@ -9,12 +9,14 @@ import SectionRow from './SectionRow';
 const SectionTable = ({
   sections,
   expandedSections,
+  previewSections,
   isReordering,
   isSaving,
   hasData,
   getDataSummary,
   canMove,
   toggleExpand,
+  togglePreview,
   handleMoveUp,
   handleMoveDown,
   handleDragStart,
@@ -42,7 +44,7 @@ const SectionTable = ({
             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data Source</th>
             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order</th>
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
           </tr>
         </thead>
 
@@ -50,6 +52,7 @@ const SectionTable = ({
         <tbody className="bg-white divide-y divide-gray-200">
           {sections.map((section, index) => {
             const isExpanded = expandedSections[section.id] || false;
+            const isPreviewOpen = previewSections[section.id] || false;
             const hasSectionData = hasData(section);
             const dataSummary = getDataSummary(section);
             const isMovable = canMove(section);
@@ -61,12 +64,14 @@ const SectionTable = ({
                 index={index}
                 totalSections={sections.length}
                 isExpanded={isExpanded}
+                isPreviewOpen={isPreviewOpen}
                 isReordering={isReordering}
                 isSaving={isSaving}
                 isMovable={isMovable}
                 hasSectionData={hasSectionData}
                 dataSummary={dataSummary}
                 onToggleExpand={toggleExpand}
+                onTogglePreview={togglePreview}
                 onMoveUp={handleMoveUp}
                 onMoveDown={handleMoveDown}
                 onDragStart={handleDragStart}

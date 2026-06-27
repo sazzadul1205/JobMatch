@@ -9,7 +9,7 @@ import { Link } from '@inertiajs/react';
 // Components
 import ArrowIcon from '../../components/Shared/ArrowIcon';
 
-// Utility function to check if value exists (SAME as other sections)
+// Utility function to check if value exists
 const hasValue = (value) => {
   if (value === undefined || value === null) return false;
   if (typeof value === 'string') return value.trim().length > 0;
@@ -19,9 +19,9 @@ const hasValue = (value) => {
 };
 
 const BlogSection = ({
-  mainBlog,
-  blogPosts,
-  sectionTitle = null,
+  mainBlog = null,
+  blogPosts = [],
+  sectionTitle = 'Latest Stories',
   bgColor = 'bg-white',
   paddingY = 'py-10 sm:py-15 md:py-20 lg:py-37.5',
   paddingX = 'px-5 sm:px-8 md:px-12 lg:px-50',
@@ -79,10 +79,10 @@ const BlogSection = ({
               </h2>
             )}
 
-            {/* Description */}
-            {hasValue(mainBlog.description) && (
+            {/* Description - Use excerpt or description */}
+            {hasValue(mainBlog.excerpt) && (
               <p className='font-normal text-[16px] sm:text-[18px] lg:text-[20px] line-clamp-5 text-gray-700'>
-                {mainBlog.description}
+                {mainBlog.excerpt}
               </p>
             )}
 
@@ -128,10 +128,10 @@ const BlogSection = ({
                 </h3>
               )}
 
-              {/* Post Description */}
-              {hasValue(post.description) && (
+              {/* Post Description - Use excerpt or description */}
+              {hasValue(post.excerpt) && (
                 <p className='font-normal text-[14px] sm:text-[15px] lg:text-[16px] line-clamp-3 sm:line-clamp-4 lg:line-clamp-5 text-gray-600'>
-                  {post.description}
+                  {post.excerpt}
                 </p>
               )}
 

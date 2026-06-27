@@ -9,6 +9,7 @@ const SectionFooter = ({ sections, hasData }) => {
     banner: sections.filter(s => s.component === 'HomeBanner' || s.component === 'PageBannerSection').length,
     fixed: sections.filter(s => s.is_fixed_section).length,
     shared: sections.filter(s => s.data_table === 'shared_data').length,
+    jobs: sections.filter(s => s.data_table === 'jobs').length,
     hasData: sections.filter(s => hasData(s)).length,
   };
 
@@ -18,6 +19,7 @@ const SectionFooter = ({ sections, hasData }) => {
       <span>⭐ Banner: {stats.banner}</span>
       <span>🔒 Fixed: {stats.fixed}</span>
       <span>🔄 Shared: {stats.shared}</span>
+      <span>💼 Jobs: {stats.jobs}</span>
       <span>📦 Has Data: {stats.hasData}</span>
       <span>💡 Drag the <FaGripVertical className="inline text-gray-400" size={12} /> handle or use ↑ ↓ buttons to reorder</span>
       <span>🔒 Fixed sections cannot be moved</span>

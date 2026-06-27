@@ -7,6 +7,7 @@ import { showToast } from '../utils/toastHelper';
 export const useSectionHelpers = (initialSections, pageId) => {
   const [sections, setSections] = useState(initialSections);
   const [expandedSections, setExpandedSections] = useState({});
+  const [previewSections, setPreviewSections] = useState({});
   const [isReordering, setIsReordering] = useState(false);
   const [dragError, setDragError] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -16,9 +17,17 @@ export const useSectionHelpers = (initialSections, pageId) => {
     setSections(initialSections);
   }, [initialSections]);
 
-  // Toggle section expansion
+  // Toggle section expansion (data view)
   const toggleExpand = (sectionId) => {
     setExpandedSections((prev) => ({
+      ...prev,
+      [sectionId]: !prev[sectionId],
+    }));
+  };
+
+  // Toggle section preview (visual preview)
+  const togglePreview = (sectionId) => {
+    setPreviewSections((prev) => ({
       ...prev,
       [sectionId]: !prev[sectionId],
     }));
@@ -53,7 +62,10 @@ export const useSectionHelpers = (initialSections, pageId) => {
     return 'Has data';
   };
 
-  // Handle drag start
+  // ============================================================
+  // DRAG & DROP REORDERING
+  // ============================================================
+
   const handleDragStart = (e, index) => {
     const section = sections[index];
     if (!canMove(section)) {
@@ -66,18 +78,15 @@ export const useSectionHelpers = (initialSections, pageId) => {
     e.currentTarget.style.opacity = '0.5';
   };
 
-  // Handle drag end
   const handleDragEnd = (e) => {
     e.currentTarget.style.opacity = '1';
   };
 
-  // Handle drag over
   const handleDragOver = (e) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
   };
 
-  // Handle drop
   const handleDrop = (e, dropIndex) => {
     e.preventDefault();
 
@@ -137,6 +146,7 @@ export const useSectionHelpers = (initialSections, pageId) => {
         onError: (errors) => {
           setIsReordering(false);
           setIsSaving(false);
+          // Revert to original order on error
           setSections(initialSections);
           setDragError('Failed to update order. Changes reverted.');
           const errorMessage = errors?.message || 'Failed to update section order. Changes have been reverted.';
@@ -146,7 +156,10 @@ export const useSectionHelpers = (initialSections, pageId) => {
     );
   };
 
-  // Move up handler
+  // ============================================================
+  // MOVE UP/DOWN HANDLERS (Alternative to drag & drop)
+  // ============================================================
+
   const handleMoveUp = (index) => {
     if (index === 0) return;
     const section = sections[index];
@@ -154,6 +167,7 @@ export const useSectionHelpers = (initialSections, pageId) => {
       showToast('warning', 'Cannot Move', 'This section is fixed and cannot be moved.', 2500);
       return;
     }
+    // Simulate a drop at index - 1
     const fakeEvent = {
       preventDefault: () => {},
       dataTransfer: {
@@ -163,7 +177,6 @@ export const useSectionHelpers = (initialSections, pageId) => {
     handleDrop(fakeEvent, index - 1);
   };
 
-  // Move down handler
   const handleMoveDown = (index) => {
     if (index === sections.length - 1) return;
     const section = sections[index];
@@ -171,6 +184,7 @@ export const useSectionHelpers = (initialSections, pageId) => {
       showToast('warning', 'Cannot Move', 'This section is fixed and cannot be moved.', 2500);
       return;
     }
+    // Simulate a drop at index + 1
     const fakeEvent = {
       preventDefault: () => {},
       dataTransfer: {
@@ -183,10 +197,12 @@ export const useSectionHelpers = (initialSections, pageId) => {
   return {
     sections,
     expandedSections,
+    previewSections,
     isReordering,
     dragError,
     isSaving,
     toggleExpand,
+    togglePreview,
     hasData,
     getDataSummary,
     canMove,
