@@ -497,9 +497,11 @@ Route::middleware(['auth', 'verified', 'profile.complete'])->group(function () {
                 Route::delete('/force-delete/{id}', [PageController::class, 'forceDelete'])->name('force-delete');
             });
 
+            // Section Management
             Route::prefix('sections')->name('sections.')->group(function () {
                 Route::get('/page/{pageId}', [CmsSectionController::class, 'index'])->name('page.sections');
                 Route::post('/{pageId}/update-order', [CmsSectionController::class, 'updateOrder'])->name('update-order');
+                Route::put('/update/{section}', [CmsSectionController::class, 'update'])->name('update');
             });
 
             // Shared Data Management (Edit only)

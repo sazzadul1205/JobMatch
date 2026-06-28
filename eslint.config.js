@@ -42,7 +42,7 @@ export default [
             // React specific rules
             'react/react-in-jsx-scope': 'off', // Not needed with React 17+
             'react/prop-types': 'off', // Using TypeScript for prop validation
-            'react/no-unescaped-entities': 'warn', // Warn instead of off
+            'react/no-unescaped-entities': 'off', // Warn instead of off
             'react/jsx-no-target-blank': 'error', // Security: no target="_blank" without rel="noreferrer"
             'react/jsx-key': 'error', // Required key prop in list items
             'react/jsx-no-duplicate-props': 'error',

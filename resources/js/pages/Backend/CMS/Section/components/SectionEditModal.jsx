@@ -4,19 +4,28 @@
 /**
  * SectionEditModal - Modal for editing section configuration
  * Features:
+ * - Tabbed interface: Basic Data & Section Data
  * - Edit section key, status, and custom props
  * - Read-only display of component and data source
  * - Integrated SectionDataViewer for data preview
  * - Form validation and error handling
+ * - Save button visible on both tabs
  */
 
+// React
 import { router } from '@inertiajs/react';
 import React, { useState, useEffect } from 'react';
-import { FaTimes, FaSave, FaSpinner } from 'react-icons/fa';
-import SectionDataViewer from './SectionDataViewer';
+
+// Icons
+import { FaTimes, FaSave, FaSpinner, FaCog, FaDatabase } from 'react-icons/fa';
+
+// Utils
 import { showToast } from '../utils/toastHelper';
 import { getComponentLabel } from '../utils/sectionHelpers';
 import { DEFAULT_CONFIG, SECTION_CONFIGS } from '../utils/SectionConfigData';
+
+// Components
+import RenderDataTab from './modals/renderDataTab';
 
 // Helper: Check if section has data
 const hasSectionData = (section) => {
@@ -38,9 +47,11 @@ const SectionEditModal = ({
   isOpen,
   onClose,
   section,
-  pageId,
   onSuccess
 }) => {
+  // Tab state
+  const [activeTab, setActiveTab] = useState('basic'); // 'basic' | 'data'
+
   // Form state
   const [formData, setFormData] = useState({
     section_key: '',
@@ -52,6 +63,9 @@ const SectionEditModal = ({
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
+
+  // Section Data state (for the data tab content)
+  const [sectionData, setSectionData] = useState(null);
 
   /**
    * Get section configuration for custom props
@@ -72,6 +86,8 @@ const SectionEditModal = ({
         is_enabled: section.is_enabled ?? true,
         custom_props: section.custom_props || {},
       });
+      // Reset section data when section changes
+      setSectionData(null);
     }
   }, [section]);
 
@@ -79,6 +95,8 @@ const SectionEditModal = ({
   useEffect(() => {
     if (!isOpen) {
       setErrors({});
+      setActiveTab('basic');
+      setSectionData(null);
     }
   }, [isOpen]);
 
@@ -149,9 +167,14 @@ const SectionEditModal = ({
       custom_props: formData.custom_props || {},
     };
 
+    // Include section data if it exists and has been modified
+    if (sectionData !== null && Object.keys(sectionData).length > 0) {
+      submitData.data = sectionData;
+    }
+
     // Send update request
     router.put(
-      route('backend.cms.sections.update', { page: pageId, section: section.id }),
+      route('backend.cms.sections.update', { section: section.id }),
       submitData,
       {
         preserveScroll: true,
@@ -159,7 +182,10 @@ const SectionEditModal = ({
         onSuccess: () => {
           setIsSubmitting(false);
           showToast('success', '✅ Updated!', 'Section updated successfully.', 2000);
-          if (onSuccess) onSuccess();
+          // Call the onSuccess callback if provided
+          if (onSuccess) {
+            onSuccess();
+          }
           onClose();
         },
         onError: (errors) => {
@@ -185,6 +211,180 @@ const SectionEditModal = ({
 
   const hasData = hasSectionData(section);
 
+  /**
+   * Render Basic Data Tab
+   */
+  const renderBasicTab = () => (
+    <div className="space-y-6">
+      {/* Section Key - Editable */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Section Key <span className="text-red-500">*</span>
+        </label>
+        <input
+          type="text"
+          name="section_key"
+          value={formData.section_key}
+          onChange={handleChange}
+          className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition ${errors.section_key ? 'border-red-500' : 'border-gray-300'
+            }`}
+          placeholder="e.g., home_banner"
+          aria-invalid={!!errors.section_key}
+        />
+        {errors.section_key && (
+          <p className="mt-1 text-sm text-red-500">{errors.section_key}</p>
+        )}
+        <p className="mt-1 text-xs text-gray-400">Unique identifier for this section</p>
+      </div>
+
+      {/* Component - Read Only */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Component <span className="text-red-500">*</span>
+        </label>
+        <div className="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-700">
+          {getComponentLabel(formData.component)} ({formData.component})
+        </div>
+        <p className="mt-1 text-xs text-blue-600">🔒 Component cannot be changed after creation</p>
+      </div>
+
+      {/* Data Source - Locked / Read Only */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Data Table
+        </label>
+        <div className="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 flex items-center justify-between">
+          <span>{getDataTableDisplayLabel(formData.data_table)}</span>
+          <span className="text-xs text-gray-400">🔒 Locked</span>
+        </div>
+        <p className="mt-1 text-xs text-gray-400">Data source cannot be changed after creation</p>
+      </div>
+
+      {/* Data Key - Auto-generated, read only */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Data Key
+        </label>
+        <input
+          type="text"
+          name="data_key"
+          value={formData.data_key}
+          className="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 cursor-not-allowed"
+          disabled
+        />
+        <p className="mt-1 text-xs text-gray-400">🔒 Auto-generated based on section configuration</p>
+      </div>
+
+      {/* Status - Toggle */}
+      <div className="p-4 bg-gray-50 rounded-lg">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            name="is_enabled"
+            checked={formData.is_enabled}
+            onChange={handleChange}
+            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+          />
+          <span className="text-sm text-gray-700 font-medium">Enabled</span>
+          <span className="text-xs text-gray-400 ml-2">(Visible on the frontend)</span>
+        </label>
+      </div>
+
+      {/* Custom Props - Section specific configuration */}
+      {sectionConfig.fields.length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">Section Configuration</h3>
+          <div className="space-y-4 p-4 bg-gray-50 rounded-lg">
+            {sectionConfig.fields.map((field) => {
+              const currentValue = formData.custom_props?.[field.key] ?? field.default ?? '';
+
+              return (
+                <div key={field.key}>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {field.label}
+                  </label>
+
+                  {/* Color Picker Field */}
+                  {field.type === 'color' && (
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="color"
+                        value={currentValue.startsWith('#') ? currentValue : '#ffffff'}
+                        onChange={(e) => handleCustomPropChange(field.key, e.target.value)}
+                        className="w-12 h-12 border border-gray-300 rounded-lg cursor-pointer"
+                        aria-label={`Select color for ${field.label}`}
+                      />
+                      <input
+                        type="text"
+                        value={currentValue}
+                        onChange={(e) => handleCustomPropChange(field.key, e.target.value)}
+                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                        placeholder={field.default || 'Enter color class or hex'}
+                      />
+                      <span className="text-xs text-gray-400">(e.g., bg-white or #ffffff)</span>
+                    </div>
+                  )}
+
+                  {/* Select Dropdown Field */}
+                  {field.type === 'select' && field.options && (
+                    <select
+                      value={currentValue}
+                      onChange={(e) => handleCustomPropChange(field.key, e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                      aria-label={`Select ${field.label}`}
+                    >
+                      {field.options.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+
+                  {/* Text Input Field */}
+                  {field.type === 'text' && (
+                    <input
+                      type="text"
+                      value={currentValue}
+                      onChange={(e) => handleCustomPropChange(field.key, e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                      placeholder={field.default || `Enter ${field.label.toLowerCase()}`}
+                      aria-label={`Enter ${field.label}`}
+                    />
+                  )}
+
+                  {/* Number Input Field */}
+                  {field.type === 'number' && (
+                    <input
+                      type="number"
+                      value={currentValue}
+                      onChange={(e) => handleCustomPropChange(field.key, parseInt(e.target.value) || 0)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                      placeholder={field.default?.toString() || '0'}
+                      aria-label={`Enter ${field.label}`}
+                    />
+                  )}
+
+                  {/* Textarea Field */}
+                  {field.type === 'textarea' && (
+                    <textarea
+                      value={currentValue}
+                      onChange={(e) => handleCustomPropChange(field.key, e.target.value)}
+                      rows={4}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition font-mono text-sm"
+                      placeholder={field.default || `Enter ${field.label.toLowerCase()}`}
+                      aria-label={`Enter ${field.label}`}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fadeIn"
@@ -194,7 +394,7 @@ const SectionEditModal = ({
       aria-labelledby="modal-title"
     >
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-slideUp"
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto animate-slideUp"
         style={{ animationDuration: '200ms' }}
       >
         {/* Header */}
@@ -215,183 +415,63 @@ const SectionEditModal = ({
           </button>
         </div>
 
-        {/* Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Section Key - Editable */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Section Key <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              name="section_key"
-              value={formData.section_key}
-              onChange={handleChange}
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition ${errors.section_key ? 'border-red-500' : 'border-gray-300'
+        {/* Tabs */}
+        <div className="border-b border-gray-200">
+          <div className="flex">
+            <button
+              type="button"
+              onClick={() => setActiveTab('basic')}
+              className={`px-6 py-3 text-sm font-medium transition-colors relative ${activeTab === 'basic'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-gray-500 hover:text-gray-700'
                 }`}
-              placeholder="e.g., home_banner"
-              aria-invalid={!!errors.section_key}
-            />
-            {errors.section_key && (
-              <p className="mt-1 text-sm text-red-500">{errors.section_key}</p>
-            )}
-            <p className="mt-1 text-xs text-gray-400">Unique identifier for this section</p>
+            >
+              <span className="flex items-center gap-2">
+                <FaCog size={14} />
+                Basic Data
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('data')}
+              className={`px-6 py-3 text-sm font-medium transition-colors relative ${activeTab === 'data'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-gray-500 hover:text-gray-700'
+                }`}
+            >
+              <span className="flex items-center gap-2">
+                <FaDatabase size={14} />
+                Section Data
+                {hasData && (
+                  <span className="ml-1 text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">
+                    ✓
+                  </span>
+                )}
+              </span>
+            </button>
           </div>
+        </div>
 
-          {/* Component - Read Only */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Component <span className="text-red-500">*</span>
-            </label>
-            <div className="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-700">
-              {getComponentLabel(formData.component)} ({formData.component})
+        {/* Body - BOTH tabs are rendered but only one is visible */}
+        <form onSubmit={handleSubmit} className="p-6">
+          <div className="min-h-100 relative">
+            {/* Basic Data Tab */}
+            <div className={activeTab === 'basic' ? 'block' : 'hidden'}>
+              {renderBasicTab()}
             </div>
-            <p className="mt-1 text-xs text-blue-600">🔒 Component cannot be changed after creation</p>
-          </div>
 
-          {/* Data Source - Locked / Read Only */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Data Table
-            </label>
-            <div className="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 flex items-center justify-between">
-              <span>{getDataTableDisplayLabel(formData.data_table)}</span>
-              <span className="text-xs text-gray-400">🔒 Locked</span>
-            </div>
-            <p className="mt-1 text-xs text-gray-400">Data source cannot be changed after creation</p>
-          </div>
-
-          {/* Data Key - Auto-generated, read only */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Data Key
-            </label>
-            <input
-              type="text"
-              name="data_key"
-              value={formData.data_key}
-              className="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 cursor-not-allowed"
-              disabled
-            />
-            <p className="mt-1 text-xs text-gray-400">🔒 Auto-generated based on section configuration</p>
-          </div>
-
-          {/* Status - Toggle */}
-          <div className="p-4 bg-gray-50 rounded-lg">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                name="is_enabled"
-                checked={formData.is_enabled}
-                onChange={handleChange}
-                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+            {/* Section Data Tab */}
+            <div className={activeTab === 'data' ? 'block' : 'hidden'}>
+              <RenderDataTab
+                section={section}
+                hasData={hasData}
+                onDataChange={setSectionData}
               />
-              <span className="text-sm text-gray-700 font-medium">Enabled</span>
-              <span className="text-xs text-gray-400 ml-2">(Visible on the frontend)</span>
-            </label>
-          </div>
-
-          {/* Custom Props - Section specific configuration */}
-          {sectionConfig.fields.length > 0 && (
-            <div>
-              <h3 className="text-sm font-semibold text-gray-700 mb-3">Section Configuration</h3>
-              <div className="space-y-4 p-4 bg-gray-50 rounded-lg">
-                {sectionConfig.fields.map((field) => {
-                  const currentValue = formData.custom_props?.[field.key] ?? field.default ?? '';
-
-                  return (
-                    <div key={field.key}>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {field.label}
-                      </label>
-
-                      {/* Color Picker Field */}
-                      {field.type === 'color' && (
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="color"
-                            value={currentValue.startsWith('#') ? currentValue : '#ffffff'}
-                            onChange={(e) => handleCustomPropChange(field.key, e.target.value)}
-                            className="w-12 h-12 border border-gray-300 rounded-lg cursor-pointer"
-                            aria-label={`Select color for ${field.label}`}
-                          />
-                          <input
-                            type="text"
-                            value={currentValue}
-                            onChange={(e) => handleCustomPropChange(field.key, e.target.value)}
-                            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-                            placeholder={field.default || 'Enter color class or hex'}
-                          />
-                          <span className="text-xs text-gray-400">(e.g., bg-white or #ffffff)</span>
-                        </div>
-                      )}
-
-                      {/* Select Dropdown Field */}
-                      {field.type === 'select' && field.options && (
-                        <select
-                          value={currentValue}
-                          onChange={(e) => handleCustomPropChange(field.key, e.target.value)}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-                          aria-label={`Select ${field.label}`}
-                        >
-                          {field.options.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-
-                      {/* Text Input Field */}
-                      {field.type === 'text' && (
-                        <input
-                          type="text"
-                          value={currentValue}
-                          onChange={(e) => handleCustomPropChange(field.key, e.target.value)}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-                          placeholder={field.default || `Enter ${field.label.toLowerCase()}`}
-                          aria-label={`Enter ${field.label}`}
-                        />
-                      )}
-
-                      {/* Number Input Field */}
-                      {field.type === 'number' && (
-                        <input
-                          type="number"
-                          value={currentValue}
-                          onChange={(e) => handleCustomPropChange(field.key, parseInt(e.target.value) || 0)}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-                          placeholder={field.default?.toString() || '0'}
-                          aria-label={`Enter ${field.label}`}
-                        />
-                      )}
-
-                      {/* Textarea Field */}
-                      {field.type === 'textarea' && (
-                        <textarea
-                          value={currentValue}
-                          onChange={(e) => handleCustomPropChange(field.key, e.target.value)}
-                          rows={4}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition font-mono text-sm"
-                          placeholder={field.default || `Enter ${field.label.toLowerCase()}`}
-                          aria-label={`Enter ${field.label}`}
-                        />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
             </div>
-          )}
-
-          {/* Section Data Viewer */}
-          <div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Section Data</h3>
-            <SectionDataViewer section={section} hasSectionData={hasData} />
           </div>
 
           {/* Actions - Footer Buttons */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
+          <div className="flex items-center justify-end gap-3 pt-4 mt-6 border-t border-gray-200">
             <button
               type="button"
               onClick={onClose}
@@ -400,6 +480,8 @@ const SectionEditModal = ({
             >
               Cancel
             </button>
+
+            {/* Save button - Visible on BOTH tabs */}
             <button
               type="submit"
               disabled={isSubmitting}
