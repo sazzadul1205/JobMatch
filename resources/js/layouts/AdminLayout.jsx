@@ -1,4 +1,3 @@
-/* eslint-disable import/order */
 // resources/js/layouts/AdminLayout.jsx
 
 // ============================================================
@@ -7,7 +6,7 @@
 
 // React
 import { Link, usePage } from '@inertiajs/react';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 
 // Icons
 import { FaSearchLocation, FaLayerGroup } from "react-icons/fa";
@@ -70,14 +69,14 @@ const AdminLayout = ({ children }) => {
     return 'admin';
   }, [hasRole]);
 
-  const getPrimaryRoleName = () => {
+  const getPrimaryRoleName = useCallback(() => {
     if (hasRole('super-admin')) return 'Super Administrator';
     if (hasRole('admin')) return 'Administrator';
     if (hasRole('employer-admin')) return 'Employer Admin';
     if (hasRole('hr-manager')) return 'HR Manager';
     if (hasRole('recruiter')) return 'Recruiter';
     return 'Staff';
-  };
+  }, [hasRole]);
 
   // ============================================================
   // ROLE COLORS
@@ -98,13 +97,13 @@ const AdminLayout = ({ children }) => {
     return '#';
   };
 
-  const normalizeUrl = (value) => {
+  const normalizeUrl = useCallback((value) => {
     if (!value) return '';
     const pathOnly = value.toString().replace(/^https?:\/\/[^/]+/i, '');
     return pathOnly.replace(/[?#].*$/, '').replace(/\/$/, '');
-  };
+  }, []);
 
-  const normalizeUrlWithQuery = (value) => {
+  const normalizeUrlWithQuery = useCallback((value) => {
     if (!value) return '';
     const withoutDomain = value.toString().replace(/^https?:\/\/[^/]+/i, '');
     const withoutHash = withoutDomain.replace(/#.*$/, '');
@@ -112,23 +111,23 @@ const AdminLayout = ({ children }) => {
     const path = (parts[0] || '').replace(/\/$/, '');
     const query = parts.length > 1 ? `?${parts.slice(1).join('?')}` : '';
     return `${path}${query}`;
-  };
+  }, []);
 
-  const isPathActive = (path) => {
+  const isPathActive = useCallback((path) => {
     if (!path || path === '#') return false;
     const normUrl = normalizeUrl(url);
     const normPath = normalizeUrl(path);
     if (path === '/backend/admin' && normUrl === '/backend/admin') return true;
     if (normUrl === normPath) return true;
     return normPath !== '/' && normUrl.startsWith(normPath);
-  };
+  }, [url, normalizeUrl]);
 
-  const isPathActiveWithQuery = (path) => {
+  const isPathActiveWithQuery = useCallback((path) => {
     if (!path || path === '#') return false;
     return normalizeUrlWithQuery(url) === normalizeUrlWithQuery(path);
-  };
+  }, [url, normalizeUrlWithQuery]);
 
-  const isRouteActive = (routeName, params = {}, aliasPaths = [], options = {}) => {
+  const isRouteActive = useCallback((routeName, params = {}, aliasPaths = [], options = {}) => {
     try {
       const routeUrl = route(routeName, params);
       if (routeUrl === '#') return false;
@@ -142,9 +141,9 @@ const AdminLayout = ({ children }) => {
       if (normAliases.some(a => normUrl === a || normUrl.startsWith(a))) return true;
       return normRoute !== '/' && normUrl.startsWith(normRoute);
     } catch (e) { console.error(e); return false; }
-  };
+  }, [url, normalizeUrl]);
 
-  const isDropdownActive = (subItems) => {
+  const isDropdownActive = useCallback((subItems) => {
     return subItems?.some(sub => {
       if (sub.href && sub.href !== '#') return sub.matchQuery ? isPathActiveWithQuery(sub.href) : isPathActive(sub.href);
       if (sub.routeName) return isRouteActive(sub.routeName, sub.routeParams || {}, sub.activeAliases || [], {
@@ -152,7 +151,7 @@ const AdminLayout = ({ children }) => {
       });
       return false;
     });
-  };
+  }, [isPathActive, isPathActiveWithQuery, isRouteActive]);
 
   // ============================================================
   // MENU TOGGLES & AUTO-EXPAND
@@ -230,12 +229,64 @@ const AdminLayout = ({ children }) => {
     }
 
     // CMS Management
-    if (hasAnyPermission(['cms.dashboard', 'pages.view', 'pages.manage', 'about.view', 'about.manage', 'blogs.view', 'blogs.manage', 'programs.view', 'programs.manage', 'custom-sections.view', 'custom-sections.manage', 'shared-data.view', 'shared-data.manage'])) {
+    if (hasAnyPermission([
+      'pages.view',
+      'shared-data.view',
+      'blogs.view',
+      'programs.view',
+      'about.view',
+    ])) {
       const subs = [];
-      // Add CMS sub-items here
-      // if (hasAnyPermission(['pages.view'])) subs.push({ name: 'Pages', href: '/backend/admin/pages', icon: FaLayerGroup });
-      // if (hasAnyPermission(['shared-data.view', 'shared-data.manage'])) subs.push({ name: 'Shared Data', href: '/backend/admin/shared-data', icon: FaLayerGroup });
-      if (subs.length) items.push({ name: 'CMS Management', icon: FaLayerGroup, isDropdown: true, dropdownKey: 'cms', subItems: subs });
+
+      if (hasPermission('pages.view')) {
+        subs.push({
+          name: 'Pages',
+          routeName: 'backend.cms.pages.index',
+          icon: FiFileText,
+        });
+      }
+
+      if (hasPermission('shared-data.view')) {
+        subs.push({
+          name: 'Shared Data',
+          routeName: 'backend.cms.shared.index',
+          icon: FaLayerGroup,
+        });
+      }
+
+      if (hasPermission('blogs.view')) {
+        subs.push({
+          name: 'Blogs',
+          routeName: 'backend.cms.blogs.index',
+          icon: FiFileText,
+        });
+      }
+
+      if (hasPermission('programs.view')) {
+        subs.push({
+          name: 'Programs',
+          routeName: 'backend.cms.programs.index',
+          icon: FiBriefcase,
+        });
+      }
+
+      if (hasPermission('about.view')) {
+        subs.push({
+          name: 'About',
+          routeName: 'backend.cms.about.index',
+          icon: FiUsers,
+        });
+      }
+
+      if (subs.length) {
+        items.push({
+          name: 'CMS Management',
+          icon: FaLayerGroup,
+          isDropdown: true,
+          dropdownKey: 'cms',
+          subItems: subs,
+        });
+      }
     }
 
     // Admin Settings
@@ -248,20 +299,23 @@ const AdminLayout = ({ children }) => {
       items.push({ name: 'Notifications', routeName: 'backend.notifications.index', icon: FiBell, badgeCount: notificationMeta.unread_count });
     }
 
-    // Force menu items for permissions (temporary)
-    if (hasPermission('0')) items.push({ name: 'Pages', routeName: 'backend.cms.pages.index', icon: FiSettings });
-    if (hasPermission('0')) items.push({ name: 'Shared Data', routeName: 'backend.cms.shared.index', icon: FiSettings });
-    if (hasPermission('0')) items.push({ name: 'Blogs', routeName: 'backend.cms.blogs.index', icon: FiSettings });
-    if (hasPermission('0')) items.push({ name: 'Programs', routeName: 'backend.cms.programs.index', icon: FiSettings });
-    if (hasPermission('0')) items.push({ name: 'About', routeName: 'backend.cms.about.index', icon: FiSettings });
-
     return items;
   }, [hasAnyPermission, hasPermission, notificationMeta.unread_count]);
+
+  // Effect to auto-expand CMS menu when active
+  useEffect(() => {
+    const cmsMenu = menuItems.find(item => item.dropdownKey === 'cms');
+
+    setOpenMenus(prev => ({
+      ...prev,
+      cms: prev.cms || (cmsMenu && isDropdownActive(cmsMenu.subItems)),
+    }));
+  }, [url, menuItems, isDropdownActive]);
 
   // ============================================================
   // RENDER HELPERS
   // ============================================================
-  const renderSubMenuItem = (sub) => {
+  const renderSubMenuItem = useCallback((sub) => {
     const active = sub.routeName
       ? isRouteActive(sub.routeName, sub.routeParams || {}, sub.activeAliases || [], { exact: sub.exact, excludePaths: sub.activeExclude })
       : (sub.matchQuery ? isPathActiveWithQuery(sub.href) : isPathActive(sub.href));
@@ -277,9 +331,9 @@ const AdminLayout = ({ children }) => {
         {active && <span className={`w-1.5 h-1.5 rounded-full ${colors.bg}`} />}
       </Link>
     );
-  };
+  }, [colors, isPathActive, isPathActiveWithQuery, isRouteActive]);
 
-  const renderMenuItem = (item) => {
+  const renderMenuItem = useCallback((item) => {
     if (item.isDropdown) {
       const open = openMenus[item.dropdownKey];
       const active = isDropdownActive(item.subItems);
@@ -324,7 +378,7 @@ const AdminLayout = ({ children }) => {
         {active && isCollapsed && <span className={`absolute right-0 w-1.5 h-1.5 rounded-full ${colors.bg}`} />}
       </Link>
     );
-  };
+  }, [openMenus, isCollapsed, colors, isDropdownActive, renderSubMenuItem, isRouteActive, isPathActive]);
 
   // ============================================================
   // RENDER

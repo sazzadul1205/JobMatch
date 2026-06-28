@@ -1,5 +1,5 @@
 <?php
-// database/seeders/RBACSeeder.php - COMPLETE WITH ALL PERMISSIONS
+// database/seeders/RBACSeeder.php - COMPLETE WITH ALL PERMISSIONS (CMS INCLUDED)
 
 namespace Database\Seeders;
 
@@ -511,7 +511,7 @@ class RBACSeeder extends Seeder
       );
     }
 
-    // EMPLOYER gets Employment related permissions
+    // EMPLOYER gets Employment related permissions (NO CMS permissions)
     $employerPermissionSlugs = [
       'dashboard.view',
       'dashboard.stats.view',
@@ -636,7 +636,7 @@ class RBACSeeder extends Seeder
       ['role_id' => $adminRoleId, 'module' => 'users', 'access_level' => 'manage'],
       ['role_id' => $adminRoleId, 'module' => 'statistics', 'access_level' => 'manage'],
 
-      // Employer - Employment Related
+      // Employer - Employment Related (NO CMS)
       ['role_id' => $employerRoleId, 'module' => 'dashboard', 'access_level' => 'write'],
       ['role_id' => $employerRoleId, 'module' => 'job_listings', 'access_level' => 'write'],
       ['role_id' => $employerRoleId, 'module' => 'applications', 'access_level' => 'write'],
