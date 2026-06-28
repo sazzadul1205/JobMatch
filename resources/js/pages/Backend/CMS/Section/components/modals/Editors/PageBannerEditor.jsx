@@ -1,13 +1,11 @@
-// resources/js/pages/Backend/CMS/Section/components/modals/Editors/HomeBannerEditor.jsx
+// resources/js/pages/Backend/CMS/Section/components/modals/Editors/PageBannerEditor.jsx
 
 import React, { useState, useEffect } from 'react';
-import { FaTrash, FaPlus } from 'react-icons/fa';
-import Swal from 'sweetalert2';
 import ImageUpload from './shared/ImageUpload';
 import { TextField, SelectField } from './shared/Fields';
 import { useImageUpload } from './shared/useImageUpload';
 
-const HomeBannerEditor = ({ section, hasData, onDataChange }) => {
+const PageBannerEditor = ({ section, hasData, onDataChange }) => {
   const initialData = section?.data?.data || section?.data || {};
   const [formData, setFormData] = useState(initialData);
   const image = useImageUpload(initialData?.background?.src || '');
@@ -31,69 +29,6 @@ const HomeBannerEditor = ({ section, hasData, onDataChange }) => {
     setFormData(newData);
   };
 
-  const updateArrayItem = (path, index, field, value) => {
-    const keys = path.split('.');
-    const newData = { ...formData };
-    let current = newData;
-
-    for (let i = 0; i < keys.length; i++) {
-      if (i === keys.length - 1) {
-        if (!current[keys[i]]) current[keys[i]] = [];
-        if (!current[keys[i]][index]) current[keys[i]][index] = {};
-        current[keys[i]][index] = { ...current[keys[i]][index], [field]: value };
-      } else {
-        if (!current[keys[i]]) current[keys[i]] = {};
-        current = current[keys[i]];
-      }
-    }
-    setFormData(newData);
-  };
-
-  const addArrayItem = (path, template = {}) => {
-    const keys = path.split('.');
-    const newData = { ...formData };
-    let current = newData;
-
-    for (let i = 0; i < keys.length - 1; i++) {
-      if (!current[keys[i]]) current[keys[i]] = {};
-      current = current[keys[i]];
-    }
-
-    const lastKey = keys[keys.length - 1];
-    if (!Array.isArray(current[lastKey])) current[lastKey] = [];
-
-    if (current[lastKey].length >= 2) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Maximum 2 Buttons',
-        text: 'You can only have up to 2 buttons in this section.',
-        confirmButtonColor: '#3b82f6',
-      });
-      return;
-    }
-
-    const newId = Math.max(0, ...current[lastKey].map(item => item.id || 0)) + 1;
-    current[lastKey].push({ ...template, id: newId });
-    setFormData(newData);
-  };
-
-  const removeArrayItem = (path, index) => {
-    const keys = path.split('.');
-    const newData = { ...formData };
-    let current = newData;
-
-    for (let i = 0; i < keys.length - 1; i++) {
-      if (!current[keys[i]]) current[keys[i]] = {};
-      current = current[keys[i]];
-    }
-
-    const lastKey = keys[keys.length - 1];
-    if (Array.isArray(current[lastKey])) {
-      current[lastKey].splice(index, 1);
-    }
-    setFormData(newData);
-  };
-
   const overlayOptions = [
     { value: 'bg-black/40 lg:bg-black/50', label: 'Light Dark Overlay' },
     { value: 'bg-black/60 lg:bg-black/70', label: 'Medium Dark Overlay' },
@@ -112,9 +47,18 @@ const HomeBannerEditor = ({ section, hasData, onDataChange }) => {
     { value: '', label: 'None' },
   ];
 
+  if (!hasData || !formData || Object.keys(formData).length === 0) {
+    return (
+      <div className="bg-white rounded-lg border border-gray-200 p-4 text-center py-8 text-gray-400">
+        <p className="text-sm">No data available to edit</p>
+        <p className="text-xs mt-1">Data will appear here once the section has content</p>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-4">
-      <h3 className="text-sm font-semibold text-gray-700 mb-3">Edit Data</h3>
+      <h3 className="text-sm font-semibold text-gray-700 mb-3">Edit Page Banner Data</h3>
 
       <div className="mb-4">
         <h4 className="text-sm font-medium text-gray-600 mb-2">Background Image</h4>
@@ -181,33 +125,13 @@ const HomeBannerEditor = ({ section, hasData, onDataChange }) => {
         <h4 className="text-sm font-medium text-gray-600 mb-2">Content</h4>
 
         <div className="mb-3">
-          <h5 className="text-xs font-medium text-gray-500 mb-1">Tagline</h5>
-          <div className="space-y-2">
-            <TextField
-              label="Text"
-              value={formData.content?.tagline?.text || ''}
-              onChange={(e) => updateField('content.tagline.text', e.target.value)}
-              placeholder="Tagline text"
-            />
-            <TextField
-              label="Class Name (Fixed)"
-              value={formData.content?.tagline?.className || 'uppercase tracking-[4px] font-semibold'}
-              onChange={(e) => updateField('content.tagline.className', e.target.value)}
-              placeholder="CSS classes"
-              className="bg-gray-50"
-            />
-            <p className="text-xs text-gray-400 -mt-1">Fixed class name - edit if needed</p>
-          </div>
-        </div>
-
-        <div className="mb-3">
           <h5 className="text-xs font-medium text-gray-500 mb-1">Title</h5>
           <div className="space-y-2">
             <TextField
               label="Text"
               value={formData.content?.title?.text || ''}
               onChange={(e) => updateField('content.title.text', e.target.value)}
-              placeholder="Title text"
+              placeholder="About Us"
             />
             <TextField
               label="Class Name (Fixed)"
@@ -223,16 +147,12 @@ const HomeBannerEditor = ({ section, hasData, onDataChange }) => {
         <div>
           <h5 className="text-xs font-medium text-gray-500 mb-1">Description</h5>
           <div className="space-y-2">
-            <div>
-              <label className="block text-xs text-gray-400 mb-0.5">Text</label>
-              <textarea
-                value={formData.content?.description?.text || ''}
-                onChange={(e) => updateField('content.description.text', e.target.value)}
-                rows={2}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-                placeholder="Description text"
-              />
-            </div>
+            <TextField
+              label="Text"
+              value={formData.content?.description?.text || ''}
+              onChange={(e) => updateField('content.description.text', e.target.value)}
+              placeholder="Our mission is to help all the people in need"
+            />
             <TextField
               label="Class Name (Fixed)"
               value={formData.content?.description?.className || 'font-normal leading-tight'}
@@ -243,68 +163,6 @@ const HomeBannerEditor = ({ section, hasData, onDataChange }) => {
             <p className="text-xs text-gray-400 -mt-1">Fixed class name - edit if needed</p>
           </div>
         </div>
-      </div>
-
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <h4 className="text-sm font-medium text-gray-600">Buttons (Max 2)</h4>
-          <button
-            type="button"
-            onClick={() => addArrayItem('buttons', { text: '', variant: 'primary', className: '', icon: true })}
-            className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
-          >
-            <FaPlus size={12} /> Add Button
-          </button>
-        </div>
-
-        {(formData.buttons || []).map((button, index) => (
-          <div key={button.id || index} className="mb-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium text-gray-500">Button #{index + 1}</span>
-              <button
-                type="button"
-                onClick={() => removeArrayItem('buttons', index)}
-                className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1"
-              >
-                <FaTrash size={12} /> Remove
-              </button>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <TextField
-                label="Text"
-                value={button.text || ''}
-                onChange={(e) => updateArrayItem('buttons', index, 'text', e.target.value)}
-                placeholder="Button text"
-              />
-              <TextField
-                label="Variant"
-                value={button.variant || ''}
-                onChange={(e) => updateArrayItem('buttons', index, 'variant', e.target.value)}
-                placeholder="primary / secondary"
-              />
-              <div className="md:col-span-2">
-                <TextField
-                  label="Class Name"
-                  value={button.className || ''}
-                  onChange={(e) => updateArrayItem('buttons', index, 'className', e.target.value)}
-                  placeholder="CSS classes"
-                />
-              </div>
-            </div>
-          </div>
-        ))}
-
-        {(!formData.buttons || formData.buttons.length === 0) && (
-          <div className="text-center py-4 text-gray-400 text-sm">
-            No buttons added. Click "Add Button" to create one (max 2).
-          </div>
-        )}
-
-        {(formData.buttons || []).length >= 2 && (
-          <div className="text-center text-xs text-yellow-600 mt-1">
-            Maximum of 2 buttons reached.
-          </div>
-        )}
       </div>
 
       <div className="mt-4 bg-gray-50 rounded-lg p-4 border border-gray-200">
@@ -333,4 +191,4 @@ const HomeBannerEditor = ({ section, hasData, onDataChange }) => {
   );
 };
 
-export default HomeBannerEditor;
+export default PageBannerEditor;

@@ -1,40 +1,23 @@
 // resources/js/pages/Backend/CMS/Section/components/modals/Editors/OurActionEditor.jsx
 
 import React, { useState, useEffect } from 'react';
-import { FaUpload, FaTimes, FaTrash, FaPlus } from 'react-icons/fa';
+import { FaTrash, FaPlus, FaUpload, FaTimes } from 'react-icons/fa';
 import Swal from 'sweetalert2';
+import { TextField, TextAreaField } from './shared/Fields';
 
-/**
- * OurActionEditor - Editor for OurActionSection data
- * Features:
- * - Drag & drop icon upload (shows path preview)
- * - Tracks old icons for deletion
- * - Section title and description editing
- * - Action items management (add/remove) - List layout
- * - Calls onDataChange when data is modified
- */
 const OurActionEditor = ({ section, hasData, onDataChange }) => {
-  // Parse the section data
   const initialData = section?.data?.data || section?.data || {};
-
-  // Local state for form inputs
   const [formData, setFormData] = useState(initialData);
-
-  // Track if icons have been changed
   const [iconChanges, setIconChanges] = useState({});
   const [oldIconPaths, setOldIconPaths] = useState({});
-
-  // Drag and drop states
   const [uploadingIcon, setUploadingIcon] = useState({});
 
-  // Notify parent when formData changes
   useEffect(() => {
     if (onDataChange) {
       onDataChange(formData);
     }
   }, [formData, onDataChange]);
 
-  // Helper to update nested fields
   const updateField = (path, value) => {
     const keys = path.split('.');
     const newData = { ...formData };
@@ -48,7 +31,6 @@ const OurActionEditor = ({ section, hasData, onDataChange }) => {
     setFormData(newData);
   };
 
-  // Helper to update array items
   const updateArrayItem = (path, index, field, value) => {
     const keys = path.split('.');
     const newData = { ...formData };
@@ -67,7 +49,6 @@ const OurActionEditor = ({ section, hasData, onDataChange }) => {
     setFormData(newData);
   };
 
-  // Add new item to array
   const addArrayItem = (path, template = {}) => {
     const keys = path.split('.');
     const newData = { ...formData };
@@ -86,13 +67,11 @@ const OurActionEditor = ({ section, hasData, onDataChange }) => {
     setFormData(newData);
   };
 
-  // Remove array item
   const removeArrayItem = (path, index) => {
     const keys = path.split('.');
     const newData = { ...formData };
     let current = newData;
 
-    // Store old icon path before removal
     const items = formData.actions || [];
     if (items[index]?.icon) {
       setOldIconPaths(prev => ({
@@ -113,10 +92,6 @@ const OurActionEditor = ({ section, hasData, onDataChange }) => {
     }
     setFormData(newData);
   };
-
-  // ============================================================
-  // ICON DRAG & DROP FUNCTIONS
-  // ============================================================
 
   const handleIconDrop = (e, index) => {
     e.preventDefault();
@@ -158,7 +133,6 @@ const OurActionEditor = ({ section, hasData, onDataChange }) => {
       return;
     }
 
-    // Store old icon path if it exists
     const items = formData.actions || [];
     if (items[index]?.icon && !iconChanges[index]) {
       setOldIconPaths(prev => ({
@@ -199,7 +173,6 @@ const OurActionEditor = ({ section, hasData, onDataChange }) => {
     setIconChanges(prev => ({ ...prev, [index]: true }));
   };
 
-  // Helper to get display path
   const getDisplayPath = (src) => {
     if (!src) return '';
     if (src.startsWith('data:image')) {
@@ -208,7 +181,6 @@ const OurActionEditor = ({ section, hasData, onDataChange }) => {
     return src;
   };
 
-  // Check if data exists
   if (!hasData || !formData || Object.keys(formData).length === 0) {
     return (
       <div className="bg-white rounded-lg border border-gray-200 p-4 text-center py-8 text-gray-400">
@@ -218,46 +190,30 @@ const OurActionEditor = ({ section, hasData, onDataChange }) => {
     );
   }
 
-  // Get the items
   const actions = formData.actions || [];
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-4">
       <h3 className="text-sm font-semibold text-gray-700 mb-3">Edit Our Actions Data</h3>
 
-      {/* ============================================================
-          SECTION DATA
-          ============================================================ */}
-
       <div className="mb-4">
         <h4 className="text-sm font-medium text-gray-600 mb-2">Section Content</h4>
         <div className="space-y-3">
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">Title</label>
-            <input
-              type="text"
-              value={formData.section?.title || ''}
-              onChange={(e) => updateField('section.title', e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-              placeholder="Our Actions for Social Change"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">Description</label>
-            <textarea
-              value={formData.section?.description || ''}
-              onChange={(e) => updateField('section.description', e.target.value)}
-              rows={2}
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-              placeholder="Description of the actions"
-            />
-          </div>
+          <TextField
+            label="Title"
+            value={formData.section?.title || ''}
+            onChange={(e) => updateField('section.title', e.target.value)}
+            placeholder="Our Actions for Social Change"
+          />
+          <TextAreaField
+            label="Description"
+            value={formData.section?.description || ''}
+            onChange={(e) => updateField('section.description', e.target.value)}
+            placeholder="Description of the actions"
+            rows={2}
+          />
         </div>
       </div>
-
-      {/* ============================================================
-          ACTIONS SECTION - LIST LAYOUT
-          ============================================================ */}
 
       <div>
         <div className="flex items-center justify-between mb-2">
@@ -271,7 +227,6 @@ const OurActionEditor = ({ section, hasData, onDataChange }) => {
           </button>
         </div>
 
-        {/* List of action items - Full width */}
         <div className="space-y-3">
           {actions.map((item, index) => (
             <div key={item.id || index} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
@@ -287,7 +242,6 @@ const OurActionEditor = ({ section, hasData, onDataChange }) => {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {/* Left Column - Icon */}
                 <div>
                   <label className="block text-xs text-gray-400 mb-0.5">Icon</label>
                   <div
@@ -342,38 +296,25 @@ const OurActionEditor = ({ section, hasData, onDataChange }) => {
                   )}
                 </div>
 
-                {/* Right Column - Title, Description, Alt */}
                 <div className="space-y-2">
-                  <div>
-                    <label className="block text-xs text-gray-400 mb-0.5">Title</label>
-                    <input
-                      type="text"
-                      value={item.title || ''}
-                      onChange={(e) => updateArrayItem('actions', index, 'title', e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-                      placeholder="Education"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-400 mb-0.5">Description</label>
-                    <input
-                      type="text"
-                      value={item.description || ''}
-                      onChange={(e) => updateArrayItem('actions', index, 'description', e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-                      placeholder="Description of the action"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-400 mb-0.5">Alt Text</label>
-                    <input
-                      type="text"
-                      value={item.alt || ''}
-                      onChange={(e) => updateArrayItem('actions', index, 'alt', e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-                      placeholder="Education Icon"
-                    />
-                  </div>
+                  <TextField
+                    label="Title"
+                    value={item.title || ''}
+                    onChange={(e) => updateArrayItem('actions', index, 'title', e.target.value)}
+                    placeholder="Education"
+                  />
+                  <TextField
+                    label="Description"
+                    value={item.description || ''}
+                    onChange={(e) => updateArrayItem('actions', index, 'description', e.target.value)}
+                    placeholder="Description of the action"
+                  />
+                  <TextField
+                    label="Alt Text"
+                    value={item.alt || ''}
+                    onChange={(e) => updateArrayItem('actions', index, 'alt', e.target.value)}
+                    placeholder="Education Icon"
+                  />
                 </div>
               </div>
             </div>
@@ -386,10 +327,6 @@ const OurActionEditor = ({ section, hasData, onDataChange }) => {
           </div>
         )}
       </div>
-
-      {/* ============================================================
-          ADDITIONAL DATA INFO
-          ============================================================ */}
 
       <div className="mt-4 bg-gray-50 rounded-lg p-4 border border-gray-200">
         <div className="grid grid-cols-2 gap-3 text-sm">

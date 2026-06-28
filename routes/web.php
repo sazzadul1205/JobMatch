@@ -502,6 +502,7 @@ Route::middleware(['auth', 'verified', 'profile.complete'])->group(function () {
                 Route::get('/page/{pageId}', [CmsSectionController::class, 'index'])->name('page.sections');
                 Route::post('/{pageId}/update-order', [CmsSectionController::class, 'updateOrder'])->name('update-order');
                 Route::put('/update/{section}', [CmsSectionController::class, 'update'])->name('update');
+                Route::get('/about-content-options', [CmsSectionController::class, 'getAboutContentOptions'])->name('about-content-options'); // Add this
             });
 
             // Shared Data Management (Edit only)

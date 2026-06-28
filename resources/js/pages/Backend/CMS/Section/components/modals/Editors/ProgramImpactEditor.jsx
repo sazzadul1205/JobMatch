@@ -1,45 +1,27 @@
 // resources/js/pages/Backend/CMS/Section/components/modals/Editors/ProgramImpactEditor.jsx
 
 import React, { useState, useEffect } from 'react';
-import { FaUpload, FaTimes, FaTrash, FaPlus } from 'react-icons/fa';
+import { FaTrash, FaPlus, FaUpload, FaTimes } from 'react-icons/fa';
 import Swal from 'sweetalert2';
+import { TextField } from './shared/Fields';
 
-/**
- * ProgramImpactEditor - Editor for ProgramImpactSection data
- * Features:
- * - Drag & drop image upload for main images (array of images)
- * - Drag & drop image upload for SDG images
- * - Tracks old images for deletion
- * - Section title editing
- * - SDG images management (add/remove) - Grid layout
- * - Calls onDataChange when data is modified
- */
 const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
-  // Parse the section data
   const initialData = section?.data?.data || section?.data || {};
-
-  // Local state for form inputs
   const [formData, setFormData] = useState(initialData);
 
-  // Track if images have been changed
   const [mainImageChanges, setMainImageChanges] = useState({});
   const [oldMainImagePaths, setOldMainImagePaths] = useState({});
-
   const [sdgImageChanges, setSdgImageChanges] = useState({});
   const [oldSdgImagePaths, setOldSdgImagePaths] = useState({});
-
-  // Drag and drop states
   const [uploadingMainImage, setUploadingMainImage] = useState({});
   const [uploadingSdgImage, setUploadingSdgImage] = useState({});
 
-  // Notify parent when formData changes
   useEffect(() => {
     if (onDataChange) {
       onDataChange(formData);
     }
   }, [formData, onDataChange]);
 
-  // Helper to update nested fields
   const updateField = (path, value) => {
     const keys = path.split('.');
     const newData = { ...formData };
@@ -53,7 +35,6 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
     setFormData(newData);
   };
 
-  // Helper to update array items
   const updateArrayItem = (path, index, field, value) => {
     const keys = path.split('.');
     const newData = { ...formData };
@@ -72,7 +53,6 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
     setFormData(newData);
   };
 
-  // Add new item to array
   const addArrayItem = (path, template = {}) => {
     const keys = path.split('.');
     const newData = { ...formData };
@@ -91,13 +71,11 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
     setFormData(newData);
   };
 
-  // Remove array item
   const removeArrayItem = (path, index) => {
     const keys = path.split('.');
     const newData = { ...formData };
     let current = newData;
 
-    // Check which array we're removing from
     if (path === 'sdgImages') {
       const items = formData.sdgImages || [];
       if (items[index]?.src) {
@@ -120,10 +98,6 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
     }
     setFormData(newData);
   };
-
-  // ============================================================
-  // MAIN IMAGE DRAG & DROP FUNCTIONS
-  // ============================================================
 
   const handleMainImageDrop = (e, index) => {
     e.preventDefault();
@@ -206,10 +180,6 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
     setMainImageChanges(prev => ({ ...prev, [index]: true }));
   };
 
-  // ============================================================
-  // SDG IMAGE DRAG & DROP FUNCTIONS
-  // ============================================================
-
   const handleSdgImageDrop = (e, index) => {
     e.preventDefault();
     e.stopPropagation();
@@ -290,7 +260,6 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
     setSdgImageChanges(prev => ({ ...prev, [index]: true }));
   };
 
-  // Helper to get display path
   const getDisplayPath = (src) => {
     if (!src) return '';
     if (src.startsWith('data:image')) {
@@ -299,7 +268,6 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
     return src;
   };
 
-  // Check if data exists
   if (!hasData || !formData || Object.keys(formData).length === 0) {
     return (
       <div className="bg-white rounded-lg border border-gray-200 p-4 text-center py-8 text-gray-400">
@@ -316,34 +284,21 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
     <div className="bg-white rounded-lg border border-gray-200 p-4">
       <h3 className="text-sm font-semibold text-gray-700 mb-3">Edit Program Impact Data</h3>
 
-      {/* ============================================================
-          SECTION DATA
-          ============================================================ */}
-
       <div className="mb-4">
         <h4 className="text-sm font-medium text-gray-600 mb-2">Section Content</h4>
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">Title</label>
-          <input
-            type="text"
-            value={formData.section?.title || ''}
-            onChange={(e) => updateField('section.title', e.target.value)}
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-            placeholder="Program Impact and SDGs"
-          />
-        </div>
+        <TextField
+          label="Title"
+          value={formData.section?.title || ''}
+          onChange={(e) => updateField('section.title', e.target.value)}
+          placeholder="Program Impact and SDGs"
+        />
       </div>
-
-      {/* ============================================================
-          MAIN IMAGES SECTION
-          ============================================================ */}
 
       <div className="mb-4">
         <h4 className="text-sm font-medium text-gray-600 mb-2">
           Main Images ({mainImages.length})
         </h4>
 
-        {/* Grid of main images */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {mainImages.map((image, index) => (
             <div key={index} className="relative bg-gray-50 rounded-lg border border-gray-200 p-2">
@@ -410,10 +365,6 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
         )}
       </div>
 
-      {/* ============================================================
-          SDG IMAGES SECTION
-          ============================================================ */}
-
       <div>
         <div className="flex items-center justify-between mb-2">
           <h4 className="text-sm font-medium text-gray-600">SDG Images ({sdgImages.length})</h4>
@@ -426,7 +377,6 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
           </button>
         </div>
 
-        {/* Grid of SDG images */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {sdgImages.map((sdg, index) => (
             <div key={sdg.id || index} className="bg-gray-50 rounded-lg border border-gray-200 p-3">
@@ -441,7 +391,6 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
                 </button>
               </div>
 
-              {/* SDG Image */}
               <div
                 className={`relative border-2 border-dashed rounded-lg p-2 transition-all ${uploadingSdgImage[index] ? 'opacity-50' : 'border-gray-300 hover:border-gray-400'
                   }`}
@@ -504,17 +453,13 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
                 )}
               </div>
 
-              {/* SDG Alt Text */}
-              <div className="mt-2">
-                <label className="block text-xs text-gray-400 mb-0.5">Alt Text</label>
-                <input
-                  type="text"
-                  value={sdg.alt || ''}
-                  onChange={(e) => updateArrayItem('sdgImages', index, 'alt', e.target.value)}
-                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-                  placeholder="No Poverty"
-                />
-              </div>
+              <TextField
+                label="Alt Text"
+                value={sdg.alt || ''}
+                onChange={(e) => updateArrayItem('sdgImages', index, 'alt', e.target.value)}
+                placeholder="No Poverty"
+                className="mt-2"
+              />
             </div>
           ))}
         </div>
@@ -525,10 +470,6 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
           </div>
         )}
       </div>
-
-      {/* ============================================================
-          ADDITIONAL DATA INFO
-          ============================================================ */}
 
       <div className="mt-4 bg-gray-50 rounded-lg p-4 border border-gray-200">
         <div className="grid grid-cols-2 gap-3 text-sm">

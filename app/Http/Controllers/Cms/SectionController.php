@@ -443,6 +443,45 @@ class SectionController extends Controller
   }
 
   /**
+   * Get About Content options for dropdown
+   */
+  public function getAboutContentOptions()
+  {
+    try {
+      $items = AboutContent::where('is_active', true)
+        ->orderBy('title')
+        ->get()
+        ->map(function ($item) {
+          return [
+            'id' => $item->id,
+            'slug' => $item->slug,
+            'title' => $item->title,
+            'type' => $item->type,
+            'content' => $item->content,
+            'full_content' => $item->full_content,
+            'image' => $item->image,
+            'icon' => $item->icon,
+            'bg_color' => $item->bg_color,
+            'btn_text' => $item->btn_text,
+            'btn_link' => $item->btn_link,
+            'display_order' => $item->display_order,
+            'is_featured' => $item->is_featured,
+            'tags' => $item->tags,
+          ];
+        });
+
+      return response()->json($items);
+    } catch (\Exception $e) {
+      Log::error('Error fetching about content options: ' . $e->getMessage());
+      return response()->json([
+        'error' => 'Failed to fetch about content options',
+        'message' => $e->getMessage()
+      ], 500);
+    }
+  }
+
+
+  /**
    * Remove the specified section from storage.
    */
   public function destroy($id)

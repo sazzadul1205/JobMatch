@@ -3,6 +3,7 @@
 import React from 'react';
 import SectionDataViewer from '../SectionDataViewer';
 import HomeBannerEditor from './Editors/HomeBannerEditor';
+import PageBannerEditor from './Editors/PageBannerEditor';
 import AboutUsEditor from './Editors/AboutUsEditor';
 import OurActionEditor from './Editors/OurActionEditor';
 import WhereWeWorkEditor from './Editors/WhereWeWorkEditor';
@@ -10,7 +11,17 @@ import OurProgramsEditor from './Editors/OurProgramsEditor';
 import StoriesEditor from './Editors/StoriesEditor';
 import UpcomingEventsEditor from './Editors/UpcomingEventsEditor';
 import JobsEditor from './Editors/JobsEditor';
-import ProgramImpactEditor from './Editors/ProgramImpactEditor'; // Add this import
+import ProgramImpactEditor from './Editors/ProgramImpactEditor';
+import HeroFigureEditor from './Editors/HeroFigureEditor';
+import LegalEditor from './Editors/LegalEditor';
+import CardsEditor from './Editors/CardsEditor';
+import FAQEditor from './Editors/FAQEditor';
+import ContentEditor from './Editors/ContentEditor';
+import BlogEditor from './Editors/BlogEditor';
+import ContactOfficeEditor from './Editors/ContactOfficeEditor';
+import ContactReachEditor from './Editors/ContactReachEditor';
+import FollowUsEditor from './Editors/FollowUsEditor';
+import AddressEditor from './Editors/AddressEditor'; // Add this import
 
 /**
  * Render Section Data Tab Component
@@ -39,6 +50,9 @@ const RenderDataTab = ({ section, hasData, onDataChange }) => {
       case 'HomeBanner':
         return <HomeBannerEditor section={section} hasData={hasData} onDataChange={onDataChange} />;
 
+      case 'PageBannerSection':
+        return <PageBannerEditor section={section} hasData={hasData} onDataChange={onDataChange} />;
+
       case 'AboutUsSection':
         return <AboutUsEditor section={section} hasData={hasData} onDataChange={onDataChange} />;
 
@@ -60,8 +74,38 @@ const RenderDataTab = ({ section, hasData, onDataChange }) => {
       case 'JobsSection':
         return <JobsEditor section={section} hasData={hasData} onDataChange={onDataChange} />;
 
-      case 'ProgramImpactSection': // Add this case
+      case 'ProgramImpactSection':
         return <ProgramImpactEditor section={section} hasData={hasData} onDataChange={onDataChange} />;
+
+      case 'HeroFigureSection':
+        return <HeroFigureEditor section={section} hasData={hasData} onDataChange={onDataChange} />;
+
+      case 'LegalSection':
+        return <LegalEditor section={section} hasData={hasData} onDataChange={onDataChange} />;
+
+      case 'CardsSection':
+        return <CardsEditor section={section} hasData={hasData} onDataChange={onDataChange} />;
+
+      case 'FAQSection':
+        return <FAQEditor section={section} hasData={hasData} onDataChange={onDataChange} />;
+
+      case 'ContentSection':
+        return <ContentEditor section={section} hasData={hasData} onDataChange={onDataChange} />;
+
+      case 'BlogSection':
+        return <BlogEditor section={section} hasData={hasData} onDataChange={onDataChange} />;
+
+      case 'ContactOfficeSection':
+        return <ContactOfficeEditor section={section} hasData={hasData} onDataChange={onDataChange} />;
+
+      case 'ContactReachSection':
+        return <ContactReachEditor section={section} hasData={hasData} onDataChange={onDataChange} />;
+
+      case 'FollowUSSection':
+        return <FollowUsEditor section={section} hasData={hasData} onDataChange={onDataChange} />;
+
+      case 'AddressSection': // Add this case
+        return <AddressEditor section={section} hasData={hasData} onDataChange={onDataChange} />;
 
       // Add more cases for other components here
       default:
