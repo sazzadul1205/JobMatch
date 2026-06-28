@@ -180,27 +180,771 @@ class SectionController extends Controller
   }
 
   /**
-   * Show the form for creating a new section.
-   */
-  public function create()
-  {
-    // Not implemented
-  }
-
-  /**
    * Store a newly created section in storage.
    */
   public function store(Request $request)
   {
-    // Not implemented
+    $page = Page::findOrFail($request->page_id);
+
+    $validator = Validator::make($request->all(), [
+      'component' => 'required|string|max:255',
+      'section_key' => 'required|string|max:255|unique:section_configs,section_key,NULL,id,page_slug,' . $page->slug,
+      'data_table' => 'required|string|max:255',
+      'is_enabled' => 'boolean',
+      'custom_props' => 'nullable|array',
+    ]);
+
+    if ($validator->fails()) {
+      return back()->withErrors($validator)->withInput();
+    }
+
+    try {
+      DB::beginTransaction();
+
+      // Get the current max display order
+      $maxOrder = SectionConfig::where('page_slug', $page->slug)->max('display_order') ?? 0;
+
+      // Generate data_key based on component and section_key
+      $dataKey = $this->generateDataKey($request->component, $request->section_key);
+
+      // Create the section config
+      $sectionConfig = SectionConfig::create([
+        'page_slug' => $page->slug,
+        'section_key' => $request->section_key,
+        'component' => $request->component,
+        'data_table' => $request->data_table,
+        'data_key' => $dataKey,
+        'prop_name' => $this->getPropName($request->component),
+        'display_order' => $maxOrder + 1,
+        'is_enabled' => $request->boolean('is_enabled', true),
+        'is_fixed_section' => false,
+        'is_special_component' => $this->isSpecialComponent($request->component),
+        'custom_props' => $request->custom_props ?? [],
+      ]);
+
+      // Handle special data table types
+      $this->handleSectionDataCreation($sectionConfig);
+
+      DB::commit();
+
+      return back()->with('success', 'Section created successfully.');
+    } catch (\Exception $e) {
+      DB::rollBack();
+      return back()->with('error', 'Failed to create section: ' . $e->getMessage());
+    }
   }
 
   /**
-   * Display the specified section.
+   * Generate data key based on component
    */
-  public function show($id)
+  protected function generateDataKey(string $component, string $sectionKey): string
   {
-    // Not implemented
+    $keyMap = [
+      'HomeBanner' => 'bannerData',
+      'PageBannerSection' => 'bannerData',
+      'AboutUsSection' => 'aboutUsData',
+      'OurActionSection' => 'ourActionData',
+      'WhereWeWorkSection' => 'whereWeWorkData',
+      'OurProgramsSection' => 'ourProgramsData',
+      'StoriesSection' => 'storiesData',
+      'BlogSection' => 'blogsData',
+      'JobsSection' => 'jobsData',
+      'ProgramImpactSection' => 'programImpactData',
+      'UpcomingEventsSection' => 'upcomingEventsData',
+      'HeroFigureSection' => 'heroFigureData',
+      'CardsSection' => 'cardsData',
+      'FAQSection' => 'faqData',
+      'ContactOfficeSection' => 'officesData',
+      'AddressSection' => 'addressData',
+      'ContactReachSection' => 'reachUsData',
+      'FollowUSSection' => 'socialItemsData',
+      'LegalSection' => 'legalData',
+      'ContentSection' => 'contentSectionData',
+      'ProgramContentSection' => 'programContentData',
+      'BlogContentSection' => 'blogData',
+    ];
+
+    return $keyMap[$component] ?? $sectionKey . 'Data';
+  }
+
+  /**
+   * Get prop name based on component
+   */
+  protected function getPropName(string $component): string
+  {
+    $propMap = [
+      'HomeBanner' => 'data',
+      'PageBannerSection' => 'data',
+      'ContentSection' => 'subPageData',
+      'ProgramContentSection' => 'programData',
+      'BlogContentSection' => 'blogData',
+      'BlogSection' => 'blogsData',
+      'OurProgramsSection' => 'data',
+      'JobsSection' => 'data',
+    ];
+
+    return $propMap[$component] ?? 'data';
+  }
+
+  /**
+   * Check if component is special (uses external data tables)
+   */
+  protected function isSpecialComponent(string $component): bool
+  {
+    $specialComponents = [
+      'BlogSection',
+      'OurProgramsSection',
+      'JobsSection',
+      'FAQSection',
+      'UpcomingEventsSection',
+      'ContentSection',
+      'ProgramContentSection',
+      'BlogContentSection',
+    ];
+
+    return in_array($component, $specialComponents);
+  }
+
+  /**
+   * Handle section data creation based on data_table
+   */
+  protected function handleSectionDataCreation(SectionConfig $sectionConfig): void
+  {
+    switch ($sectionConfig->data_table) {
+      case 'custom_section_data':
+        $this->createCustomSectionData($sectionConfig);
+        break;
+
+      case 'shared_data':
+        // Shared data is managed separately, no automatic creation
+        break;
+
+      case 'blogs':
+      case 'programs':
+      case 'jobs':
+      case 'about_content':
+        // These are managed by their respective systems
+        break;
+
+      default:
+        // For any other data table, we might want to create custom data
+        if ($sectionConfig->data_table !== 'custom_section_data') {
+          $this->createCustomSectionData($sectionConfig);
+        }
+        break;
+    }
+  }
+
+  /**
+   * Create default custom section data with pre-filled template
+   */
+  protected function createCustomSectionData(SectionConfig $sectionConfig): void
+  {
+    $template = $this->getSectionDataTemplate($sectionConfig->component);
+
+    CustomSectionData::create([
+      'page_slug' => $sectionConfig->page_slug,
+      'section_key' => $sectionConfig->section_key,
+      'data' => $template,
+      'is_active' => true,
+    ]);
+  }
+
+  /**
+   * Get pre-filled data template for a section component
+   */
+  /**
+   * Get pre-filled data template for a section component
+   */
+  protected function getSectionDataTemplate(string $component): array
+  {
+    $templates = [
+      // ===== BANNER SECTIONS =====
+      'HomeBanner' => [
+        'background' => ['src' => '', 'alt' => 'Background'],
+        'overlay' => [
+          'darkOverlay' => 'bg-black/40 lg:bg-black/50',
+          'gradient' => 'bg-gradient-to-r from-black/85 via-black/10 to-transparent'
+        ],
+        'content' => [
+          'tagline' => [
+            'text' => 'Together, We Create Impact',
+            'className' => 'uppercase tracking-[4px] font-semibold'
+          ],
+          'title' => [
+            'text' => 'Be the Light for Someone in Need',
+            'className' => 'font-bold leading-tight'
+          ],
+          'description' => [
+            'text' => 'Your kindness has the power to change lives. Join us in bringing hope, support, and brighter futures. Every donation makes a difference big or small.',
+            'className' => 'font-normal leading-tight'
+          ]
+        ],
+        'buttons' => [
+          [
+            'id' => 1,
+            'text' => 'Become a Volunteer',
+            'variant' => 'primary',
+            'className' => 'bg-[#009BE2] text-white hover:bg-[#009BE2]/80',
+            'icon' => true
+          ],
+          [
+            'id' => 2,
+            'text' => 'How can I help?',
+            'variant' => 'secondary',
+            'className' => 'bg-white/90 lg:bg-white text-black hover:bg-white',
+            'icon' => true
+          ]
+        ]
+      ],
+
+      'PageBannerSection' => [
+        'background' => ['src' => '', 'alt' => 'Background'],
+        'overlay' => [
+          'darkOverlay' => 'bg-black/40 lg:bg-black/50',
+          'gradient' => 'bg-gradient-to-r from-black/85 via-black/10 to-transparent'
+        ],
+        'content' => [
+          'title' => [
+            'text' => 'Page Title',
+            'className' => 'font-bold leading-tight'
+          ],
+          'description' => [
+            'text' => 'Page description goes here',
+            'className' => 'font-normal leading-tight'
+          ]
+        ]
+      ],
+
+      // ===== CONTENT SECTIONS =====
+      'AboutUsSection' => [
+        'section' => [
+          'title' => 'About us',
+          'description' => 'A Community based philanthropic and development organization dedicated to sustainable poverty reduction, entrepreneur\'s promotion and capacity building of the underprivileged directing towards a just society.',
+          'button' => [
+            'text' => 'More about us',
+            'link' => '/about'
+          ]
+        ],
+        'mission' => [
+          'title' => 'The mission of our organization',
+          'items' => [
+            [
+              'id' => 1,
+              'icon' => '',
+              'title' => 'Education for All',
+              'description' => 'Our commitment to ensuring that every child has access to quality education and learning opportunities.',
+              'alt' => 'Education Icon'
+            ],
+            [
+              'id' => 2,
+              'icon' => '',
+              'title' => 'Health and Wellness',
+              'description' => 'Our commitment to health and wellness extends across borders, providing healthcare access to underserved communities.',
+              'alt' => 'Health Icon'
+            ],
+            [
+              'id' => 3,
+              'icon' => '',
+              'title' => 'Disaster Relief',
+              'description' => 'In times of crisis, we respond swiftly to provide emergency relief and support to affected communities.',
+              'alt' => 'Disaster Relief Icon'
+            ],
+            [
+              'id' => 4,
+              'icon' => '',
+              'title' => 'Community Development',
+              'description' => 'We invest in sustainable community development projects to create lasting positive change.',
+              'alt' => 'Community Development Icon'
+            ]
+          ]
+        ],
+        'impact' => [
+          'title' => 'Impact In Numbers',
+          'stats' => [
+            [
+              'id' => 1,
+              'value' => '20',
+              'suffix' => '+',
+              'label' => 'Years of Service'
+            ],
+            [
+              'id' => 2,
+              'value' => '15',
+              'suffix' => '+',
+              'label' => 'Project Programs'
+            ],
+            [
+              'id' => 3,
+              'value' => '10',
+              'suffix' => '+',
+              'label' => 'Awards Received'
+            ]
+          ]
+        ],
+        'image' => [
+          'src' => '',
+          'alt' => 'About Us Image'
+        ]
+      ],
+
+      'OurActionSection' => [
+        'section' => [
+          'title' => 'Our Actions for Social Change',
+          'description' => 'We turn compassion into action by implementing community-led programs, advocating for social justice, and promoting education, health and equality for all.'
+        ],
+        'actions' => [
+          [
+            'id' => 1,
+            'icon' => '',
+            'title' => 'Education',
+            'description' => 'We empower communities by investing in sustainable education projects and training programs.',
+            'alt' => 'Education Icon'
+          ],
+          [
+            'id' => 2,
+            'icon' => '',
+            'title' => 'Microfinance',
+            'description' => 'Providing financial inclusion and small loans to empower entrepreneurs and lift families out of poverty.',
+            'alt' => 'Microfinance Icon'
+          ],
+          [
+            'id' => 3,
+            'icon' => '',
+            'title' => 'Health',
+            'description' => 'Providing nutritious meals, healthcare access, and wellness programs to individuals and families in need.',
+            'alt' => 'Health Icon'
+          ],
+          [
+            'id' => 4,
+            'icon' => '',
+            'title' => 'Organizational Development',
+            'description' => 'Building strong institutions and community organizations that can sustain development efforts long-term.',
+            'alt' => 'Organizational Development Icon'
+          ],
+          [
+            'id' => 5,
+            'icon' => '',
+            'title' => 'Climate Change',
+            'description' => 'Supporting communities in adapting to climate change and building resilience against natural disasters.',
+            'alt' => 'Climate Change Icon'
+          ],
+          [
+            'id' => 6,
+            'icon' => '',
+            'title' => 'Human Rights',
+            'description' => 'Advocating for human rights, social justice, and equal opportunities for all members of society.',
+            'alt' => 'Human Rights Icon'
+          ],
+          [
+            'id' => 7,
+            'icon' => '',
+            'title' => 'Human Resource',
+            'description' => 'Developing human capital through training, capacity building, and skill development programs.',
+            'alt' => 'Human Resource Icon'
+          ],
+          [
+            'id' => 8,
+            'icon' => '',
+            'title' => 'Social Enterprises',
+            'description' => 'Promoting social entrepreneurship and sustainable business models that create social impact.',
+            'alt' => 'Social Enterprises Icon'
+          ],
+          [
+            'id' => 9,
+            'icon' => '',
+            'title' => 'Agriculture & Food Security',
+            'description' => 'Supporting sustainable agriculture, food security, and livelihoods for farming communities.',
+            'alt' => 'Agriculture Food Security Icon'
+          ]
+        ]
+      ],
+
+      'WhereWeWorkSection' => [
+        'section' => [
+          'title' => 'Where We Work'
+        ],
+        'stats' => [
+          [
+            'id' => 1,
+            'icon' => '',
+            'value' => '450K',
+            'label' => 'Total Member Reach',
+            'alt' => 'Member Reach Icon'
+          ],
+          [
+            'id' => 2,
+            'icon' => '',
+            'value' => '41,382',
+            'label' => 'Men Engaged in Diverse Livelihoods Options',
+            'alt' => 'Men Engaged Icon'
+          ],
+          [
+            'id' => 3,
+            'icon' => '',
+            'value' => '35,193',
+            'label' => 'Women Engaged in Diverse Livelihoods Options',
+            'alt' => 'Women Engaged Icon'
+          ],
+          [
+            'id' => 4,
+            'icon' => '',
+            'value' => '35,193',
+            'label' => 'Women Engagement in Diverse Livelihood Options',
+            'alt' => 'Women Engagement Icon'
+          ],
+          [
+            'id' => 5,
+            'icon' => '',
+            'value' => '38.0 M',
+            'label' => 'Digital Media Outreach',
+            'alt' => 'Digital Media Icon'
+          ],
+          [
+            'id' => 6,
+            'icon' => '',
+            'value' => '35,193',
+            'label' => 'Women Engagement in Diverse Livelihood Options',
+            'alt' => 'Women Engagement Icon'
+          ]
+        ],
+        'image' => [
+          'src' => '',
+          'alt' => 'Map Placeholder Text',
+          'className' => 'w-full h-232.5 object-cover rounded-4xl'
+        ]
+      ],
+
+      'StoriesSection' => [
+        'section' => [
+          'title' => 'Insights, Stories & Impact',
+          'description' => 'Read real stories from the field, community experiences, and thought-provoking perspectives that reflect our mission and impact.'
+        ],
+        'stories' => [
+          [
+            'id' => 1,
+            'image' => '',
+            'date' => 'June 6, 2023',
+            'title' => 'Invest in Kindness, Reap a Better Future',
+            'description' => 'Lorem Ipsum is simply dummy text of the printing and typesetting industry...',
+            'link' => '/stories/invest-in-kindness'
+          ],
+          [
+            'id' => 2,
+            'image' => '',
+            'date' => 'June 6, 2023',
+            'title' => 'How to Design a Custom Pool That Perfectly Fits Your Charlotte Backyard',
+            'description' => 'Lorem Ipsum is simply dummy text of the printing and typesetting industry...',
+            'link' => '/stories/custom-pool-design'
+          ],
+          [
+            'id' => 3,
+            'image' => '',
+            'date' => 'June 6, 2023',
+            'title' => 'The Benefits of Mindfulness in Daily Life',
+            'description' => 'Lorem Ipsum is simply dummy text of the printing and typesetting industry...',
+            'link' => '/stories/mindfulness-benefits'
+          ]
+        ]
+      ],
+
+      'HeroFigureSection' => [
+        'section' => [
+          'title' => 'Section Title'
+        ],
+        'content' => [
+          'html' => '<div class="space-y-6"><p class="font-400 text-[16px] sm:text-[18px] lg:text-[20px] text-[#333333] leading-snug">Content goes here. Use the rich text editor to format your content with headings, lists, links, and more.</p></div>'
+        ],
+        'btn' => [
+          'text' => 'Learn More',
+          'link' => '/about'
+        ],
+        'image' => [
+          'src' => '',
+          'alt' => 'Image',
+          'className' => 'w-full h-auto lg:h-full object-cover rounded-2xl sm:rounded-3xl lg:rounded-4xl'
+        ]
+      ],
+
+      'CardsSection' => [
+        'section' => [
+          'title' => 'Cards Section'
+        ],
+        'cards' => [
+          [
+            'id' => 'card-1',
+            'image' => [
+              'src' => '',
+              'alt' => 'Card Image',
+              'className' => 'mx-auto object-contain'
+            ],
+            'title' => 'Operational Areas',
+            'buttonText' => 'Explore Our Areas of Operation',
+            'buttonLink' => '/about/operational-areas',
+            'bgColor' => 'bg-[#F5F5F5]',
+            'cardBgColor' => 'bg-white'
+          ],
+          [
+            'id' => 'card-2',
+            'image' => [
+              'src' => '',
+              'alt' => 'Card Image',
+              'className' => 'mx-auto object-contain'
+            ],
+            'title' => 'Our Achievements',
+            'buttonText' => 'Explore Our Evolution',
+            'buttonLink' => '/about/achievements',
+            'bgColor' => 'bg-[#F5F5F5]',
+            'cardBgColor' => 'bg-white'
+          ]
+        ]
+      ],
+
+      // ===== CONTACT SECTIONS =====
+      'ContactOfficeSection' => [
+        [
+          'title' => 'Head Office',
+          'address' => '',
+          'phones' => [''],
+          'emails' => [''],
+          'map_url' => '',
+          'coordinates' => ['lat' => 0, 'lng' => 0],
+          'is_active' => true
+        ],
+        [
+          'title' => 'Regional Office',
+          'address' => '',
+          'phones' => [''],
+          'emails' => [''],
+          'map_url' => '',
+          'coordinates' => ['lat' => 0, 'lng' => 0],
+          'is_active' => false
+        ]
+      ],
+
+      'AddressSection' => [
+        [
+          'id' => 'address-1',
+          'label' => 'Head Office',
+          'address' => '',
+          'mapUrl' => '',
+          'coordinates' => ['lat' => 0, 'lng' => 0],
+          'phones' => [''],
+          'emails' => ['']
+        ],
+        [
+          'id' => 'address-2',
+          'label' => 'Regional Office',
+          'address' => '',
+          'mapUrl' => '',
+          'coordinates' => ['lat' => 0, 'lng' => 0],
+          'phones' => [''],
+          'emails' => ['']
+        ]
+      ],
+
+      'ContactReachSection' => [
+        'image' => '',
+        'title' => 'Reach out to us today!',
+        'buttonText' => 'Submit Message'
+      ],
+
+      'FollowUSSection' => [
+        [
+          'icon' => 'facebook',
+          'label' => 'Facebook',
+          'url' => '#'
+        ],
+        [
+          'icon' => 'instagram',
+          'label' => 'Instagram',
+          'url' => '#'
+        ],
+        [
+          'icon' => 'linkedin',
+          'label' => 'LinkedIn',
+          'url' => '#'
+        ],
+        [
+          'icon' => 'youtube',
+          'label' => 'YouTube',
+          'url' => '#'
+        ],
+        [
+          'icon' => 'twitter',
+          'label' => 'X (Twitter)',
+          'url' => '#'
+        ]
+      ],
+
+      'LegalSection' => [
+        'background' => [
+          'src' => '',
+          'alt' => 'Background'
+        ],
+        'overlay' => [
+          'darkOverlay' => 'bg-black/40'
+        ],
+        'textBox' => [
+          'title' => 'Legal Status and Org.',
+          'titleLine2' => 'Affiliations',
+          'buttonText' => 'Learn More Affiliations',
+          'buttonLink' => '/about/legal-affiliations'
+        ]
+      ],
+
+      'ProgramImpactSection' => [
+        'section' => [
+          'title' => 'Program Impact and SDGs',
+          'mainImage' => [
+            'images' => [
+              '',
+              '',
+              '',
+              ''
+            ]
+          ]
+        ],
+        'sdgImages' => [
+          [
+            'id' => 1,
+            'src' => '',
+            'alt' => 'No Poverty'
+          ],
+          [
+            'id' => 2,
+            'src' => '',
+            'alt' => 'Zero Hunger'
+          ],
+          [
+            'id' => 3,
+            'src' => '',
+            'alt' => 'Good Health'
+          ],
+          [
+            'id' => 4,
+            'src' => '',
+            'alt' => 'Quality Education'
+          ],
+          [
+            'id' => 5,
+            'src' => '',
+            'alt' => 'Gender Equality'
+          ],
+          [
+            'id' => 6,
+            'src' => '',
+            'alt' => 'Clean Water'
+          ],
+          [
+            'id' => 7,
+            'src' => '',
+            'alt' => 'Clean Energy'
+          ],
+          [
+            'id' => 8,
+            'src' => '',
+            'alt' => 'Decent Work'
+          ],
+          [
+            'id' => 9,
+            'src' => '',
+            'alt' => 'Industry Innovation'
+          ],
+          [
+            'id' => 10,
+            'src' => '',
+            'alt' => 'Reduced Inequalities'
+          ],
+          [
+            'id' => 11,
+            'src' => '',
+            'alt' => 'Sustainable Cities'
+          ],
+          [
+            'id' => 12,
+            'src' => '',
+            'alt' => 'Responsible Consumption'
+          ],
+          [
+            'id' => 13,
+            'src' => '',
+            'alt' => 'Climate Action'
+          ],
+          [
+            'id' => 14,
+            'src' => '',
+            'alt' => 'Life Below Water'
+          ],
+          [
+            'id' => 15,
+            'src' => '',
+            'alt' => 'Life On Land'
+          ],
+          [
+            'id' => 16,
+            'src' => '',
+            'alt' => 'Peace Justice'
+          ],
+          [
+            'id' => 17,
+            'src' => '',
+            'alt' => 'Partnerships'
+          ]
+        ]
+      ],
+
+      // ===== JOBS SECTION =====
+      'JobsSection' => [
+        'section' => [
+          'title' => 'Join our big family',
+          'description' => 'Join us on this journey of kindness, and let\'s make a difference, one act of charity at a time.'
+        ],
+        'filter' => [
+          'placeholder' => 'Browse By',
+          'options' => [
+            ['value' => '', 'label' => 'Browse By'],
+            ['value' => 'all', 'label' => 'All Jobs'],
+            ['value' => 'full-time', 'label' => 'Full Time'],
+            ['value' => 'part-time', 'label' => 'Part Time'],
+            ['value' => 'contract', 'label' => 'Contract'],
+            ['value' => 'remote', 'label' => 'Remote'],
+            ['value' => 'internship', 'label' => 'Internship']
+          ]
+        ],
+        'jobs' => [
+          [
+            'id' => 1,
+            'type' => 'Full time',
+            'department' => 'Management',
+            'location' => 'Dhaka, Bangladesh',
+            'title' => 'Senior Program Manager - Microfinance',
+            'description' => 'Lead and oversee microfinance program operations, manage team of field officers, and ensure sustainable financial inclusion for underserved communities.',
+            'link' => '/jobs/senior-program-manager'
+          ],
+          [
+            'id' => 2,
+            'type' => 'Part time',
+            'department' => 'Development',
+            'location' => 'Anywhere in Bangladesh',
+            'title' => 'Program Coordinator - Youth Empowerment',
+            'description' => 'Develop and deliver workshops, mentorship programs, and educational events for underprivileged youth to build essential life skills.',
+            'link' => '/jobs/youth-coordinator'
+          ],
+          [
+            'id' => 3,
+            'type' => 'Full time',
+            'department' => 'Climate Action',
+            'location' => 'Hatiya, Noakhali',
+            'title' => 'Climate Change Specialist',
+            'description' => 'Design and implement climate adaptation strategies, conduct risk assessments, and train communities on disaster preparedness.',
+            'link' => '/jobs/climate-specialist'
+          ]
+        ]
+      ]
+    ];
+
+    return $templates[$component] ?? [];
   }
 
   /**
@@ -480,12 +1224,201 @@ class SectionController extends Controller
     }
   }
 
+  /**
+   * Soft delete a section (moves to trash)
+   */
+  public function destroy(int $id)
+  {
+    try {
+      DB::beginTransaction();
+
+      $sectionConfig = SectionConfig::withTrashed()->findOrFail($id);
+
+      // Check if it's a fixed section - prevent deletion
+      if ($sectionConfig->is_fixed_section) {
+        return back()->with('error', 'Fixed sections cannot be deleted.');
+      }
+
+      // Check if it's a special component that might have dependencies
+      if ($sectionConfig->is_special_component) {
+        // For special components, we just soft delete the config
+        // The actual data (blogs, programs, etc.) remains untouched
+        $sectionConfig->delete();
+
+        DB::commit();
+        return back()->with('success', 'Section moved to trash successfully.');
+      }
+
+      // For custom sections, also soft delete the associated data
+      if ($sectionConfig->data_table === 'custom_section_data') {
+        $customData = CustomSectionData::where('page_slug', $sectionConfig->page_slug)
+          ->where('section_key', $sectionConfig->section_key)
+          ->first();
+
+        if ($customData) {
+          $customData->delete(); // Soft delete the custom data
+        }
+      }
+
+      // Soft delete the section config
+      $sectionConfig->delete();
+
+      DB::commit();
+
+      return back()->with('success', 'Section moved to trash successfully.');
+    } catch (\Exception $e) {
+      DB::rollBack();
+      Log::error('Failed to delete section: ' . $e->getMessage());
+      return back()->with('error', 'Failed to delete section: ' . $e->getMessage());
+    }
+  }
 
   /**
-   * Remove the specified section from storage.
+   * Restore a soft-deleted section
    */
-  public function destroy($id)
+  public function restore(int $id)
   {
-    // Not implemented
+    try {
+      DB::beginTransaction();
+
+      $sectionConfig = SectionConfig::withTrashed()->findOrFail($id);
+
+      // Check if it's already restored
+      if (!$sectionConfig->trashed()) {
+        return back()->with('error', 'This section is not in the trash.');
+      }
+
+      // Restore the section config
+      $sectionConfig->restore();
+
+      // For custom sections, also restore the associated data
+      if ($sectionConfig->data_table === 'custom_section_data') {
+        $customData = CustomSectionData::withTrashed()
+          ->where('page_slug', $sectionConfig->page_slug)
+          ->where('section_key', $sectionConfig->section_key)
+          ->first();
+
+        if ($customData && $customData->trashed()) {
+          $customData->restore();
+        }
+      }
+
+      DB::commit();
+
+      return back()->with('success', 'Section restored successfully.');
+    } catch (\Exception $e) {
+      DB::rollBack();
+      Log::error('Failed to restore section: ' . $e->getMessage());
+      return back()->with('error', 'Failed to restore section: ' . $e->getMessage());
+    }
+  }
+
+  /**
+   * Force delete a section (permanently remove)
+   */
+  public function forceDelete(int $id)
+  {
+    try {
+      DB::beginTransaction();
+
+      $sectionConfig = SectionConfig::withTrashed()->findOrFail($id);
+
+      // Check if it's a fixed section - prevent deletion
+      if ($sectionConfig->is_fixed_section) {
+        return back()->with('error', 'Fixed sections cannot be permanently deleted.');
+      }
+
+      // For custom sections, delete associated data and images
+      if ($sectionConfig->data_table === 'custom_section_data') {
+        $customData = CustomSectionData::withTrashed()
+          ->where('page_slug', $sectionConfig->page_slug)
+          ->where('section_key', $sectionConfig->section_key)
+          ->first();
+
+        if ($customData) {
+          // Delete images from storage
+          $this->deleteImagesFromData($customData->data);
+
+          // Force delete the custom data
+          $customData->forceDelete();
+        }
+      }
+
+      // For special components, we may want to clean up related data
+      if ($sectionConfig->is_special_component) {
+        // Example: If it's a BlogSection, you might want to delete associated blogs?
+        // Or you might want to keep them. This depends on your business logic.
+        // For now, we just delete the config.
+      }
+
+      // Force delete the section config
+      $sectionConfig->forceDelete();
+
+      DB::commit();
+
+      return back()->with('success', 'Section permanently deleted.');
+    } catch (\Exception $e) {
+      DB::rollBack();
+      Log::error('Failed to force delete section: ' . $e->getMessage());
+      return back()->with('error', 'Failed to permanently delete section: ' . $e->getMessage());
+    }
+  }
+
+  /**
+   * Get trashed (deleted) sections for a page
+   */
+  public function trashed(int $pageId)
+  {
+    $page = Page::withTrashed()->findOrFail($pageId);
+
+    $trashedSections = SectionConfig::onlyTrashed()
+      ->where('page_slug', $page->slug)
+      ->orderBy('deleted_at', 'desc')
+      ->get();
+
+    return Inertia::render('Backend/CMS/Section/Trashed', [
+      'page' => $page,
+      'sections' => $trashedSections,
+    ]);
+  }
+
+  /**
+   * Delete images from data recursively
+   */
+  protected function deleteImagesFromData($data): void
+  {
+    if (is_array($data)) {
+      foreach ($data as $key => $value) {
+        if (is_array($value)) {
+          $this->deleteImagesFromData($value);
+        } elseif (is_string($value) && $this->isImagePath($value)) {
+          $this->deleteImage($value);
+        }
+      }
+    }
+  }
+
+  /**
+   * Check if a string is an image path (not base64)
+   */
+  protected function isImagePath(string $string): bool
+  {
+    // Check if it's a storage path
+    return str_starts_with($string, '/storage/') &&
+      !$this->isBase64Image($string);
+  }
+
+  /**
+   * Get the count of trashed sections for a page
+   */
+  public function trashedCount(int $pageId)
+  {
+    $page = Page::findOrFail($pageId);
+
+    $count = SectionConfig::onlyTrashed()
+      ->where('page_slug', $page->slug)
+      ->count();
+
+    return response()->json(['count' => $count]);
   }
 }

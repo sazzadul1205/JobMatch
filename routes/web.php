@@ -500,10 +500,29 @@ Route::middleware(['auth', 'verified', 'profile.complete'])->group(function () {
             // Section Management
             Route::prefix('sections')->name('sections.')->group(function () {
                 Route::get('/page/{pageId}', [CmsSectionController::class, 'index'])->name('page.sections');
+
+                // Trashed sections
+                Route::get('/trashed/{pageId}', [CmsSectionController::class, 'trashed'])->name('trashed');
+                Route::get('/trashed-count/{pageId}', [CmsSectionController::class, 'trashedCount'])->name('trashed-count');
+
+                // Create new section
+                Route::post('/', [CmsSectionController::class, 'store'])->name('store');
+
+                // Update section order (drag & drop)
                 Route::post('/{pageId}/update-order', [CmsSectionController::class, 'updateOrder'])->name('update-order');
+
+                // Update section details
                 Route::put('/update/{section}', [CmsSectionController::class, 'update'])->name('update');
-                Route::get('/about-content-options', [CmsSectionController::class, 'getAboutContentOptions'])->name('about-content-options'); // Add this
+
+                // Delete operations
+                Route::delete('/{section}', [CmsSectionController::class, 'destroy'])->name('destroy');
+                Route::post('/{section}/restore', [CmsSectionController::class, 'restore'])->name('restore');
+                Route::delete('/{section}/force-delete', [CmsSectionController::class, 'forceDelete'])->name('force-delete');
+
+                // Get About Content options for dropdown
+                Route::get('/about-content-options', [CmsSectionController::class, 'getAboutContentOptions'])->name('about-content-options');
             });
+
 
             // Shared Data Management (Edit only)
             Route::prefix('shared')->name('shared.')->group(function () {

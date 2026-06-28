@@ -7,6 +7,7 @@
  * - Rows with drag & drop support
  * - Empty state message
  * - Props passed to SectionRow
+ * - Support for trashed sections view
  */
 
 import React from 'react';
@@ -30,12 +31,14 @@ const SectionTable = ({
   handleDragOver,
   handleDrop,
   onEditClick,
+  onSectionDeleted,
+  showTrashed = false,
 }) => {
   // Empty state - no sections found
   if (sections.length === 0) {
     return (
       <div className="text-center py-12 text-gray-500">
-        No sections found for this page
+        {showTrashed ? 'No sections in trash' : 'No sections found for this page'}
       </div>
     );
   }
@@ -62,7 +65,7 @@ const SectionTable = ({
               Status
             </th>
             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Type
+              {showTrashed ? 'Deleted At' : 'Type'}
             </th>
             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Actions
@@ -102,6 +105,8 @@ const SectionTable = ({
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
                 onEditClick={onEditClick}
+                onSectionDeleted={onSectionDeleted}
+                isTrashed={showTrashed}
               />
             );
           })}

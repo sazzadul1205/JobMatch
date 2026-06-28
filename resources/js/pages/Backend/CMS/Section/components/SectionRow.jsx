@@ -10,9 +10,10 @@
  * - Move up/down buttons
  * - Edit button to open edit modal
  * - Type-based styling (banner, shared, jobs, programs)
+ * - Delete/Restore/Force Delete functionality with SweetAlert2
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   FaDatabase,
   FaToggleOn,
@@ -27,9 +28,15 @@ import {
   FaExternalLinkAlt,
   FaList,
   FaEdit,
+  FaTrash,
+  FaTrashRestore,
+  FaTrashAlt,
 } from 'react-icons/fa';
 import { BsStack } from 'react-icons/bs';
+import { router } from '@inertiajs/react';
+import Swal from 'sweetalert2';
 import { getComponentLabel, getDataTableLabel, getSectionTypeInfo } from '../utils/sectionHelpers';
+import { showToast } from '../utils/toastHelper';
 import SectionIndex from '../../../../../Sections/SectionIndex';
 
 const SectionRow = ({
@@ -52,7 +59,11 @@ const SectionRow = ({
   onDragOver,
   onDrop,
   onEditClick,
+  onSectionDeleted,
+  isTrashed = false,
 }) => {
+  const [isDeleting, setIsDeleting] = useState(false);
+
   // Determine section types for styling and behavior
   const typeInfo = getSectionTypeInfo(section);
   const isBanner = section.component === 'HomeBanner' || section.component === 'PageBannerSection';
@@ -76,12 +87,245 @@ const SectionRow = ({
   // Check if preview should be shown (not for jobs, shared, or programs)
   const canPreview = !isJobs && !isShared && !isPrograms;
 
+  // Handle soft delete with SweetAlert2
+  const handleDelete = () => {
+    if (section.is_fixed_section) {
+      showToast('warning', 'Cannot Delete', 'Fixed sections cannot be deleted.', 3000);
+      return;
+    }
+
+    Swal.fire({
+      title: 'Move to Trash?',
+      html: `
+        <div class="text-left">
+          <p class="text-sm text-gray-600 mb-2">You are about to move this section to the trash:</p>
+          <div class="bg-gray-50 rounded-lg p-3 mb-3">
+            <p class="font-medium text-gray-800">${section.section_key}</p>
+            <p class="text-xs text-gray-500">${getComponentLabel(section.component)}</p>
+          </div>
+          <p class="text-xs text-gray-500">You can restore it later from the trash.</p>
+        </div>
+      `,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, move to trash',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
+      customClass: {
+        popup: 'rounded-xl',
+        title: 'text-lg font-semibold',
+        htmlContainer: 'text-sm',
+        confirmButton: 'px-4 py-2 rounded-lg',
+        cancelButton: 'px-4 py-2 rounded-lg',
+      },
+    }).then((result) => {
+      if (result.isConfirmed) {
+        setIsDeleting(true);
+        router.delete(
+          route('backend.cms.sections.destroy', { section: section.id }),
+          {
+            preserveScroll: true,
+            preserveState: true,
+            onSuccess: () => {
+              setIsDeleting(false);
+              showToast('success', '✅ Moved to Trash', 'Section moved to trash successfully.', 2000);
+              if (onSectionDeleted) onSectionDeleted();
+            },
+            onError: (errors) => {
+              setIsDeleting(false);
+              const errorMessage = errors?.message || 'Failed to delete section.';
+              showToast('error', '❌ Delete Failed', errorMessage, 4000);
+            },
+          }
+        );
+      }
+    });
+  };
+
+  // Handle restore with SweetAlert2
+  const handleRestore = () => {
+    Swal.fire({
+      title: 'Restore Section?',
+      html: `
+        <div class="text-left">
+          <p class="text-sm text-gray-600 mb-2">You are about to restore this section:</p>
+          <div class="bg-gray-50 rounded-lg p-3 mb-3">
+            <p class="font-medium text-gray-800">${section.section_key}</p>
+            <p class="text-xs text-gray-500">${getComponentLabel(section.component)}</p>
+          </div>
+          <p class="text-xs text-green-600">The section will be restored to its original position.</p>
+        </div>
+      `,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#22c55e',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Yes, restore it',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
+      customClass: {
+        popup: 'rounded-xl',
+        title: 'text-lg font-semibold',
+        htmlContainer: 'text-sm',
+        confirmButton: 'px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700',
+        cancelButton: 'px-4 py-2 rounded-lg',
+      },
+    }).then((result) => {
+      if (result.isConfirmed) {
+        setIsDeleting(true);
+        router.post(
+          route('backend.cms.sections.restore', { section: section.id }),
+          {},
+          {
+            preserveScroll: true,
+            preserveState: true,
+            onSuccess: () => {
+              setIsDeleting(false);
+              showToast('success', '✅ Restored!', 'Section restored successfully.', 2000);
+              if (onSectionDeleted) onSectionDeleted();
+            },
+            onError: (errors) => {
+              setIsDeleting(false);
+              const errorMessage = errors?.message || 'Failed to restore section.';
+              showToast('error', '❌ Restore Failed', errorMessage, 4000);
+            },
+          }
+        );
+      }
+    });
+  };
+
+  // Handle force delete with SweetAlert2 (warning style)
+  const handleForceDelete = () => {
+    if (section.is_fixed_section) {
+      showToast('warning', 'Cannot Delete', 'Fixed sections cannot be permanently deleted.', 3000);
+      return;
+    }
+
+    Swal.fire({
+      title: '⚠️ Permanently Delete?',
+      html: `
+        <div class="text-left">
+          <p class="text-sm text-red-600 font-semibold mb-2">This action cannot be undone!</p>
+          <p class="text-sm text-gray-600 mb-2">You are about to permanently delete this section:</p>
+          <div class="bg-red-50 border border-red-200 rounded-lg p-3 mb-3">
+            <p class="font-medium text-gray-800">${section.section_key}</p>
+            <p class="text-xs text-gray-500">${getComponentLabel(section.component)}</p>
+            ${section.data_table === 'custom_section_data' ? '<p class="text-xs text-red-500 mt-1">⚠️ All associated data and images will be permanently removed.</p>' : ''}
+          </div>
+          <p class="text-xs text-red-500">This will also delete all associated data and images.</p>
+        </div>
+      `,
+      icon: 'error',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, permanently delete',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
+      customClass: {
+        popup: 'rounded-xl',
+        title: 'text-lg font-semibold text-red-600',
+        htmlContainer: 'text-sm',
+        confirmButton: 'px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700',
+        cancelButton: 'px-4 py-2 rounded-lg',
+      },
+    }).then((result) => {
+      if (result.isConfirmed) {
+        setIsDeleting(true);
+        router.delete(
+          route('backend.cms.sections.force-delete', { section: section.id }),
+          {
+            preserveScroll: true,
+            preserveState: true,
+            onSuccess: () => {
+              setIsDeleting(false);
+              showToast('success', '🗑️ Permanently Deleted', 'Section permanently deleted.', 2000);
+              if (onSectionDeleted) onSectionDeleted();
+            },
+            onError: (errors) => {
+              setIsDeleting(false);
+              const errorMessage = errors?.message || 'Failed to permanently delete section.';
+              showToast('error', '❌ Delete Failed', errorMessage, 4000);
+            },
+          }
+        );
+      }
+    });
+  };
+
+  // If trashed, show a different UI
+  if (isTrashed) {
+    return (
+      <tr className="bg-red-50/30 hover:bg-red-50 transition-colors">
+        <td className="px-4 py-3 text-sm text-gray-500">
+          <span>#{index + 1}</span>
+        </td>
+        <td className="px-4 py-3">
+          <div className="flex items-center gap-2">
+            <span className="w-8 h-8 rounded-lg flex items-center justify-center bg-red-100 shrink-0">
+              <FaTrash className="text-red-600" size={14} />
+            </span>
+            <span className="text-sm font-medium text-gray-500 line-through">
+              {section.section_key}
+            </span>
+            <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded">🗑️ Trashed</span>
+          </div>
+        </td>
+        <td className="px-4 py-3">
+          <span className="text-sm text-gray-500">{getComponentLabel(section.component)}</span>
+          <div className="text-xs text-gray-400">{section.component}</div>
+        </td>
+        <td className="px-4 py-3">
+          <div className="flex items-center gap-1.5">
+            <FaDatabase size={12} className="text-gray-400" aria-hidden="true" />
+            <span className="text-sm text-gray-500">{getDataTableLabel(section.data_table)}</span>
+          </div>
+        </td>
+        <td className="px-4 py-3">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
+            Deleted
+          </span>
+        </td>
+        <td className="px-4 py-3">
+          <span className="text-xs text-gray-400">
+            {section.deleted_at ? new Date(section.deleted_at).toLocaleDateString() : 'N/A'}
+          </span>
+        </td>
+        <td className="px-4 py-3">
+          <div className="flex items-center gap-1">
+            {/* Restore Button */}
+            <button
+              onClick={handleRestore}
+              disabled={isDeleting}
+              className="p-1.5 rounded transition-all text-green-600 hover:bg-green-50 hover:text-green-700"
+              title="Restore Section"
+            >
+              <FaTrashRestore size={14} />
+            </button>
+
+            {/* Force Delete Button */}
+            <button
+              onClick={handleForceDelete}
+              disabled={isDeleting}
+              className="p-1.5 rounded transition-all text-red-600 hover:bg-red-50 hover:text-red-700"
+              title="Permanently Delete"
+            >
+              <FaTrashAlt size={14} />
+            </button>
+          </div>
+        </td>
+      </tr>
+    );
+  }
+
   return (
     <React.Fragment>
-      {/* Main Row */}
+      {/* Main Row - Active Section */}
       <tr
-        className={`hover:bg-gray-50 transition-colors cursor-pointer ${rowBgClass} ${isReordering ? 'opacity-75' : ''
-          }`}
+        className={`hover:bg-gray-50 transition-colors cursor-pointer ${rowBgClass} ${isReordering ? 'opacity-75' : ''}`}
         draggable={isMovable}
         onDragStart={(e) => onDragStart(e, index)}
         onDragEnd={onDragEnd}
@@ -111,8 +355,7 @@ const SectionRow = ({
         <td className="px-4 py-3">
           <div className="flex items-center gap-2">
             <span
-              className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${section.is_enabled ? 'bg-blue-100' : 'bg-gray-100'
-                }`}
+              className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${section.is_enabled ? 'bg-blue-100' : 'bg-gray-100'}`}
             >
               {isShared ? (
                 <FaShareAlt className={section.is_enabled ? 'text-green-600' : 'text-gray-400'} size={14} />
@@ -165,8 +408,7 @@ const SectionRow = ({
         {/* Status */}
         <td className="px-4 py-3">
           <span
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${section.is_enabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-              }`}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${section.is_enabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}
           >
             {section.is_enabled ? <FaToggleOn size={12} /> : <FaToggleOff size={12} />}
             {section.is_enabled ? 'Active' : 'Inactive'}
@@ -192,8 +434,8 @@ const SectionRow = ({
               }}
               disabled={index === 0 || !isMovable || isSaving}
               className={`p-1 rounded transition-all ${index === 0 || !isMovable || isSaving
-                  ? 'text-gray-300 cursor-not-allowed'
-                  : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'
+                ? 'text-gray-300 cursor-not-allowed'
+                : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'
                 }`}
               title={!isMovable ? 'Fixed section cannot be moved' : 'Move Up'}
               aria-label="Move section up"
@@ -212,8 +454,8 @@ const SectionRow = ({
               }}
               disabled={index === totalSections - 1 || !isMovable || isSaving}
               className={`p-1 rounded transition-all ${index === totalSections - 1 || !isMovable || isSaving
-                  ? 'text-gray-300 cursor-not-allowed'
-                  : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'
+                ? 'text-gray-300 cursor-not-allowed'
+                : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'
                 }`}
               title={!isMovable ? 'Fixed section cannot be moved' : 'Move Down'}
               aria-label="Move section down"
@@ -242,8 +484,8 @@ const SectionRow = ({
                   onTogglePreview(section.id);
                 }}
                 className={`ml-1 p-1 rounded transition-all ${isPreviewOpen
-                    ? 'text-blue-600 bg-blue-50 hover:bg-blue-100'
-                    : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'
+                  ? 'text-blue-600 bg-blue-50 hover:bg-blue-100'
+                  : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'
                   }`}
                 title={isPreviewOpen ? 'Close Preview' : 'Preview Section'}
                 aria-label={isPreviewOpen ? 'Close preview' : 'Preview section'}
@@ -269,6 +511,22 @@ const SectionRow = ({
               </button>
             )}
 
+            {/* Delete Button */}
+            {!section.is_fixed_section && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete();
+                }}
+                disabled={isDeleting}
+                className="p-1.5 rounded transition-all text-gray-400 hover:text-red-600 hover:bg-red-50 cursor-pointer"
+                title="Move to Trash"
+                aria-label="Move to trash"
+              >
+                <FaTrash size={14} />
+              </button>
+            )}
+
             {/* Expand/Collapse Data Button */}
             <button
               onClick={(e) => {
@@ -286,7 +544,7 @@ const SectionRow = ({
       </tr>
 
       {/* Data Details Expanded Row */}
-      {isExpanded && (
+      {isExpanded && !isTrashed && (
         <tr>
           <td colSpan="7" className="px-4 py-4 bg-gray-50 border-t border-gray-100">
             <div className="overflow-x-auto max-w-full">
@@ -297,7 +555,7 @@ const SectionRow = ({
       )}
 
       {/* Preview Expanded Row */}
-      {isPreviewOpen && canPreview && (
+      {isPreviewOpen && canPreview && !isTrashed && (
         <tr>
           <td colSpan="7" className="px-4 py-4 bg-blue-50/30 border-t border-blue-200 max-w-7xl">
             <div className="space-y-3 w-full max-w-full">
@@ -337,7 +595,7 @@ const SectionRow = ({
       )}
 
       {/* Shared Data Preview - Special Message */}
-      {isPreviewOpen && isShared && (
+      {isPreviewOpen && isShared && !isTrashed && (
         <tr>
           <td colSpan="7" className="px-4 py-6 bg-green-50/30 border-t border-green-200">
             <div className="flex flex-col items-center justify-center gap-3 text-center py-8">
@@ -362,7 +620,7 @@ const SectionRow = ({
       )}
 
       {/* Jobs Data Preview - Special Message */}
-      {isPreviewOpen && isJobs && (
+      {isPreviewOpen && isJobs && !isTrashed && (
         <tr>
           <td colSpan="7" className="px-4 py-6 bg-purple-50/30 border-t border-purple-200">
             <div className="flex flex-col items-center justify-center gap-3 text-center py-8">
@@ -387,7 +645,7 @@ const SectionRow = ({
       )}
 
       {/* Programs Data Preview - Special Message */}
-      {isPreviewOpen && isPrograms && (
+      {isPreviewOpen && isPrograms && !isTrashed && (
         <tr>
           <td colSpan="7" className="px-4 py-6 bg-orange-50/30 border-t border-orange-200">
             <div className="flex flex-col items-center justify-center gap-3 text-center py-8">
@@ -451,8 +709,7 @@ const SectionDetails = ({ section, hasSectionData }) => {
         <div>
           <span className="font-semibold text-gray-600">Fixed:</span>
           <span
-            className={`ml-2 text-xs px-2 py-0.5 rounded ${section.is_fixed_section ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
-              }`}
+            className={`ml-2 text-xs px-2 py-0.5 rounded ${section.is_fixed_section ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}
           >
             {section.is_fixed_section ? 'Yes' : 'No'}
           </span>
@@ -460,8 +717,7 @@ const SectionDetails = ({ section, hasSectionData }) => {
         <div>
           <span className="font-semibold text-gray-600">Special:</span>
           <span
-            className={`ml-2 text-xs px-2 py-0.5 rounded ${section.is_special_component ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500'
-              }`}
+            className={`ml-2 text-xs px-2 py-0.5 rounded ${section.is_special_component ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500'}`}
           >
             {section.is_special_component ? 'Yes' : 'No'}
           </span>
@@ -472,6 +728,14 @@ const SectionDetails = ({ section, hasSectionData }) => {
             {section.created_at ? new Date(section.created_at).toLocaleDateString() : 'N/A'}
           </span>
         </div>
+        {section.deleted_at && (
+          <div>
+            <span className="font-semibold text-gray-600">Deleted:</span>
+            <span className="ml-2 text-red-500 text-xs break-all">
+              {new Date(section.deleted_at).toLocaleDateString()}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Custom Props */}
