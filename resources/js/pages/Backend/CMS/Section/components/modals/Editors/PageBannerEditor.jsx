@@ -6,16 +6,24 @@ import { TextField, SelectField } from './shared/Fields';
 import { useImageUpload } from './shared/useImageUpload';
 
 const PageBannerEditor = ({ section, hasData, onDataChange }) => {
+  // ===== STATE MANAGEMENT =====
+  // Get initial data from section prop
   const initialData = section?.data?.data || section?.data || {};
   const [formData, setFormData] = useState(initialData);
+
+  // Custom hook to handle image upload functionality
   const image = useImageUpload(initialData?.background?.src || '');
 
+  // Notify parent when form data changes
   useEffect(() => {
     if (onDataChange) {
       onDataChange(formData);
     }
   }, [formData, onDataChange]);
 
+  // ===== HELPER FUNCTIONS =====
+
+  // Update nested object fields using dot notation (e.g., 'background.src')
   const updateField = (path, value) => {
     const keys = path.split('.');
     const newData = { ...formData };
@@ -29,6 +37,8 @@ const PageBannerEditor = ({ section, hasData, onDataChange }) => {
     setFormData(newData);
   };
 
+  // ===== OPTIONS =====
+  // Overlay options for the banner background
   const overlayOptions = [
     { value: 'bg-black/40 lg:bg-black/50', label: 'Light Dark Overlay' },
     { value: 'bg-black/60 lg:bg-black/70', label: 'Medium Dark Overlay' },
@@ -39,6 +49,7 @@ const PageBannerEditor = ({ section, hasData, onDataChange }) => {
     { value: 'bg-gradient-to-b from-black/85 via-black/10 to-transparent', label: 'Gradient Top to Bottom' },
   ];
 
+  // Gradient options for the banner
   const gradientOptions = [
     { value: 'bg-gradient-to-r from-black/85 via-black/10 to-transparent', label: 'Left to Right' },
     { value: 'bg-gradient-to-l from-black/85 via-black/10 to-transparent', label: 'Right to Left' },
@@ -47,6 +58,8 @@ const PageBannerEditor = ({ section, hasData, onDataChange }) => {
     { value: '', label: 'None' },
   ];
 
+  // ===== EMPTY STATE =====
+  // Show message when no data exists
   if (!hasData || !formData || Object.keys(formData).length === 0) {
     return (
       <div className="bg-white rounded-lg border border-gray-200 p-4 text-center py-8 text-gray-400">
@@ -56,10 +69,13 @@ const PageBannerEditor = ({ section, hasData, onDataChange }) => {
     );
   }
 
+  // ===== MAIN RENDER =====
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-4">
       <h3 className="text-sm font-semibold text-gray-700 mb-3">Edit Page Banner Data</h3>
 
+      {/* <!-- ===== BACKGROUND IMAGE ===== --> */}
+      {/* Upload and manage the banner background image */}
       <div className="mb-4">
         <h4 className="text-sm font-medium text-gray-600 mb-2">Background Image</h4>
         <ImageUpload
@@ -78,6 +94,7 @@ const PageBannerEditor = ({ section, hasData, onDataChange }) => {
         />
       </div>
 
+      {/* <!-- ===== ALT TEXT ===== --> */}
       <TextField
         label="Alt Text"
         value={formData.background?.alt || ''}
@@ -86,15 +103,19 @@ const PageBannerEditor = ({ section, hasData, onDataChange }) => {
         className="mb-4"
       />
 
+      {/* <!-- ===== OVERLAY SETTINGS ===== --> */}
+      {/* Configure the overlay/gradient on the banner */}
       <div className="mb-4">
         <h4 className="text-sm font-medium text-gray-600 mb-2">Overlay Settings</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {/* Dark Overlay selector */}
           <SelectField
             label="Dark Overlay"
             value={formData.overlay?.darkOverlay || ''}
             onChange={(e) => updateField('overlay.darkOverlay', e.target.value)}
             options={overlayOptions}
           />
+          {/* Gradient selector */}
           <SelectField
             label="Gradient"
             value={formData.overlay?.gradient || ''}
@@ -102,6 +123,7 @@ const PageBannerEditor = ({ section, hasData, onDataChange }) => {
             options={gradientOptions}
           />
         </div>
+        {/* Show live preview of the selected overlay */}
         {formData.overlay?.darkOverlay && (
           <div className="mt-2">
             <div
@@ -121,9 +143,12 @@ const PageBannerEditor = ({ section, hasData, onDataChange }) => {
         )}
       </div>
 
+      {/* <!-- ===== CONTENT SECTION ===== --> */}
+      {/* Title and Description with fixed class names */}
       <div className="mb-4">
         <h4 className="text-sm font-medium text-gray-600 mb-2">Content</h4>
 
+        {/* <!-- ===== TITLE ===== --> */}
         <div className="mb-3">
           <h5 className="text-xs font-medium text-gray-500 mb-1">Title</h5>
           <div className="space-y-2">
@@ -144,6 +169,7 @@ const PageBannerEditor = ({ section, hasData, onDataChange }) => {
           </div>
         </div>
 
+        {/* <!-- ===== DESCRIPTION ===== --> */}
         <div>
           <h5 className="text-xs font-medium text-gray-500 mb-1">Description</h5>
           <div className="space-y-2">
@@ -165,6 +191,8 @@ const PageBannerEditor = ({ section, hasData, onDataChange }) => {
         </div>
       </div>
 
+      {/* <!-- ===== DATA INFORMATION ===== --> */}
+      {/* Display metadata about the section */}
       <div className="mt-4 bg-gray-50 rounded-lg p-4 border border-gray-200">
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>

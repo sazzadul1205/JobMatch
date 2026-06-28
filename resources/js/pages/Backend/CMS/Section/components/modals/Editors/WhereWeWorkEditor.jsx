@@ -1,27 +1,43 @@
 // resources/js/pages/Backend/CMS/Section/components/modals/Editors/WhereWeWorkEditor.jsx
 
+// React
 import React, { useState, useEffect } from 'react';
+
+// Icons
 import { FaTrash, FaPlus, FaUpload, FaTimes } from 'react-icons/fa';
+
+// Sweetalert
 import Swal from 'sweetalert2';
-import ImageUpload from './shared/ImageUpload';
+
+// Shared Components
 import { TextField } from './shared/Fields';
+import ImageUpload from './shared/ImageUpload';
 import { useImageUpload } from './shared/useImageUpload';
 
 const WhereWeWorkEditor = ({ section, hasData, onDataChange }) => {
+  // ===== STATE MANAGEMENT =====
+  // Get initial data from section prop
   const initialData = section?.data?.data || section?.data || {};
   const [formData, setFormData] = useState(initialData);
+
+  // Custom hook to handle image upload functionality
   const image = useImageUpload(initialData?.image?.src || '');
 
+  // Track icon changes for deletion tracking
   const [iconChanges, setIconChanges] = useState({});
   const [oldIconPaths, setOldIconPaths] = useState({});
   const [uploadingIcon, setUploadingIcon] = useState({});
 
+  // Notify parent when form data changes
   useEffect(() => {
     if (onDataChange) {
       onDataChange(formData);
     }
   }, [formData, onDataChange]);
 
+  // ===== HELPER FUNCTIONS =====
+
+  // Update nested object fields using dot notation (e.g., 'section.title')
   const updateField = (path, value) => {
     const keys = path.split('.');
     const newData = { ...formData };
@@ -35,6 +51,7 @@ const WhereWeWorkEditor = ({ section, hasData, onDataChange }) => {
     setFormData(newData);
   };
 
+  // Update a field in a stat item
   const updateArrayItem = (path, index, field, value) => {
     const keys = path.split('.');
     const newData = { ...formData };
@@ -53,11 +70,15 @@ const WhereWeWorkEditor = ({ section, hasData, onDataChange }) => {
     setFormData(newData);
   };
 
+  // ===== ARRAY MANAGEMENT FUNCTIONS =====
+
+  // Add a new stat with default values
   const addArrayItem = (path, template = {}) => {
     const keys = path.split('.');
     const newData = { ...formData };
     let current = newData;
 
+    // Traverse to the parent of the array
     for (let i = 0; i < keys.length - 1; i++) {
       if (!current[keys[i]]) current[keys[i]] = {};
       current = current[keys[i]];
@@ -66,16 +87,19 @@ const WhereWeWorkEditor = ({ section, hasData, onDataChange }) => {
     const lastKey = keys[keys.length - 1];
     if (!Array.isArray(current[lastKey])) current[lastKey] = [];
 
+    // Generate unique ID for the new stat
     const newId = Math.max(0, ...current[lastKey].map(item => item.id || 0)) + 1;
     current[lastKey].push({ ...template, id: newId });
     setFormData(newData);
   };
 
+  // Remove a stat and track its icon for deletion
   const removeArrayItem = (path, index) => {
     const keys = path.split('.');
     const newData = { ...formData };
     let current = newData;
 
+    // Store old icon path before removal (for deletion tracking)
     const items = formData.stats || [];
     if (items[index]?.icon) {
       setOldIconPaths(prev => ({
@@ -85,6 +109,7 @@ const WhereWeWorkEditor = ({ section, hasData, onDataChange }) => {
       setIconChanges(prev => ({ ...prev, [index]: true }));
     }
 
+    // Traverse to the parent of the array
     for (let i = 0; i < keys.length - 1; i++) {
       if (!current[keys[i]]) current[keys[i]] = {};
       current = current[keys[i]];
@@ -97,6 +122,9 @@ const WhereWeWorkEditor = ({ section, hasData, onDataChange }) => {
     setFormData(newData);
   };
 
+  // ===== ICON HANDLING FUNCTIONS =====
+
+  // Handle icon drop from drag & drop
   const handleIconDrop = (e, index) => {
     e.preventDefault();
     e.stopPropagation();
@@ -108,6 +136,7 @@ const WhereWeWorkEditor = ({ section, hasData, onDataChange }) => {
     }
   };
 
+  // Handle icon selection via file input
   const handleIconSelect = (e, index) => {
     const file = e.target.files[0];
     if (file) {
@@ -116,7 +145,9 @@ const WhereWeWorkEditor = ({ section, hasData, onDataChange }) => {
     e.target.value = '';
   };
 
+  // Process and upload the icon file
   const processIconFile = (file, index) => {
+    // Validate file type
     if (!file.type.startsWith('image/')) {
       Swal.fire({
         icon: 'error',
@@ -127,6 +158,7 @@ const WhereWeWorkEditor = ({ section, hasData, onDataChange }) => {
       return;
     }
 
+    // Validate file size (max 2MB for icons)
     if (file.size > 2 * 1024 * 1024) {
       Swal.fire({
         icon: 'error',
@@ -137,6 +169,7 @@ const WhereWeWorkEditor = ({ section, hasData, onDataChange }) => {
       return;
     }
 
+    // Store old icon path if it exists
     const items = formData.stats || [];
     if (items[index]?.icon && !iconChanges[index]) {
       setOldIconPaths(prev => ({
@@ -145,6 +178,7 @@ const WhereWeWorkEditor = ({ section, hasData, onDataChange }) => {
       }));
     }
 
+    // Read and convert icon to base64
     setUploadingIcon(prev => ({ ...prev, [index]: true }));
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -165,6 +199,7 @@ const WhereWeWorkEditor = ({ section, hasData, onDataChange }) => {
     reader.readAsDataURL(file);
   };
 
+  // Remove icon from a stat
   const removeIcon = (index) => {
     const items = formData.stats || [];
     if (items[index]?.icon) {
@@ -177,6 +212,7 @@ const WhereWeWorkEditor = ({ section, hasData, onDataChange }) => {
     setIconChanges(prev => ({ ...prev, [index]: true }));
   };
 
+  // Display path for icon (shows if it's new or existing)
   const getDisplayPath = (src) => {
     if (!src) return '';
     if (src.startsWith('data:image')) {
@@ -185,6 +221,8 @@ const WhereWeWorkEditor = ({ section, hasData, onDataChange }) => {
     return src;
   };
 
+  // ===== EMPTY STATE =====
+  // Show message when no data exists
   if (!hasData || !formData || Object.keys(formData).length === 0) {
     return (
       <div className="bg-white rounded-lg border border-gray-200 p-4 text-center py-8 text-gray-400">
@@ -196,10 +234,12 @@ const WhereWeWorkEditor = ({ section, hasData, onDataChange }) => {
 
   const stats = formData.stats || [];
 
+  // ===== MAIN RENDER =====
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-4">
       <h3 className="text-sm font-semibold text-gray-700 mb-3">Edit Where We Work Data</h3>
 
+      {/* <!-- ===== SECTION TITLE ===== --> */}
       <div className="mb-4">
         <h4 className="text-sm font-medium text-gray-600 mb-2">Section Content</h4>
         <TextField
@@ -210,6 +250,8 @@ const WhereWeWorkEditor = ({ section, hasData, onDataChange }) => {
         />
       </div>
 
+      {/* <!-- ===== STATISTICS LIST ===== --> */}
+      {/* List of stats with icon, value, label, and alt text */}
       <div className="mb-4">
         <div className="flex items-center justify-between mb-2">
           <h4 className="text-sm font-medium text-gray-600">Statistics ({stats.length})</h4>
@@ -222,9 +264,12 @@ const WhereWeWorkEditor = ({ section, hasData, onDataChange }) => {
           </button>
         </div>
 
+        {/* Loop through each stat */}
         <div className="space-y-3">
           {stats.map((stat, index) => (
             <div key={stat.id || index} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+
+              {/* Stat header with index and remove button */}
               <div className="flex items-center justify-between mb-3">
                 <span className="text-xs font-medium text-gray-500">Stat #{index + 1}</span>
                 <button
@@ -236,9 +281,14 @@ const WhereWeWorkEditor = ({ section, hasData, onDataChange }) => {
                 </button>
               </div>
 
+              {/* <!-- ===== STAT FIELDS (2 columns on desktop) ===== --> */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+
+                {/* <!-- ===== LEFT COLUMN: ICON ===== --> */}
                 <div>
                   <label className="block text-xs text-gray-400 mb-0.5">Icon</label>
+
+                  {/* Drag & drop icon upload area */}
                   <div
                     className={`relative border-2 border-dashed rounded-lg p-3 transition-all ${uploadingIcon[index] ? 'opacity-50' : 'border-gray-300 hover:border-gray-400'
                       }`}
@@ -247,6 +297,7 @@ const WhereWeWorkEditor = ({ section, hasData, onDataChange }) => {
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={(e) => handleIconDrop(e, index)}
                   >
+                    {/* Show icon preview if exists */}
                     {stat.icon ? (
                       <div className="flex items-center gap-3">
                         <img
@@ -266,11 +317,14 @@ const WhereWeWorkEditor = ({ section, hasData, onDataChange }) => {
                         </button>
                       </div>
                     ) : (
+                      // Empty state for icon upload
                       <div className="flex items-center gap-3 text-gray-400">
                         <FaUpload size={18} />
                         <span className="text-sm">Drop icon or click to browse</span>
                       </div>
                     )}
+
+                    {/* Hidden file input */}
                     <input
                       type="file"
                       accept="image/*"
@@ -278,12 +332,16 @@ const WhereWeWorkEditor = ({ section, hasData, onDataChange }) => {
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                       disabled={uploadingIcon[index]}
                     />
+
+                    {/* Loading spinner */}
                     {uploadingIcon[index] && (
                       <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded-lg">
                         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
                       </div>
                     )}
                   </div>
+
+                  {/* Show old icon deletion notice */}
                   {iconChanges[index] && oldIconPaths[index] && (
                     <div className="mt-1 text-xs text-gray-400">
                       <span className="text-red-500">🗑️</span> Old icon will be deleted: {oldIconPaths[index]}
@@ -291,19 +349,23 @@ const WhereWeWorkEditor = ({ section, hasData, onDataChange }) => {
                   )}
                 </div>
 
+                {/* <!-- ===== RIGHT COLUMN: FIELDS ===== --> */}
                 <div className="space-y-2">
+                  {/* Value - the number or statistic */}
                   <TextField
                     label="Value"
                     value={stat.value || ''}
                     onChange={(e) => updateArrayItem('stats', index, 'value', e.target.value)}
                     placeholder="450K"
                   />
+                  {/* Label - description of what the value represents */}
                   <TextField
                     label="Label"
                     value={stat.label || ''}
                     onChange={(e) => updateArrayItem('stats', index, 'label', e.target.value)}
                     placeholder="Total Member Reach"
                   />
+                  {/* Alt Text for icon */}
                   <TextField
                     label="Alt Text"
                     value={stat.alt || ''}
@@ -316,6 +378,7 @@ const WhereWeWorkEditor = ({ section, hasData, onDataChange }) => {
           ))}
         </div>
 
+        {/* Empty state - no stats */}
         {stats.length === 0 && (
           <div className="text-center py-6 text-gray-400 text-sm">
             No statistics added. Click "Add Stat" to create one.
@@ -323,6 +386,8 @@ const WhereWeWorkEditor = ({ section, hasData, onDataChange }) => {
         )}
       </div>
 
+      {/* <!-- ===== MAP IMAGE ===== --> */}
+      {/* Upload and manage the map image */}
       <div className="mb-4">
         <h4 className="text-sm font-medium text-gray-600 mb-2">Map Image</h4>
         <ImageUpload
@@ -339,6 +404,7 @@ const WhereWeWorkEditor = ({ section, hasData, onDataChange }) => {
           imageChanged={image.imageChanged}
           uploadPath="/storage/WhereWeWork/"
         />
+        {/* Image Alt Text */}
         <TextField
           label="Image Alt Text"
           value={formData.image?.alt || ''}
@@ -346,6 +412,7 @@ const WhereWeWorkEditor = ({ section, hasData, onDataChange }) => {
           placeholder="Map Place holder Text"
           className="mt-2"
         />
+        {/* Image Class Name */}
         <TextField
           label="Image Class Name"
           value={formData.image?.className || ''}
@@ -356,6 +423,8 @@ const WhereWeWorkEditor = ({ section, hasData, onDataChange }) => {
         <p className="text-xs text-gray-400 mt-0.5">CSS classes for the image styling</p>
       </div>
 
+      {/* <!-- ===== DATA INFORMATION ===== --> */}
+      {/* Display metadata about the section */}
       <div className="mt-4 bg-gray-50 rounded-lg p-4 border border-gray-200">
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>

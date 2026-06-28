@@ -1,9 +1,16 @@
 /* eslint-disable no-undef */
 // resources/js/pages/Backend/CMS/Section/components/modals/Editors/HeroFigureEditor.jsx
 
+// React
 import React, { useState, useEffect } from 'react';
+
+// Icons
 import { FaUpload, FaTimes, FaExternalLinkAlt, FaInfoCircle } from 'react-icons/fa';
+
+// Sweetalert
 import Swal from 'sweetalert2';
+
+// Rich text editor
 import RichTextEditor from '../../../../../../../components/RichTextEditor/RichTextEditor';
 
 /**
@@ -18,18 +25,17 @@ import RichTextEditor from '../../../../../../../components/RichTextEditor/RichT
  * - Calls onDataChange when data is modified
  */
 const HeroFigureEditor = ({ section, hasData, onDataChange }) => {
+  // ===== STATE MANAGEMENT =====
   // Parse the section data
   const initialData = section?.data?.data || section?.data || {};
-
-  // Local state for form inputs
   const [formData, setFormData] = useState(initialData);
 
-  // About Content options
+  // About Content options from API
   const [aboutContentOptions, setAboutContentOptions] = useState([]);
   const [loadingOptions, setLoadingOptions] = useState(false);
   const [selectedAboutId, setSelectedAboutId] = useState(null);
 
-  // Track if using About Content
+  // Track if using About Content (locked mode)
   const [isUsingAboutContent, setIsUsingAboutContent] = useState(false);
 
   // Track if image has been changed (for deletion)
@@ -47,7 +53,8 @@ const HeroFigureEditor = ({ section, hasData, onDataChange }) => {
     }
   }, [formData, onDataChange]);
 
-  // Fetch About Content options
+  // ===== FETCH ABOUT CONTENT OPTIONS =====
+  // Load available About Content items for the dropdown
   useEffect(() => {
     fetchAboutContentOptions();
   }, []);
@@ -71,15 +78,17 @@ const HeroFigureEditor = ({ section, hasData, onDataChange }) => {
     }
   };
 
-  // Check if data matches an About Content item
+  // Check if data matches an About Content item (locked mode)
   useEffect(() => {
     if (formData._about_content_id) {
       setSelectedAboutId(formData._about_content_id);
       setIsUsingAboutContent(true);
     }
-  }, []);
+  }, [formData._about_content_id]);
 
-  // Helper to update nested fields
+  // ===== HELPER FUNCTIONS =====
+
+  // Update nested object fields using dot notation
   const updateField = (path, value) => {
     const keys = path.split('.');
     const newData = { ...formData };
@@ -93,25 +102,27 @@ const HeroFigureEditor = ({ section, hasData, onDataChange }) => {
     setFormData(newData);
   };
 
-  // Handle About Content selection
+  // ===== ABOUT CONTENT SELECTION =====
+  // Handle selection from About Content dropdown - auto-fills all fields
   const handleAboutContentSelect = (e) => {
     const id = e.target.value;
     setSelectedAboutId(id);
 
+    // If "Select" option chosen, remove the lock
     if (!id) {
       setIsUsingAboutContent(false);
-      // Remove the reference
       const newData = { ...formData };
       delete newData._about_content_id;
       setFormData(newData);
       return;
     }
 
+    // Find selected About Content item
     const selected = aboutContentOptions.find(item => item.id === parseInt(id));
     if (selected) {
       setIsUsingAboutContent(true);
 
-      // Auto-fill the data from About Content
+      // Auto-fill all fields from About Content
       const newData = {
         _about_content_id: selected.id,
         section: {
@@ -144,9 +155,7 @@ const HeroFigureEditor = ({ section, hasData, onDataChange }) => {
     }
   };
 
-  // ============================================================
-  // IMAGE DRAG & DROP FUNCTIONS
-  // ============================================================
+  // ===== IMAGE DRAG & DROP FUNCTIONS =====
 
   const handleDrag = (e) => {
     e.preventDefault();
@@ -178,7 +187,9 @@ const HeroFigureEditor = ({ section, hasData, onDataChange }) => {
     e.target.value = '';
   };
 
+  // Process and upload the image file
   const processImageFile = (file) => {
+    // Validate file type
     if (!file.type.startsWith('image/')) {
       Swal.fire({
         icon: 'error',
@@ -189,6 +200,7 @@ const HeroFigureEditor = ({ section, hasData, onDataChange }) => {
       return;
     }
 
+    // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       Swal.fire({
         icon: 'error',
@@ -199,7 +211,7 @@ const HeroFigureEditor = ({ section, hasData, onDataChange }) => {
       return;
     }
 
-    // If using About Content, break the link
+    // If using About Content, break the link (user is customizing)
     if (isUsingAboutContent) {
       const newData = { ...formData };
       delete newData._about_content_id;
@@ -208,11 +220,13 @@ const HeroFigureEditor = ({ section, hasData, onDataChange }) => {
       setSelectedAboutId(null);
     }
 
+    // Read and convert image to base64
     setUploading(true);
     const reader = new FileReader();
     reader.onload = (event) => {
       const imageUrl = event.target.result;
 
+      // Store old image path for deletion tracking
       if (!imageChanged && formData.image?.src) {
         setOldImagePath(formData.image.src);
       }
@@ -233,6 +247,7 @@ const HeroFigureEditor = ({ section, hasData, onDataChange }) => {
     reader.readAsDataURL(file);
   };
 
+  // Remove the current image
   const removeImage = () => {
     if (!imageChanged && formData.image?.src) {
       setOldImagePath(formData.image.src);
@@ -241,7 +256,7 @@ const HeroFigureEditor = ({ section, hasData, onDataChange }) => {
     setImageChanged(true);
   };
 
-  // Helper to get display path
+  // Display path for image (shows if it's new or existing)
   const getDisplayPath = (src) => {
     if (!src) return '';
     if (src.startsWith('data:image')) {
@@ -250,7 +265,8 @@ const HeroFigureEditor = ({ section, hasData, onDataChange }) => {
     return src;
   };
 
-  // Check if data exists
+  // ===== EMPTY STATE =====
+  // Show message when no data exists - includes About Content dropdown
   if (!hasData || !formData || Object.keys(formData).length === 0) {
     return (
       <div className="bg-white rounded-lg border border-gray-200 p-4">
@@ -291,11 +307,13 @@ const HeroFigureEditor = ({ section, hasData, onDataChange }) => {
     );
   }
 
+  // ===== MAIN RENDER =====
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-4">
       <h3 className="text-sm font-semibold text-gray-700 mb-3">Edit Hero with Figure Data</h3>
 
-      {/* About Content Dropdown */}
+      {/* ===== ABOUT CONTENT DROPDOWN ===== */}
+      {/* Allows loading content from About Content Manager */}
       <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
         <div className="flex items-center gap-2 mb-2">
           <FaInfoCircle className="text-blue-500" size={14} />
@@ -318,11 +336,13 @@ const HeroFigureEditor = ({ section, hasData, onDataChange }) => {
             ))
           )}
         </select>
+        {/* Show lock status when using About Content */}
         {isUsingAboutContent && (
           <p className="text-xs text-blue-600 mt-1">
             🔒 Content is locked from About Content. Edit in About Content Manager.
           </p>
         )}
+        {/* Link to About Content Manager */}
         {isUsingAboutContent && (
           <button
             type="button"
@@ -337,10 +357,7 @@ const HeroFigureEditor = ({ section, hasData, onDataChange }) => {
         )}
       </div>
 
-      {/* ============================================================
-          SECTION DATA
-          ============================================================ */}
-
+      {/* ===== SECTION TITLE ===== */}
       <div className="mb-4">
         <h4 className="text-sm font-medium text-gray-600 mb-2">Section Content</h4>
         <div>
@@ -349,6 +366,7 @@ const HeroFigureEditor = ({ section, hasData, onDataChange }) => {
             type="text"
             value={formData.section?.title || ''}
             onChange={(e) => {
+              // Editing breaks the About Content link
               if (isUsingAboutContent) {
                 const newData = { ...formData };
                 delete newData._about_content_id;
@@ -365,16 +383,15 @@ const HeroFigureEditor = ({ section, hasData, onDataChange }) => {
         </div>
       </div>
 
-      {/* ============================================================
-          CONTENT SECTION - Rich Text Editor
-          ============================================================ */}
-
+      {/* ===== RICH TEXT CONTENT ===== */}
+      {/* WYSIWYG editor for content - disabled when using About Content */}
       <div className="mb-4">
         <h4 className="text-sm font-medium text-gray-600 mb-2">Content</h4>
         <div className={`border border-gray-300 rounded-lg overflow-hidden ${isUsingAboutContent ? 'opacity-50' : ''}`}>
           <RichTextEditor
             value={formData.content?.html || ''}
             onChange={(html) => {
+              // Editing breaks the About Content link
               if (isUsingAboutContent) {
                 const newData = { ...formData };
                 delete newData._about_content_id;
@@ -399,13 +416,11 @@ const HeroFigureEditor = ({ section, hasData, onDataChange }) => {
         </p>
       </div>
 
-      {/* ============================================================
-          BUTTON SECTION
-          ============================================================ */}
-
+      {/* ===== BUTTON SECTION ===== */}
       <div className="mb-4">
         <h4 className="text-sm font-medium text-gray-600 mb-2">Button</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {/* Button Text */}
           <div>
             <label className="block text-xs text-gray-500 mb-1">Button Text</label>
             <input
@@ -426,6 +441,7 @@ const HeroFigureEditor = ({ section, hasData, onDataChange }) => {
               disabled={isUsingAboutContent}
             />
           </div>
+          {/* Button Link */}
           <div>
             <label className="block text-xs text-gray-500 mb-1">Button Link</label>
             <input
@@ -449,10 +465,8 @@ const HeroFigureEditor = ({ section, hasData, onDataChange }) => {
         </div>
       </div>
 
-      {/* ============================================================
-          IMAGE SECTION
-          ============================================================ */}
-
+      // ===== IMAGE SECTION =====
+      // Drag & drop image upload with preview
       <div className="mb-4">
         <h4 className="text-sm font-medium text-gray-600 mb-2">Image</h4>
         <div
@@ -475,6 +489,7 @@ const HeroFigureEditor = ({ section, hasData, onDataChange }) => {
           }}
         >
           {formData.image?.src ? (
+            // Image preview with remove button
             <div className="flex items-center gap-4">
               <img
                 src={formData.image.src}
@@ -506,19 +521,25 @@ const HeroFigureEditor = ({ section, hasData, onDataChange }) => {
                     });
                   }
                 }}
-                className={`p-1.5 rounded-lg transition ${isUsingAboutContent ? 'text-gray-300 cursor-not-allowed' : 'text-red-500 hover:bg-red-50'}`}
+                className={`p-1.5 rounded-lg transition ${isUsingAboutContent ? 'text-gray-300 cursor-not-allowed' : 'text-red-500 hover:bg-red-50'
+                  }`}
                 disabled={isUsingAboutContent}
               >
                 <FaTimes size={16} />
               </button>
             </div>
           ) : (
-            <div className={`flex flex-col items-center justify-center py-6 ${isUsingAboutContent ? 'text-gray-300' : 'text-gray-400'}`}>
+            // Empty state for image upload
+            <div className={`flex flex-col items-center justify-center py-6 ${isUsingAboutContent ? 'text-gray-300' : 'text-gray-400'
+              }`}>
               <FaUpload size={32} className="mb-2" />
-              <p className="text-sm">{isUsingAboutContent ? 'Image from About Content' : 'Drag & drop an image here, or click to browse'}</p>
+              <p className="text-sm">
+                {isUsingAboutContent ? 'Image from About Content' : 'Drag & drop an image here, or click to browse'}
+              </p>
               <p className="text-xs mt-1">Supports JPEG, PNG, GIF, WebP, SVG (max 5MB)</p>
             </div>
           )}
+          {/* Hidden file input - disabled when locked */}
           {!isUsingAboutContent && (
             <input
               type="file"
@@ -528,6 +549,7 @@ const HeroFigureEditor = ({ section, hasData, onDataChange }) => {
               disabled={uploading || isUsingAboutContent}
             />
           )}
+          {/* Loading spinner */}
           {uploading && (
             <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded-lg">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
@@ -535,6 +557,7 @@ const HeroFigureEditor = ({ section, hasData, onDataChange }) => {
           )}
         </div>
 
+        {/* Show old image deletion notice */}
         {imageChanged && oldImagePath && (
           <div className="mt-2 text-xs text-gray-400">
             <span className="text-red-500">🗑️</span> Old image will be deleted: {oldImagePath}
@@ -542,12 +565,10 @@ const HeroFigureEditor = ({ section, hasData, onDataChange }) => {
         )}
       </div>
 
-      {/* ============================================================
-          IMAGE ALT TEXT & CLASS NAME
-          ============================================================ */}
-
+      {/* ===== IMAGE ALT TEXT & CLASS NAME ===== */}
       <div className="mb-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {/* Image Alt Text */}
           <div>
             <label className="block text-xs text-gray-500 mb-1">Image Alt Text</label>
             <input
@@ -563,11 +584,13 @@ const HeroFigureEditor = ({ section, hasData, onDataChange }) => {
                 }
                 updateField('image.alt', e.target.value);
               }}
-              className={`w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition ${isUsingAboutContent ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+              className={`w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition ${isUsingAboutContent ? 'bg-gray-100 cursor-not-allowed' : ''
+                }`}
               placeholder="Background"
               disabled={isUsingAboutContent}
             />
           </div>
+          {/* Image Class Name */}
           <div>
             <label className="block text-xs text-gray-500 mb-1">Image Class Name</label>
             <input
@@ -583,7 +606,8 @@ const HeroFigureEditor = ({ section, hasData, onDataChange }) => {
                 }
                 updateField('image.className', e.target.value);
               }}
-              className={`w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition ${isUsingAboutContent ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+              className={`w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition ${isUsingAboutContent ? 'bg-gray-100 cursor-not-allowed' : ''
+                }`}
               placeholder="w-full h-auto lg:h-full object-cover rounded-2xl"
               disabled={isUsingAboutContent}
             />
@@ -592,10 +616,8 @@ const HeroFigureEditor = ({ section, hasData, onDataChange }) => {
         </div>
       </div>
 
-      {/* ============================================================
-          ADDITIONAL DATA INFO
-          ============================================================ */}
-
+      // ===== DATA INFORMATION =====
+      // Display metadata about the section
       <div className="mt-4 bg-gray-50 rounded-lg p-4 border border-gray-200">
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>
@@ -616,6 +638,7 @@ const HeroFigureEditor = ({ section, hasData, onDataChange }) => {
               {hasData ? '✓ Yes' : 'No'}
             </span>
           </div>
+          {/* Show About Content link if using it */}
           {isUsingAboutContent && (
             <div className="col-span-2">
               <span className="text-gray-500">Linked to:</span>

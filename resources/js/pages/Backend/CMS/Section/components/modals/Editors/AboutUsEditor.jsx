@@ -1,37 +1,51 @@
 // resources/js/pages/Backend/CMS/Section/components/modals/Editors/AboutUsEditor.jsx
 
+// React
 import React, { useState, useEffect } from 'react';
+
+// Icons
 import { FaPlus } from 'react-icons/fa';
+
+// Shared Components
 import ImageUpload from './shared/ImageUpload';
 import ArrayManager from './shared/ArrayManager';
-import { TextField, TextAreaField } from './shared/Fields';
 import { useImageUpload } from './shared/useImageUpload';
+import { TextField, TextAreaField } from './shared/Fields';
 
 const AboutUsEditor = ({ section, hasData, onDataChange }) => {
+  // Get initial data from section prop
   const initialData = section?.data?.data || section?.data || {};
+
+  // State to hold all form data
   const [formData, setFormData] = useState(initialData);
 
+  // Custom hook to handle image upload functionality
   const image = useImageUpload(initialData?.image?.src || '');
 
+  // Notify parent component when form data changes
   useEffect(() => {
     if (onDataChange) {
       onDataChange(formData);
     }
   }, [formData, onDataChange]);
 
+  // Helper: Update nested object fields using dot notation (e.g., 'section.title')
   const updateField = (path, value) => {
     const keys = path.split('.');
     const newData = { ...formData };
     let current = newData;
 
+    // Traverse the path and create nested objects if needed
     for (let i = 0; i < keys.length - 1; i++) {
       if (!current[keys[i]]) current[keys[i]] = {};
       current = current[keys[i]];
     }
+    // Set the final value
     current[keys[keys.length - 1]] = value;
     setFormData(newData);
   };
 
+  // Helper: Update a specific field in an array item
   const updateArrayItem = (path, index, field, value) => {
     const keys = path.split('.');
     const newData = { ...formData };
@@ -39,8 +53,10 @@ const AboutUsEditor = ({ section, hasData, onDataChange }) => {
 
     for (let i = 0; i < keys.length; i++) {
       if (i === keys.length - 1) {
+        // At the last key, we're accessing the array
         if (!current[keys[i]]) current[keys[i]] = [];
         if (!current[keys[i]][index]) current[keys[i]][index] = {};
+        // Update the specific field
         current[keys[i]][index] = { ...current[keys[i]][index], [field]: value };
       } else {
         if (!current[keys[i]]) current[keys[i]] = {};
@@ -50,34 +66,42 @@ const AboutUsEditor = ({ section, hasData, onDataChange }) => {
     setFormData(newData);
   };
 
+  // Helper: Add a new item to an array
   const addArrayItem = (path, template = {}) => {
     const keys = path.split('.');
     const newData = { ...formData };
     let current = newData;
 
+    // Traverse to the parent of the array
     for (let i = 0; i < keys.length - 1; i++) {
       if (!current[keys[i]]) current[keys[i]] = {};
       current = current[keys[i]];
     }
 
+    // Get the array
     const lastKey = keys[keys.length - 1];
     if (!Array.isArray(current[lastKey])) current[lastKey] = [];
 
+    // Generate a new unique ID
     const newId = Math.max(0, ...current[lastKey].map(item => item.id || 0)) + 1;
+    // Push new item with template and new ID
     current[lastKey].push({ ...template, id: newId });
     setFormData(newData);
   };
 
+  // Helper: Remove an item from an array by index
   const removeArrayItem = (path, index) => {
     const keys = path.split('.');
     const newData = { ...formData };
     let current = newData;
 
+    // Traverse to the parent of the array
     for (let i = 0; i < keys.length - 1; i++) {
       if (!current[keys[i]]) current[keys[i]] = {};
       current = current[keys[i]];
     }
 
+    // Remove the item at the specified index
     const lastKey = keys[keys.length - 1];
     if (Array.isArray(current[lastKey])) {
       current[lastKey].splice(index, 1);
@@ -85,6 +109,7 @@ const AboutUsEditor = ({ section, hasData, onDataChange }) => {
     setFormData(newData);
   };
 
+  // Show empty state if no data is available
   if (!hasData || !formData || Object.keys(formData).length === 0) {
     return (
       <div className="bg-white rounded-lg border border-gray-200 p-4 text-center py-8 text-gray-400">
@@ -94,6 +119,7 @@ const AboutUsEditor = ({ section, hasData, onDataChange }) => {
     );
   }
 
+  // Extract mission items and impact stats from form data
   const missionItems = formData.mission?.items || [];
   const impactStats = formData.impact?.stats || [];
 
@@ -101,7 +127,8 @@ const AboutUsEditor = ({ section, hasData, onDataChange }) => {
     <div className="bg-white rounded-lg border border-gray-200 p-4">
       <h3 className="text-sm font-semibold text-gray-700 mb-3">Edit About Us Data</h3>
 
-      {/* Section Content */}
+      {/* ===== SECTION CONTENT ===== */}
+      {/* Basic information about the About Us section */}
       <div className="mb-4">
         <h4 className="text-sm font-medium text-gray-600 mb-2">Section Content</h4>
         <div className="space-y-3">
@@ -135,7 +162,8 @@ const AboutUsEditor = ({ section, hasData, onDataChange }) => {
         </div>
       </div>
 
-      {/* Mission Items */}
+      {/* ===== MISSION ITEMS ===== */}
+      {/* List of mission items with icon, title, description, and alt text */}
       <div className="mb-4">
         <div className="flex items-center justify-between mb-2">
           <h4 className="text-sm font-medium text-gray-600">Mission Items</h4>
@@ -192,7 +220,8 @@ const AboutUsEditor = ({ section, hasData, onDataChange }) => {
         />
       </div>
 
-      {/* Impact Stats */}
+      {/* ===== IMPACT STATS ===== */}
+      {/* Statistics showing impact with value, suffix, and label */}
       <div className="mb-4">
         <div className="flex items-center justify-between mb-2">
           <h4 className="text-sm font-medium text-gray-600">Impact Stats</h4>
@@ -243,7 +272,8 @@ const AboutUsEditor = ({ section, hasData, onDataChange }) => {
         />
       </div>
 
-      {/* Image */}
+      {/* ===== IMAGE ===== */}
+      {/* Upload and manage the main image for the About Us section */}
       <div className="mb-4">
         <h4 className="text-sm font-medium text-gray-600 mb-2">Image</h4>
         <ImageUpload
@@ -269,7 +299,8 @@ const AboutUsEditor = ({ section, hasData, onDataChange }) => {
         />
       </div>
 
-      {/* Additional Data Info */}
+      {/* ===== DATA INFORMATION ===== */}
+      {/* Display metadata about the section for reference */}
       <div className="mt-4 bg-gray-50 rounded-lg p-4 border border-gray-200">
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>

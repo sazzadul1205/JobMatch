@@ -6,22 +6,33 @@ import Swal from 'sweetalert2';
 import { TextField } from './shared/Fields';
 
 const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
+  // ===== STATE MANAGEMENT =====
+  // Get initial data from section prop
   const initialData = section?.data?.data || section?.data || {};
   const [formData, setFormData] = useState(initialData);
 
+  // Track main image changes for deletion tracking
   const [mainImageChanges, setMainImageChanges] = useState({});
   const [oldMainImagePaths, setOldMainImagePaths] = useState({});
+
+  // Track SDG image changes for deletion tracking
   const [sdgImageChanges, setSdgImageChanges] = useState({});
   const [oldSdgImagePaths, setOldSdgImagePaths] = useState({});
+
+  // Upload states for main and SDG images
   const [uploadingMainImage, setUploadingMainImage] = useState({});
   const [uploadingSdgImage, setUploadingSdgImage] = useState({});
 
+  // Notify parent when form data changes
   useEffect(() => {
     if (onDataChange) {
       onDataChange(formData);
     }
   }, [formData, onDataChange]);
 
+  // ===== HELPER FUNCTIONS =====
+
+  // Update nested object fields using dot notation
   const updateField = (path, value) => {
     const keys = path.split('.');
     const newData = { ...formData };
@@ -35,6 +46,7 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
     setFormData(newData);
   };
 
+  // Update a field in an array item
   const updateArrayItem = (path, index, field, value) => {
     const keys = path.split('.');
     const newData = { ...formData };
@@ -53,11 +65,15 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
     setFormData(newData);
   };
 
+  // ===== ARRAY MANAGEMENT FUNCTIONS =====
+
+  // Add a new item to an array
   const addArrayItem = (path, template = {}) => {
     const keys = path.split('.');
     const newData = { ...formData };
     let current = newData;
 
+    // Traverse to the parent of the array
     for (let i = 0; i < keys.length - 1; i++) {
       if (!current[keys[i]]) current[keys[i]] = {};
       current = current[keys[i]];
@@ -66,16 +82,19 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
     const lastKey = keys[keys.length - 1];
     if (!Array.isArray(current[lastKey])) current[lastKey] = [];
 
+    // Generate unique ID for the new item
     const newId = Math.max(0, ...current[lastKey].map(item => item.id || 0)) + 1;
     current[lastKey].push({ ...template, id: newId });
     setFormData(newData);
   };
 
+  // Remove an item from an array
   const removeArrayItem = (path, index) => {
     const keys = path.split('.');
     const newData = { ...formData };
     let current = newData;
 
+    // Track SDG image deletion if removing from sdgImages
     if (path === 'sdgImages') {
       const items = formData.sdgImages || [];
       if (items[index]?.src) {
@@ -87,6 +106,7 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
       }
     }
 
+    // Traverse to the parent of the array
     for (let i = 0; i < keys.length - 1; i++) {
       if (!current[keys[i]]) current[keys[i]] = {};
       current = current[keys[i]];
@@ -99,6 +119,9 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
     setFormData(newData);
   };
 
+  // ===== MAIN IMAGE HANDLING FUNCTIONS =====
+
+  // Handle main image drop from drag & drop
   const handleMainImageDrop = (e, index) => {
     e.preventDefault();
     e.stopPropagation();
@@ -110,6 +133,7 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
     }
   };
 
+  // Handle main image selection via file input
   const handleMainImageSelect = (e, index) => {
     const file = e.target.files[0];
     if (file) {
@@ -118,7 +142,9 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
     e.target.value = '';
   };
 
+  // Process and upload the main image file
   const processMainImageFile = (file, index) => {
+    // Validate file type
     if (!file.type.startsWith('image/')) {
       Swal.fire({
         icon: 'error',
@@ -129,6 +155,7 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
       return;
     }
 
+    // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       Swal.fire({
         icon: 'error',
@@ -139,6 +166,7 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
       return;
     }
 
+    // Store old image path if it exists
     const items = formData.section?.mainImage?.images || [];
     if (items[index] && !mainImageChanges[index]) {
       setOldMainImagePaths(prev => ({
@@ -147,6 +175,7 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
       }));
     }
 
+    // Read and convert image to base64
     setUploadingMainImage(prev => ({ ...prev, [index]: true }));
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -167,6 +196,7 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
     reader.readAsDataURL(file);
   };
 
+  // Remove a main image
   const removeMainImage = (index) => {
     const items = formData.section?.mainImage?.images || [];
     if (items[index]) {
@@ -180,6 +210,9 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
     setMainImageChanges(prev => ({ ...prev, [index]: true }));
   };
 
+  // ===== SDG IMAGE HANDLING FUNCTIONS =====
+
+  // Handle SDG image drop from drag & drop
   const handleSdgImageDrop = (e, index) => {
     e.preventDefault();
     e.stopPropagation();
@@ -191,6 +224,7 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
     }
   };
 
+  // Handle SDG image selection via file input
   const handleSdgImageSelect = (e, index) => {
     const file = e.target.files[0];
     if (file) {
@@ -199,7 +233,9 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
     e.target.value = '';
   };
 
+  // Process and upload the SDG image file
   const processSdgImageFile = (file, index) => {
+    // Validate file type
     if (!file.type.startsWith('image/')) {
       Swal.fire({
         icon: 'error',
@@ -210,6 +246,7 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
       return;
     }
 
+    // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       Swal.fire({
         icon: 'error',
@@ -220,6 +257,7 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
       return;
     }
 
+    // Store old image path if it exists
     const items = formData.sdgImages || [];
     if (items[index]?.src && !sdgImageChanges[index]) {
       setOldSdgImagePaths(prev => ({
@@ -228,6 +266,7 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
       }));
     }
 
+    // Read and convert image to base64
     setUploadingSdgImage(prev => ({ ...prev, [index]: true }));
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -248,6 +287,7 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
     reader.readAsDataURL(file);
   };
 
+  // Remove an SDG image
   const removeSdgImage = (index) => {
     const items = formData.sdgImages || [];
     if (items[index]?.src) {
@@ -260,6 +300,7 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
     setSdgImageChanges(prev => ({ ...prev, [index]: true }));
   };
 
+  // Display path for image (shows if it's new or existing)
   const getDisplayPath = (src) => {
     if (!src) return '';
     if (src.startsWith('data:image')) {
@@ -268,6 +309,8 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
     return src;
   };
 
+  // ===== EMPTY STATE =====
+  // Show message when no data exists
   if (!hasData || !formData || Object.keys(formData).length === 0) {
     return (
       <div className="bg-white rounded-lg border border-gray-200 p-4 text-center py-8 text-gray-400">
@@ -280,10 +323,12 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
   const mainImages = formData.section?.mainImage?.images || [];
   const sdgImages = formData.sdgImages || [];
 
+  // ===== MAIN RENDER =====
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-4">
       <h3 className="text-sm font-semibold text-gray-700 mb-3">Edit Program Impact Data</h3>
 
+      {/* <!-- ===== SECTION TITLE ===== --> */}
       <div className="mb-4">
         <h4 className="text-sm font-medium text-gray-600 mb-2">Section Content</h4>
         <TextField
@@ -294,6 +339,8 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
         />
       </div>
 
+      {/* <!-- ===== MAIN IMAGES ===== --> */}
+      {/* Grid of main images with drag & drop upload */}
       <div className="mb-4">
         <h4 className="text-sm font-medium text-gray-600 mb-2">
           Main Images ({mainImages.length})
@@ -311,6 +358,7 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
                 onDrop={(e) => handleMainImageDrop(e, index)}
               >
                 {image ? (
+                  // Image preview with remove button
                   <div className="relative">
                     <img
                       src={image}
@@ -336,11 +384,13 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
                     </div>
                   </div>
                 ) : (
+                  // Empty state for image upload
                   <div className="flex flex-col items-center justify-center py-4 text-gray-400">
                     <FaUpload size={20} />
                     <span className="text-xs mt-1">Drop image</span>
                   </div>
                 )}
+                {/* Hidden file input */}
                 <input
                   type="file"
                   accept="image/*"
@@ -348,6 +398,7 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                   disabled={uploadingMainImage[index]}
                 />
+                {/* Loading spinner */}
                 {uploadingMainImage[index] && (
                   <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded-lg">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
@@ -365,6 +416,8 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
         )}
       </div>
 
+      {/* <!-- ===== SDG IMAGES ===== --> */}
+      {/* Grid of SDG images with add/remove functionality */}
       <div>
         <div className="flex items-center justify-between mb-2">
           <h4 className="text-sm font-medium text-gray-600">SDG Images ({sdgImages.length})</h4>
@@ -380,6 +433,8 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {sdgImages.map((sdg, index) => (
             <div key={sdg.id || index} className="bg-gray-50 rounded-lg border border-gray-200 p-3">
+
+              {/* SDG header with index and remove button */}
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-medium text-gray-500">SDG #{index + 1}</span>
                 <button
@@ -391,6 +446,7 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
                 </button>
               </div>
 
+              {/* Drag & drop image upload area */}
               <div
                 className={`relative border-2 border-dashed rounded-lg p-2 transition-all ${uploadingSdgImage[index] ? 'opacity-50' : 'border-gray-300 hover:border-gray-400'
                   }`}
@@ -400,6 +456,7 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
                 onDrop={(e) => handleSdgImageDrop(e, index)}
               >
                 {sdg.src ? (
+                  // Image preview with remove button
                   <div className="relative">
                     <img
                       src={sdg.src}
@@ -434,11 +491,13 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
                     </div>
                   </div>
                 ) : (
+                  // Empty state for image upload
                   <div className="flex flex-col items-center justify-center py-4 text-gray-400">
                     <FaUpload size={20} />
                     <span className="text-xs mt-1">Drop image</span>
                   </div>
                 )}
+                {/* Hidden file input */}
                 <input
                   type="file"
                   accept="image/*"
@@ -446,6 +505,7 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                   disabled={uploadingSdgImage[index]}
                 />
+                {/* Loading spinner */}
                 {uploadingSdgImage[index] && (
                   <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded-lg">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
@@ -453,6 +513,7 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
                 )}
               </div>
 
+              {/* Alt text field for SDG image */}
               <TextField
                 label="Alt Text"
                 value={sdg.alt || ''}
@@ -471,6 +532,8 @@ const ProgramImpactEditor = ({ section, hasData, onDataChange }) => {
         )}
       </div>
 
+      {/* <!-- ===== DATA INFORMATION ===== --> */}
+      {/* Display metadata about the section */}
       <div className="mt-4 bg-gray-50 rounded-lg p-4 border border-gray-200">
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>

@@ -1,7 +1,10 @@
 /* eslint-disable no-undef */
 // resources/js/pages/Backend/CMS/Section/components/modals/Editors/ContentEditor.jsx
 
+// React
 import React from 'react';
+
+// Icons
 import { FaExternalLinkAlt, FaFileAlt, FaInfoCircle } from 'react-icons/fa';
 
 /**
@@ -11,16 +14,17 @@ import { FaExternalLinkAlt, FaFileAlt, FaInfoCircle } from 'react-icons/fa';
  * - Shows information about the section
  * - Provides link to About Content Manager for editing
  * - Displays preview of the content
- * - Not editable directly
+ * - Not editable directly (read-only)
  */
 const ContentEditor = ({ section, hasData }) => {
+  // ===== DATA EXTRACTION =====
   // This is a dynamic sub-page section - not editable directly
-  // Data comes from About Content
+  // Data comes from About Content Manager
 
-  // Get the data
+  // Get the data from section
   const data = section?.data || {};
 
-  // Try to get content info from the data
+  // Extract content info from the data
   const contentData = data?.data || data;
   const title = contentData?.title || section?.section_key || 'Content';
   const contentType = contentData?.type || 'detail';
@@ -29,7 +33,8 @@ const ContentEditor = ({ section, hasData }) => {
     <div className="bg-white rounded-lg border border-gray-200 p-4">
       <h3 className="text-sm font-semibold text-gray-700 mb-3">Content Section</h3>
 
-      {/* Dynamic Sub-Page Notice */}
+      {/* ===== INFO BOX: DYNAMIC SUB-PAGE ===== */}
+      {/* Explains that this is a dynamic section managed elsewhere */}
       <div className="mb-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
         <div className="flex items-start gap-3">
           <div className="mt-0.5">
@@ -51,18 +56,22 @@ const ContentEditor = ({ section, hasData }) => {
         </div>
       </div>
 
-      {/* Content Information */}
+      {/* ===== CONTENT INFORMATION ===== */}
+      {/* Shows metadata about the content being displayed */}
       <div className="mb-4">
         <h4 className="text-sm font-medium text-gray-600 mb-2">Content Information</h4>
         <div className="grid grid-cols-2 gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+          {/* Section Key - used to match content */}
           <div>
             <span className="text-xs text-gray-500">Section Key</span>
             <p className="text-sm font-medium text-gray-700">{section.section_key || 'N/A'}</p>
           </div>
+          {/* Content Title */}
           <div>
             <span className="text-xs text-gray-500">Content Title</span>
             <p className="text-sm font-medium text-gray-700">{title}</p>
           </div>
+          {/* Content Type - main or detail */}
           <div>
             <span className="text-xs text-gray-500">Content Type</span>
             <p className="text-sm font-medium text-gray-700">
@@ -74,14 +83,17 @@ const ContentEditor = ({ section, hasData }) => {
               </span>
             </p>
           </div>
+          {/* Data Table */}
           <div>
             <span className="text-xs text-gray-500">Data Table</span>
             <p className="text-sm font-medium text-gray-700">about_content</p>
           </div>
+          {/* Data Key */}
           <div>
             <span className="text-xs text-gray-500">Data Key</span>
             <p className="text-sm font-medium text-gray-700">{section.data_key || 'contentSectionData'}</p>
           </div>
+          {/* Status - has content or not */}
           <div>
             <span className="text-xs text-gray-500">Status</span>
             <p className={`text-sm font-medium ${hasData ? 'text-green-600' : 'text-gray-400'}`}>
@@ -91,12 +103,13 @@ const ContentEditor = ({ section, hasData }) => {
         </div>
       </div>
 
-      {/* Content Preview */}
+      {/* ===== CONTENT PREVIEW ===== */}
+      {/* Shows a preview of the actual content if it exists */}
       {hasData && data && (
         <div className="mb-4">
           <h4 className="text-sm font-medium text-gray-600 mb-2">Content Preview</h4>
           <div className="bg-white p-3 rounded-lg border border-gray-200">
-            {/* Title */}
+            {/* Title preview */}
             {title && (
               <div className="mb-2">
                 <span className="text-xs text-gray-400">Title:</span>
@@ -104,7 +117,7 @@ const ContentEditor = ({ section, hasData }) => {
               </div>
             )}
 
-            {/* Content/Description */}
+            {/* Content/Description preview */}
             {contentData?.content && (
               <div className="mb-2">
                 <span className="text-xs text-gray-400">Content:</span>
@@ -112,13 +125,16 @@ const ContentEditor = ({ section, hasData }) => {
               </div>
             )}
 
-            {/* Full Content */}
+            {/* Full Content preview (HTML content) */}
             {contentData?.full_content && (
               <div>
                 <span className="text-xs text-gray-400">Full Content:</span>
                 <div
                   className="text-sm text-gray-600 line-clamp-3 mt-1"
-                  dangerouslySetInnerHTML={{ __html: contentData.full_content.substring(0, 200) + (contentData.full_content.length > 200 ? '...' : '') }}
+                  dangerouslySetInnerHTML={{
+                    __html: contentData.full_content.substring(0, 200) +
+                      (contentData.full_content.length > 200 ? '...' : '')
+                  }}
                 />
               </div>
             )}
@@ -131,7 +147,8 @@ const ContentEditor = ({ section, hasData }) => {
         </div>
       )}
 
-      {/* No Data State */}
+      {/* ===== NO DATA STATE ===== */}
+      {/* Shows when no content has been assigned to this section */}
       {!hasData && (
         <div className="mb-4 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
           <div className="flex items-center gap-2">
@@ -146,7 +163,8 @@ const ContentEditor = ({ section, hasData }) => {
         </div>
       )}
 
-      {/* Action Button */}
+      {/* ===== ACTION BUTTON ===== */}
+      {/* Navigates user to the About Content Manager where they can edit */}
       <div className="flex justify-end">
         <button
           type="button"
@@ -160,7 +178,8 @@ const ContentEditor = ({ section, hasData }) => {
         </button>
       </div>
 
-      {/* Note about editing */}
+      {/* ===== FOOTER NOTE ===== */}
+      {/* Reminder about how this section works and where to edit */}
       <div className="mt-3 text-xs text-gray-400 border-t border-gray-200 pt-3">
         <p>
           💡 <strong>Note:</strong> This is a dynamic sub-page section and is not editable directly.
@@ -170,6 +189,7 @@ const ContentEditor = ({ section, hasData }) => {
           📍 To edit this content, navigate to <strong>About Content Manager</strong> and find the content
           with slug matching <code className="px-1 py-0.5 bg-gray-100 rounded text-xs">'{section.section_key}'</code>
         </p>
+        {/* Show which section key is currently being displayed */}
         {section.section_key && (
           <p className="mt-1 text-blue-600">
             🔗 This section is currently displaying content for: <strong>{section.section_key}</strong>

@@ -1,7 +1,10 @@
 /* eslint-disable no-undef */
 // resources/js/pages/Backend/CMS/Section/components/modals/Editors/FAQEditor.jsx
 
+// React
 import React from 'react';
+
+// Icons
 import { FaExternalLinkAlt, FaQuestionCircle } from 'react-icons/fa';
 
 /**
@@ -11,12 +14,14 @@ import { FaExternalLinkAlt, FaQuestionCircle } from 'react-icons/fa';
  * - Shows information about the section
  * - Provides link to Shared Data Manager for editing
  * - Displays preview of FAQ data
+ * - Not editable directly (read-only)
  */
 const FAQEditor = ({ section, hasData }) => {
+  // ===== DATA EXTRACTION =====
   // This uses Shared Data - managed through the Shared Data Manager
   // No form fields needed - just informational display
 
-  // Get the data
+  // Get the FAQ data from section
   const data = section?.data || {};
   const faqs = data?.faqs || [];
 
@@ -24,7 +29,8 @@ const FAQEditor = ({ section, hasData }) => {
     <div className="bg-white rounded-lg border border-gray-200 p-4">
       <h3 className="text-sm font-semibold text-gray-700 mb-3">FAQ Section</h3>
 
-      {/* Shared Data Notice */}
+      {/* ===== INFO BOX: SHARED DATA ===== */}
+      {/* Explains that this section uses Shared Data managed elsewhere */}
       <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
         <div className="flex items-start gap-3">
           <div className="mt-0.5">
@@ -46,16 +52,19 @@ const FAQEditor = ({ section, hasData }) => {
         </div>
       </div>
 
-      {/* FAQ Count and Preview */}
+      {/* ===== FAQ COUNT AND PREVIEW ===== */}
+      {/* Shows how many FAQs are available and previews the first few */}
       <div className="mb-4">
         <h4 className="text-sm font-medium text-gray-600 mb-2">Current FAQs</h4>
         <div className="bg-gray-50 rounded-lg border border-gray-200 p-3">
           {hasData && faqs.length > 0 ? (
             <div className="space-y-2">
+              {/* FAQ count */}
               <p className="text-xs text-gray-500">
                 <span className="font-medium">{faqs.length}</span> FAQ
                 {faqs.length > 1 ? 's' : ''} available
               </p>
+              {/* FAQ tags - show first 3 */}
               <div className="flex flex-wrap gap-1">
                 {faqs.slice(0, 3).map((faq, idx) => (
                   <span
@@ -66,6 +75,7 @@ const FAQEditor = ({ section, hasData }) => {
                     {faq.question || `FAQ ${idx + 1}`}
                   </span>
                 ))}
+                {/* Show "+N more" if more than 3 FAQs */}
                 {faqs.length > 3 && (
                   <span className="text-xs text-gray-400 px-2 py-1">
                     +{faqs.length - 3} more
@@ -74,27 +84,33 @@ const FAQEditor = ({ section, hasData }) => {
               </div>
             </div>
           ) : (
+            // Empty state - no FAQs
             <p className="text-sm text-gray-400">No FAQs available</p>
           )}
         </div>
       </div>
 
-      {/* FAQ Section Settings */}
+      {/* ===== FAQ SECTION SETTINGS ===== */}
+      {/* Shows configuration details for this section */}
       <div className="mb-4">
         <h4 className="text-sm font-medium text-gray-600 mb-2">Section Settings</h4>
         <div className="grid grid-cols-2 gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+          {/* Data Table */}
           <div>
             <span className="text-xs text-gray-500">Data Table</span>
             <p className="text-sm font-medium text-gray-700">shared_data</p>
           </div>
+          {/* Data Key */}
           <div>
             <span className="text-xs text-gray-500">Data Key</span>
             <p className="text-sm font-medium text-gray-700">{section.data_key || 'faqData'}</p>
           </div>
+          {/* Type */}
           <div>
             <span className="text-xs text-gray-500">Type</span>
             <p className="text-sm font-medium text-gray-700">faq</p>
           </div>
+          {/* Status - has data or not */}
           <div>
             <span className="text-xs text-gray-500">Status</span>
             <p className={`text-sm font-medium ${hasData ? 'text-green-600' : 'text-gray-400'}`}>
@@ -104,19 +120,25 @@ const FAQEditor = ({ section, hasData }) => {
         </div>
       </div>
 
-      {/* FAQ Preview (show first 3 FAQs with questions and answers) */}
+      {/* ===== FAQ PREVIEW ===== */}
+      {/* Shows the first 3 FAQs with questions and answers */}
       {hasData && faqs.length > 0 && (
         <div className="mb-4">
           <h4 className="text-sm font-medium text-gray-600 mb-2">FAQ Preview</h4>
           <div className="space-y-2">
             {faqs.slice(0, 3).map((faq, idx) => (
               <div key={idx} className="bg-white p-3 rounded-lg border border-gray-200">
-                <p className="text-xs font-medium text-gray-700">{faq.question || `Question ${idx + 1}`}</p>
+                {/* Question */}
+                <p className="text-xs font-medium text-gray-700">
+                  {faq.question || `Question ${idx + 1}`}
+                </p>
+                {/* Answer (truncated) */}
                 <p className="text-xs text-gray-500 mt-1 line-clamp-2">
                   {faq.answer || 'No answer provided'}
                 </p>
               </div>
             ))}
+            {/* Show if more FAQs exist */}
             {faqs.length > 3 && (
               <p className="text-xs text-gray-400 text-center">
                 + {faqs.length - 3} more FAQs available
@@ -126,7 +148,8 @@ const FAQEditor = ({ section, hasData }) => {
         </div>
       )}
 
-      {/* Action Button */}
+      {/* ===== ACTION BUTTON ===== */}
+      {/* Navigates user to the Shared Data Manager where they can edit */}
       <div className="flex justify-end">
         <button
           type="button"
@@ -140,7 +163,8 @@ const FAQEditor = ({ section, hasData }) => {
         </button>
       </div>
 
-      {/* Note about editing */}
+      {/* ===== FOOTER NOTE ===== */}
+      {/* Reminder that this section is read-only and where to make changes */}
       <div className="mt-3 text-xs text-gray-400 border-t border-gray-200 pt-3">
         <p>
           💡 <strong>Note:</strong> This section uses Shared Data and does not have editable fields directly.

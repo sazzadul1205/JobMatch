@@ -1,20 +1,34 @@
 // resources/js/pages/Backend/CMS/Section/components/modals/Editors/AddressEditor.jsx
 
+// React
 import React, { useState, useEffect } from 'react';
+
+// Icons
 import { FaTrash, FaPlus, FaPhone, FaEnvelope, FaMapMarkerAlt, FaGlobe } from 'react-icons/fa';
+
+// Sweetalert
 import Swal from 'sweetalert2';
+
+// Shared Components
 import { TextField } from './shared/Fields';
 
 const AddressEditor = ({ section, hasData, onDataChange }) => {
+  // Get initial data - it's an array of addresses
   const initialData = section?.data?.data || section?.data || [];
+
+  // State to hold all address data (array of address objects)
   const [formData, setFormData] = useState(Array.isArray(initialData) ? initialData : []);
 
+  // Notify parent component when data changes
   useEffect(() => {
     if (onDataChange) {
       onDataChange(formData);
     }
   }, [formData, onDataChange]);
 
+  // ===== HELPER FUNCTIONS =====
+
+  // Update a field in a specific address
   const updateArrayItem = (index, field, value) => {
     const newData = [...formData];
     if (!newData[index]) newData[index] = {};
@@ -22,6 +36,7 @@ const AddressEditor = ({ section, hasData, onDataChange }) => {
     setFormData(newData);
   };
 
+  // Update a field inside a nested array (phones or emails)
   const updateNestedArrayItem = (index, field, subIndex, value) => {
     const newData = [...formData];
     if (!newData[index]) newData[index] = {};
@@ -30,14 +45,18 @@ const AddressEditor = ({ section, hasData, onDataChange }) => {
     setFormData(newData);
   };
 
+  // ===== PHONE FUNCTIONS =====
+
+  // Add a new phone number field to an address
   const addPhone = (index) => {
     const newData = [...formData];
     if (!newData[index]) newData[index] = {};
     if (!newData[index].phones) newData[index].phones = [];
-    newData[index].phones.push('');
+    newData[index].phones.push(''); // Add empty phone
     setFormData(newData);
   };
 
+  // Remove a phone number from an address
   const removePhone = (index, phoneIndex) => {
     const newData = [...formData];
     if (newData[index] && newData[index].phones) {
@@ -46,14 +65,18 @@ const AddressEditor = ({ section, hasData, onDataChange }) => {
     }
   };
 
+  // ===== EMAIL FUNCTIONS =====
+
+  // Add a new email field to an address
   const addEmail = (index) => {
     const newData = [...formData];
     if (!newData[index]) newData[index] = {};
     if (!newData[index].emails) newData[index].emails = [];
-    newData[index].emails.push('');
+    newData[index].emails.push(''); // Add empty email
     setFormData(newData);
   };
 
+  // Remove an email from an address
   const removeEmail = (index, emailIndex) => {
     const newData = [...formData];
     if (newData[index] && newData[index].emails) {
@@ -62,20 +85,24 @@ const AddressEditor = ({ section, hasData, onDataChange }) => {
     }
   };
 
+  // ===== ADDRESS FUNCTIONS =====
+
+  // Add a new address with default empty values
   const addAddress = () => {
     const newData = [...formData];
     newData.push({
-      id: `address-${Date.now()}`,
+      id: `address-${Date.now()}`, // Unique ID using timestamp
       label: '',
       address: '',
       mapUrl: '',
       coordinates: { lat: 0, lng: 0 },
-      phones: [''],
-      emails: ['']
+      phones: [''], // Start with one empty phone
+      emails: ['']  // Start with one empty email
     });
     setFormData(newData);
   };
 
+  // Remove an address with confirmation dialog
   const removeAddress = (index) => {
     Swal.fire({
       title: 'Remove Address',
@@ -95,6 +122,8 @@ const AddressEditor = ({ section, hasData, onDataChange }) => {
     });
   };
 
+  // ===== EMPTY STATE =====
+  // Show message when no addresses exist
   if (!hasData || !formData || formData.length === 0) {
     return (
       <div className="bg-white rounded-lg border border-gray-200 p-4">
@@ -117,8 +146,11 @@ const AddressEditor = ({ section, hasData, onDataChange }) => {
     );
   }
 
+  // ===== MAIN RENDER =====
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-4">
+
+      {/* Header with address count and add button */}
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold text-gray-700">Edit Address Data ({formData.length} addresses)</h3>
         <button
@@ -131,9 +163,12 @@ const AddressEditor = ({ section, hasData, onDataChange }) => {
         </button>
       </div>
 
+      {/* ===== LIST OF ADDRESSES ===== */}
       <div className="space-y-4">
         {formData.map((address, index) => (
           <div key={address.id || index} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+
+            {/* Address header with index and remove button */}
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-medium text-gray-500">Address #{index + 1}</span>
               <button
@@ -145,14 +180,20 @@ const AddressEditor = ({ section, hasData, onDataChange }) => {
               </button>
             </div>
 
+            {/* ===== ADDRESS FIELDS (2 columns on desktop) ===== */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+
+              {/* ===== LEFT COLUMN ===== */}
               <div className="space-y-2">
+                {/* Label field */}
                 <TextField
                   label="Label"
                   value={address.label || ''}
                   onChange={(e) => updateArrayItem(index, 'label', e.target.value)}
                   placeholder="Head Office"
                 />
+
+                {/* Address textarea */}
                 <div>
                   <label className="block text-xs text-gray-400 mb-0.5">Address</label>
                   <textarea
@@ -163,6 +204,8 @@ const AddressEditor = ({ section, hasData, onDataChange }) => {
                     placeholder="24/5 Mollika, Prominent Housing, 3 Pisciculture Road, Mohammadpur, Dhaka -1207."
                   />
                 </div>
+
+                {/* Map URL field */}
                 <TextField
                   label="Map URL"
                   value={address.mapUrl || ''}
@@ -171,8 +214,10 @@ const AddressEditor = ({ section, hasData, onDataChange }) => {
                 />
               </div>
 
+              {/* ===== RIGHT COLUMN ===== */}
               <div className="space-y-2">
-                {/* Phones */}
+
+                {/* ===== PHONES SECTION ===== */}
                 <div>
                   <div className="flex items-center justify-between mb-0.5">
                     <label className="block text-xs text-gray-400">Phone Numbers</label>
@@ -184,6 +229,7 @@ const AddressEditor = ({ section, hasData, onDataChange }) => {
                       <FaPlus size={10} /> Add
                     </button>
                   </div>
+                  {/* Loop through phones */}
                   {(address.phones || ['']).map((phone, phoneIndex) => (
                     <div key={phoneIndex} className="flex items-center gap-2 mt-1">
                       <FaPhone size={12} className="text-gray-400 shrink-0" />
@@ -194,6 +240,7 @@ const AddressEditor = ({ section, hasData, onDataChange }) => {
                         className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
                         placeholder="+880 1761-493412"
                       />
+                      {/* Show remove button only if more than 1 phone */}
                       {(address.phones || []).length > 1 && (
                         <button
                           type="button"
@@ -207,7 +254,7 @@ const AddressEditor = ({ section, hasData, onDataChange }) => {
                   ))}
                 </div>
 
-                {/* Emails */}
+                {/* ===== EMAILS SECTION ===== */}
                 <div>
                   <div className="flex items-center justify-between mb-0.5">
                     <label className="block text-xs text-gray-400">Email Addresses</label>
@@ -219,6 +266,7 @@ const AddressEditor = ({ section, hasData, onDataChange }) => {
                       <FaPlus size={10} /> Add
                     </button>
                   </div>
+                  {/* Loop through emails */}
                   {(address.emails || ['']).map((email, emailIndex) => (
                     <div key={emailIndex} className="flex items-center gap-2 mt-1">
                       <FaEnvelope size={12} className="text-gray-400 shrink-0" />
@@ -229,6 +277,7 @@ const AddressEditor = ({ section, hasData, onDataChange }) => {
                         className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
                         placeholder="dusdhaka@gmail.com"
                       />
+                      {/* Show remove button only if more than 1 email */}
                       {(address.emails || []).length > 1 && (
                         <button
                           type="button"
@@ -242,8 +291,9 @@ const AddressEditor = ({ section, hasData, onDataChange }) => {
                   ))}
                 </div>
 
-                {/* Coordinates */}
+                {/* ===== COORDINATES ===== */}
                 <div className="grid grid-cols-2 gap-2">
+                  {/* Latitude */}
                   <div>
                     <label className="block text-xs text-gray-400 mb-0.5">Latitude</label>
                     <input
@@ -260,6 +310,7 @@ const AddressEditor = ({ section, hasData, onDataChange }) => {
                       placeholder="23.757"
                     />
                   </div>
+                  {/* Longitude */}
                   <div>
                     <label className="block text-xs text-gray-400 mb-0.5">Longitude</label>
                     <input
@@ -280,27 +331,32 @@ const AddressEditor = ({ section, hasData, onDataChange }) => {
               </div>
             </div>
 
-            {/* Address Preview */}
+            {/* ===== ADDRESS PREVIEW ===== */}
             <div className="mt-3 pt-3 border-t border-gray-200">
               <div className="flex flex-wrap items-center gap-4 text-xs text-gray-500">
+                {/* Show address */}
                 <div className="flex items-center gap-1">
                   <FaMapMarkerAlt size={12} className="text-gray-400" />
                   <span className="truncate max-w-40">{address.address || 'No address'}</span>
                 </div>
+                {/* Show phone count */}
                 <div className="flex items-center gap-1">
                   <FaPhone size={12} className="text-gray-400" />
                   <span>{(address.phones || []).filter(p => p).length || 0} phones</span>
                 </div>
+                {/* Show email count */}
                 <div className="flex items-center gap-1">
                   <FaEnvelope size={12} className="text-gray-400" />
                   <span>{(address.emails || []).filter(e => e).length || 0} emails</span>
                 </div>
+                {/* Show coordinates if available */}
                 {address.coordinates?.lat && address.coordinates?.lng && (
                   <div className="flex items-center gap-1">
                     <FaGlobe size={12} className="text-gray-400" />
                     <span>{address.coordinates.lat}, {address.coordinates.lng}</span>
                   </div>
                 )}
+                {/* Show map link if available */}
                 {address.mapUrl && (
                   <a
                     href={address.mapUrl}
@@ -317,6 +373,8 @@ const AddressEditor = ({ section, hasData, onDataChange }) => {
         ))}
       </div>
 
+      {/* ===== DATA INFORMATION ===== */}
+      {/* Display metadata about the section */}
       <div className="mt-4 bg-gray-50 rounded-lg p-4 border border-gray-200">
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>

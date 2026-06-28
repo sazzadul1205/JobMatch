@@ -11,12 +11,14 @@ import { FaExternalLinkAlt, FaBriefcase } from 'react-icons/fa';
  * - Shows information about the section
  * - Provides link to Job Listings Manager for editing
  * - Displays preview of job listings data
+ * - Not editable directly (read-only)
  */
 const JobsEditor = ({ section, hasData }) => {
+  // ===== DATA EXTRACTION =====
   // This is controlled by the Job Listings Manager
   // No form fields needed - just informational display
 
-  // Get the data
+  // Get the job listings data from section
   const data = section?.data || {};
   const jobs = data?.jobs || [];
 
@@ -27,7 +29,8 @@ const JobsEditor = ({ section, hasData }) => {
     <div className="bg-white rounded-lg border border-gray-200 p-4">
       <h3 className="text-sm font-semibold text-gray-700 mb-3">Jobs Section</h3>
 
-      {/* Job Listings Notice */}
+      {/* ===== INFO BOX: JOB LISTINGS ===== */}
+      {/* Explains that this section is managed by the Job Listings Manager */}
       <div className="mb-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
         <div className="flex items-start gap-3">
           <div className="mt-0.5">
@@ -49,16 +52,19 @@ const JobsEditor = ({ section, hasData }) => {
         </div>
       </div>
 
-      {/* Job Count and Preview */}
+      {/* ===== JOB COUNT AND PREVIEW ===== */}
+      {/* Shows how many jobs are available and previews the first few */}
       <div className="mb-4">
         <h4 className="text-sm font-medium text-gray-600 mb-2">Current Job Listings</h4>
         <div className="bg-gray-50 rounded-lg border border-gray-200 p-3">
           {hasJobsData ? (
             <div className="space-y-2">
+              {/* Job count */}
               <p className="text-xs text-gray-500">
                 <span className="font-medium">{jobs.length}</span> job
                 {jobs.length > 1 ? 's' : ''} available
               </p>
+              {/* Job tags - show first 3 */}
               <div className="flex flex-wrap gap-1">
                 {jobs.slice(0, 3).map((job, idx) => (
                   <span
@@ -69,6 +75,7 @@ const JobsEditor = ({ section, hasData }) => {
                     {job.title || `Job ${idx + 1}`}
                   </span>
                 ))}
+                {/* Show "+N more" if more than 3 jobs */}
                 {jobs.length > 3 && (
                   <span className="text-xs text-gray-400 px-2 py-1">
                     +{jobs.length - 3} more
@@ -77,6 +84,7 @@ const JobsEditor = ({ section, hasData }) => {
               </div>
             </div>
           ) : (
+            // Empty state - no jobs
             <div className="text-center py-4">
               <p className="text-sm text-gray-400">No job listings available</p>
               <p className="text-xs text-gray-400 mt-1">
@@ -87,22 +95,27 @@ const JobsEditor = ({ section, hasData }) => {
         </div>
       </div>
 
-      {/* Section Settings */}
+      {/* ===== SECTION SETTINGS ===== */}
+      {/* Shows configuration details for this section */}
       <div className="mb-4">
         <h4 className="text-sm font-medium text-gray-600 mb-2">Section Settings</h4>
         <div className="grid grid-cols-2 gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+          {/* Data Table */}
           <div>
             <span className="text-xs text-gray-500">Data Table</span>
             <p className="text-sm font-medium text-gray-700">jobs</p>
           </div>
+          {/* Data Key */}
           <div>
             <span className="text-xs text-gray-500">Data Key</span>
             <p className="text-sm font-medium text-gray-700">{section.data_key || 'jobsData'}</p>
           </div>
+          {/* Component */}
           <div>
             <span className="text-xs text-gray-500">Component</span>
             <p className="text-sm font-medium text-gray-700">JobsSection</p>
           </div>
+          {/* Status - has jobs or not */}
           <div>
             <span className="text-xs text-gray-500">Status</span>
             <p className={`text-sm font-medium ${hasJobsData ? 'text-green-600' : 'text-gray-400'}`}>
@@ -112,21 +125,25 @@ const JobsEditor = ({ section, hasData }) => {
         </div>
       </div>
 
-      {/* Quick Stats */}
+      {/* ===== QUICK STATS ===== */}
+      {/* Shows statistics about jobs (total, active, featured) */}
       {hasJobsData && (
         <div className="mb-4">
           <h4 className="text-sm font-medium text-gray-600 mb-2">Quick Stats</h4>
           <div className="grid grid-cols-3 gap-2">
+            {/* Total jobs */}
             <div className="bg-blue-50 rounded-lg p-2 text-center">
               <span className="text-xs text-gray-500">Total</span>
               <p className="text-lg font-bold text-blue-600">{jobs.length}</p>
             </div>
+            {/* Active jobs */}
             <div className="bg-green-50 rounded-lg p-2 text-center">
               <span className="text-xs text-gray-500">Active</span>
               <p className="text-lg font-bold text-green-600">
                 {jobs.filter(j => j.is_active !== false).length}
               </p>
             </div>
+            {/* Featured jobs */}
             <div className="bg-purple-50 rounded-lg p-2 text-center">
               <span className="text-xs text-gray-500">Featured</span>
               <p className="text-lg font-bold text-purple-600">
@@ -137,7 +154,8 @@ const JobsEditor = ({ section, hasData }) => {
         </div>
       )}
 
-      {/* Action Button */}
+      {/* ===== ACTION BUTTON ===== */}
+      {/* Navigates user to the Job Listings Manager where they can edit */}
       <div className="flex justify-end">
         <button
           type="button"
@@ -151,7 +169,8 @@ const JobsEditor = ({ section, hasData }) => {
         </button>
       </div>
 
-      {/* Note about editing */}
+      {/* ===== FOOTER NOTE ===== */}
+      {/* Reminder that this section is read-only and where to make changes */}
       <div className="mt-3 text-xs text-gray-400 border-t border-gray-200 pt-3">
         <p>
           💡 <strong>Note:</strong> This section is controlled by the Job Listings Manager.

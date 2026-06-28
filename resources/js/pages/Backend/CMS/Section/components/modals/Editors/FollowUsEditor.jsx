@@ -6,15 +6,20 @@ import Swal from 'sweetalert2';
 import { TextField, SelectField } from './shared/Fields';
 
 const FollowUsEditor = ({ section, hasData, onDataChange }) => {
+  // ===== STATE MANAGEMENT =====
+  // Get initial data - it's an array of social media links
   const initialData = section?.data?.data || section?.data || [];
   const [formData, setFormData] = useState(Array.isArray(initialData) ? initialData : []);
 
+  // Notify parent component when data changes
   useEffect(() => {
     if (onDataChange) {
       onDataChange(formData);
     }
   }, [formData, onDataChange]);
 
+  // ===== ICON OPTIONS =====
+  // Available social media icons with their corresponding React icons
   const iconOptions = [
     { value: 'facebook', label: 'Facebook', icon: <FaFacebook className="text-blue-600" size={18} /> },
     { value: 'instagram', label: 'Instagram', icon: <FaInstagram className="text-pink-600" size={18} /> },
@@ -24,6 +29,9 @@ const FollowUsEditor = ({ section, hasData, onDataChange }) => {
     { value: 'globe', label: 'Website', icon: <FaGlobe className="text-gray-600" size={18} /> },
   ];
 
+  // ===== HELPER FUNCTIONS =====
+
+  // Update a field in a specific social link
   const updateArrayItem = (index, field, value) => {
     const newData = [...formData];
     if (!newData[index]) newData[index] = {};
@@ -31,16 +39,20 @@ const FollowUsEditor = ({ section, hasData, onDataChange }) => {
     setFormData(newData);
   };
 
+  // ===== SOCIAL LINK FUNCTIONS =====
+
+  // Add a new social link with default values
   const addLink = () => {
     const newData = [...formData];
     newData.push({
-      icon: 'facebook',
+      icon: 'facebook', // Default to Facebook
       label: '',
       url: '#'
     });
     setFormData(newData);
   };
 
+  // Remove a social link with confirmation dialog
   const removeLink = (index) => {
     Swal.fire({
       title: 'Remove Social Link',
@@ -60,16 +72,22 @@ const FollowUsEditor = ({ section, hasData, onDataChange }) => {
     });
   };
 
+  // ===== ICON HELPERS =====
+
+  // Get the React icon component for a given icon name
   const getIconPreview = (iconName) => {
     const option = iconOptions.find(opt => opt.value === iconName);
     return option ? option.icon : <FaGlobe className="text-gray-400" size={18} />;
   };
 
+  // Get the display label for a given icon name
   const getIconLabel = (iconName) => {
     const option = iconOptions.find(opt => opt.value === iconName);
     return option ? option.label : iconName;
   };
 
+  // ===== EMPTY STATE =====
+  // Show message when no social links exist
   if (!hasData || !formData || formData.length === 0) {
     return (
       <div className="bg-white rounded-lg border border-gray-200 p-4">
@@ -92,8 +110,11 @@ const FollowUsEditor = ({ section, hasData, onDataChange }) => {
     );
   }
 
+  // ===== MAIN RENDER =====
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-4">
+
+      {/* Header with link count and add button */}
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold text-gray-700">Edit Follow Us Data ({formData.length} links)</h3>
         <button
@@ -106,15 +127,20 @@ const FollowUsEditor = ({ section, hasData, onDataChange }) => {
         </button>
       </div>
 
+      {/* ===== LIST OF SOCIAL LINKS ===== */}
       <div className="space-y-3">
         {formData.map((link, index) => (
           <div key={index} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+
+            {/* Link header with index, icon preview, and remove button */}
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-medium text-gray-500">Link #{index + 1}</span>
+                {/* Show icon preview */}
                 <span className="text-sm">
                   {getIconPreview(link.icon)}
                 </span>
+                {/* Show icon label */}
                 <span className="text-xs text-gray-600">
                   {getIconLabel(link.icon)}
                 </span>
@@ -128,19 +154,23 @@ const FollowUsEditor = ({ section, hasData, onDataChange }) => {
               </button>
             </div>
 
+            {/* ===== LINK FIELDS (3 columns on desktop) ===== */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {/* Icon selector dropdown */}
               <SelectField
                 label="Icon"
                 value={link.icon || 'facebook'}
                 onChange={(e) => updateArrayItem(index, 'icon', e.target.value)}
                 options={iconOptions.map(opt => ({ value: opt.value, label: opt.label }))}
               />
+              {/* Label field */}
               <TextField
                 label="Label"
                 value={link.label || ''}
                 onChange={(e) => updateArrayItem(index, 'label', e.target.value)}
                 placeholder="Facebook"
               />
+              {/* URL field */}
               <TextField
                 label="URL"
                 value={link.url || ''}
@@ -149,15 +179,20 @@ const FollowUsEditor = ({ section, hasData, onDataChange }) => {
               />
             </div>
 
+            {/* ===== LINK PREVIEW ===== */}
+            {/* Shows a preview of the link as it would appear on the site */}
             <div className="mt-3 pt-3 border-t border-gray-200 flex items-center gap-4 text-xs text-gray-500">
               <div className="flex items-center gap-1">
                 <span className="text-gray-400">Preview:</span>
+                {/* Icon preview */}
                 <span className="text-sm">
                   {getIconPreview(link.icon)}
                 </span>
+                {/* Label preview */}
                 <span className="font-medium text-gray-700">
                   {link.label || 'Untitled'}
                 </span>
+                {/* URL preview - clickable if valid */}
                 {link.url && link.url !== '#' && (
                   <a
                     href={link.url}
@@ -168,6 +203,7 @@ const FollowUsEditor = ({ section, hasData, onDataChange }) => {
                     {link.url}
                   </a>
                 )}
+                {/* Show if no URL is set */}
                 {(!link.url || link.url === '#') && (
                   <span className="text-gray-400">(no URL set)</span>
                 )}
@@ -177,6 +213,8 @@ const FollowUsEditor = ({ section, hasData, onDataChange }) => {
         ))}
       </div>
 
+      {/* ===== DATA INFORMATION ===== */}
+      {/* Display metadata about the section */}
       <div className="mt-4 bg-gray-50 rounded-lg p-4 border border-gray-200">
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>

@@ -1,21 +1,32 @@
 // resources/js/pages/Backend/CMS/Section/components/modals/Editors/LegalEditor.jsx
 
+// React
 import React, { useState, useEffect } from 'react';
+
+// Shared Components
 import ImageUpload from './shared/ImageUpload';
 import { TextField, SelectField } from './shared/Fields';
 import { useImageUpload } from './shared/useImageUpload';
 
 const LegalEditor = ({ section, hasData, onDataChange }) => {
+  // ===== STATE MANAGEMENT =====
+  // Get initial data from section prop
   const initialData = section?.data?.data || section?.data || {};
   const [formData, setFormData] = useState(initialData);
+
+  // Custom hook to handle image upload functionality
   const image = useImageUpload(initialData?.background?.src || '');
 
+  // Notify parent when form data changes
   useEffect(() => {
     if (onDataChange) {
       onDataChange(formData);
     }
   }, [formData, onDataChange]);
 
+  // ===== HELPER FUNCTIONS =====
+
+  // Update nested object fields using dot notation (e.g., 'background.src')
   const updateField = (path, value) => {
     const keys = path.split('.');
     const newData = { ...formData };
@@ -29,6 +40,8 @@ const LegalEditor = ({ section, hasData, onDataChange }) => {
     setFormData(newData);
   };
 
+  // ===== OPTIONS =====
+  // Overlay options for the legal section background
   const overlayOptions = [
     { value: 'bg-black/30', label: 'Light Dark Overlay' },
     { value: 'bg-black/40', label: 'Medium Dark Overlay' },
@@ -40,6 +53,8 @@ const LegalEditor = ({ section, hasData, onDataChange }) => {
     { value: 'bg-gradient-to-l from-black/85 via-black/10 to-transparent', label: 'Gradient Right to Left' },
   ];
 
+  // ===== EMPTY STATE =====
+  // Show message when no data exists
   if (!hasData || !formData || Object.keys(formData).length === 0) {
     return (
       <div className="bg-white rounded-lg border border-gray-200 p-4 text-center py-8 text-gray-400">
@@ -49,10 +64,13 @@ const LegalEditor = ({ section, hasData, onDataChange }) => {
     );
   }
 
+  // ===== MAIN RENDER =====
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-4">
       <h3 className="text-sm font-semibold text-gray-700 mb-3">Edit Legal Section Data</h3>
 
+      {/* <!-- ===== BACKGROUND IMAGE ===== --> */}
+      {/* Upload and manage the background image for the legal section */}
       <div className="mb-4">
         <h4 className="text-sm font-medium text-gray-600 mb-2">Background Image</h4>
         <ImageUpload
@@ -71,6 +89,7 @@ const LegalEditor = ({ section, hasData, onDataChange }) => {
         />
       </div>
 
+      {/* <!-- ===== ALT TEXT ===== --> */}
       <TextField
         label="Alt Text"
         value={formData.background?.alt || ''}
@@ -79,6 +98,8 @@ const LegalEditor = ({ section, hasData, onDataChange }) => {
         className="mb-4"
       />
 
+      {/* <!-- ===== OVERLAY SETTINGS ===== --> */}
+      {/* Configure the dark overlay or gradient on the background */}
       <div className="mb-4">
         <h4 className="text-sm font-medium text-gray-600 mb-2">Overlay Settings</h4>
         <SelectField
@@ -87,6 +108,7 @@ const LegalEditor = ({ section, hasData, onDataChange }) => {
           onChange={(e) => updateField('overlay.darkOverlay', e.target.value)}
           options={overlayOptions}
         />
+        {/* Show live preview of the selected overlay */}
         {formData.overlay?.darkOverlay && (
           <div className="mt-2">
             <div
@@ -106,21 +128,26 @@ const LegalEditor = ({ section, hasData, onDataChange }) => {
         )}
       </div>
 
+      {/* <!-- ===== TEXT BOX CONTENT ===== --> */}
+      {/* Title lines, button text, and button link for the legal section */}
       <div className="mb-4">
         <h4 className="text-sm font-medium text-gray-600 mb-2">Text Box Content</h4>
         <div className="space-y-3">
+          {/* Title Line 1 - Main title */}
           <TextField
             label="Title Line 1"
             value={formData.textBox?.title || ''}
             onChange={(e) => updateField('textBox.title', e.target.value)}
             placeholder="Legal Status and Org."
           />
+          {/* Title Line 2 - Subtitle */}
           <TextField
             label="Title Line 2"
             value={formData.textBox?.titleLine2 || ''}
             onChange={(e) => updateField('textBox.titleLine2', e.target.value)}
             placeholder="Affiliations"
           />
+          {/* Button fields - side by side on desktop */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <TextField
               label="Button Text"
@@ -138,9 +165,12 @@ const LegalEditor = ({ section, hasData, onDataChange }) => {
         </div>
       </div>
 
+      {/* <!-- ===== PREVIEW SECTION ===== --> */}
+      {/* Shows a preview of the current data for quick reference */}
       <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
         <h4 className="text-sm font-medium text-gray-600 mb-2">Preview</h4>
         <div className="space-y-2">
+          {/* Title preview - combines both lines if available */}
           <div className="flex items-center gap-2">
             <span className="text-xs text-gray-500">Title:</span>
             <span className="text-sm text-gray-700 font-medium">
@@ -148,6 +178,7 @@ const LegalEditor = ({ section, hasData, onDataChange }) => {
               {formData.textBox?.titleLine2 && ` - ${formData.textBox.titleLine2}`}
             </span>
           </div>
+          {/* Button preview with link */}
           <div className="flex items-center gap-2">
             <span className="text-xs text-gray-500">Button:</span>
             <span className="text-sm text-blue-600">
@@ -159,6 +190,7 @@ const LegalEditor = ({ section, hasData, onDataChange }) => {
               </span>
             )}
           </div>
+          {/* Overlay preview */}
           <div className="flex items-center gap-2">
             <span className="text-xs text-gray-500">Overlay:</span>
             <span className="text-xs text-gray-600 font-mono">
@@ -168,6 +200,8 @@ const LegalEditor = ({ section, hasData, onDataChange }) => {
         </div>
       </div>
 
+      {/* <!-- ===== DATA INFORMATION ===== --> */}
+      {/* Display metadata about the section */}
       <div className="mt-4 bg-gray-50 rounded-lg p-4 border border-gray-200">
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>

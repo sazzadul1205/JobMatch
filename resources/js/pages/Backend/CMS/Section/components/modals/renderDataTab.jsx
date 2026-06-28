@@ -1,41 +1,77 @@
 // resources/js/pages/Backend/CMS/Section/components/modals/RenderDataTab.jsx
 
-import React from 'react';
-import SectionDataViewer from '../SectionDataViewer';
-import HomeBannerEditor from './Editors/HomeBannerEditor';
-import PageBannerEditor from './Editors/PageBannerEditor';
-import AboutUsEditor from './Editors/AboutUsEditor';
-import OurActionEditor from './Editors/OurActionEditor';
-import WhereWeWorkEditor from './Editors/WhereWeWorkEditor';
-import OurProgramsEditor from './Editors/OurProgramsEditor';
-import StoriesEditor from './Editors/StoriesEditor';
-import UpcomingEventsEditor from './Editors/UpcomingEventsEditor';
-import JobsEditor from './Editors/JobsEditor';
-import ProgramImpactEditor from './Editors/ProgramImpactEditor';
-import HeroFigureEditor from './Editors/HeroFigureEditor';
-import LegalEditor from './Editors/LegalEditor';
-import CardsEditor from './Editors/CardsEditor';
-import FAQEditor from './Editors/FAQEditor';
-import ContentEditor from './Editors/ContentEditor';
-import BlogEditor from './Editors/BlogEditor';
-import ContactOfficeEditor from './Editors/ContactOfficeEditor';
-import ContactReachEditor from './Editors/ContactReachEditor';
-import FollowUsEditor from './Editors/FollowUsEditor';
-import AddressEditor from './Editors/AddressEditor'; // Add this import
+import React, { lazy, Suspense } from 'react';
+
+// ===== LAZY LOAD EDITORS =====
+// Each editor is loaded only when needed, reducing initial bundle size
+const FAQEditor = lazy(() => import('./Editors/FAQEditor'));
+const JobsEditor = lazy(() => import('./Editors/JobsEditor'));
+const BlogEditor = lazy(() => import('./Editors/BlogEditor'));
+const CardsEditor = lazy(() => import('./Editors/CardsEditor'));
+const LegalEditor = lazy(() => import('./Editors/LegalEditor'));
+const AddressEditor = lazy(() => import('./Editors/AddressEditor'));
+const ContentEditor = lazy(() => import('./Editors/ContentEditor'));
+const StoriesEditor = lazy(() => import('./Editors/StoriesEditor'));
+const AboutUsEditor = lazy(() => import('./Editors/AboutUsEditor'));
+const FollowUsEditor = lazy(() => import('./Editors/FollowUsEditor'));
+const OurActionEditor = lazy(() => import('./Editors/OurActionEditor'));
+const HeroFigureEditor = lazy(() => import('./Editors/HeroFigureEditor'));
+const HomeBannerEditor = lazy(() => import('./Editors/HomeBannerEditor'));
+const PageBannerEditor = lazy(() => import('./Editors/PageBannerEditor'));
+const OurProgramsEditor = lazy(() => import('./Editors/OurProgramsEditor'));
+const WhereWeWorkEditor = lazy(() => import('./Editors/WhereWeWorkEditor'));
+const ContactReachEditor = lazy(() => import('./Editors/ContactReachEditor'));
+const ProgramImpactEditor = lazy(() => import('./Editors/ProgramImpactEditor'));
+const ContactOfficeEditor = lazy(() => import('./Editors/ContactOfficeEditor'));
+const UpcomingEventsEditor = lazy(() => import('./Editors/UpcomingEventsEditor'));
+
+// ===== LOADING COMPONENT =====
+// Shows while editor is being loaded
+const EditorLoader = () => (
+  <div className="flex items-center justify-center py-12">
+    <div className="flex flex-col items-center gap-3">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+      <p className="text-sm text-gray-500">Loading editor...</p>
+    </div>
+  </div>
+);
+
+// ===== EDITOR MAP =====
+// Maps component names to their lazy-loaded editor components
+const EDITOR_COMPONENTS = {
+
+  'FAQSection': FAQEditor,
+  'JobsSection': JobsEditor,
+  'BlogSection': BlogEditor,
+  'CardsSection': CardsEditor,
+  'LegalSection': LegalEditor,
+  'HomeBanner': HomeBannerEditor,
+  'StoriesSection': StoriesEditor,
+  'ContentSection': ContentEditor,
+  'AddressSection': AddressEditor,
+  'AboutUsSection': AboutUsEditor,
+  'FollowUSSection': FollowUsEditor,
+  'OurActionSection': OurActionEditor,
+  'HeroFigureSection': HeroFigureEditor,
+  'PageBannerSection': PageBannerEditor,
+  'WhereWeWorkSection': WhereWeWorkEditor,
+  'OurProgramsSection': OurProgramsEditor,
+  'ContactReachSection': ContactReachEditor,
+  'ContactOfficeSection': ContactOfficeEditor,
+  'ProgramImpactSection': ProgramImpactEditor,
+  'UpcomingEventsSection': UpcomingEventsEditor,
+};
 
 /**
  * Render Section Data Tab Component
  * Routes to the appropriate editor based on component type
+ * Uses lazy loading to improve performance
  */
 const RenderDataTab = ({ section, hasData, onDataChange }) => {
   // Check if data exists
   if (!hasData || !section?.data || Object.keys(section.data).length === 0) {
     return (
       <div className="space-y-4">
-        <div>
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">Section Data</h3>
-          <SectionDataViewer section={section} hasSectionData={hasData} />
-        </div>
         <div className="text-center py-8 text-gray-400">
           <p className="text-sm">No data available to edit</p>
           <p className="text-xs mt-1">Data will appear here once the section has content</p>
@@ -44,93 +80,33 @@ const RenderDataTab = ({ section, hasData, onDataChange }) => {
     );
   }
 
-  // Route to the appropriate editor based on component type
-  const renderEditor = () => {
-    switch (section.component) {
-      case 'HomeBanner':
-        return <HomeBannerEditor section={section} hasData={hasData} onDataChange={onDataChange} />;
+  // ===== RENDER EDITOR =====
+  // Get the appropriate editor component from the map
+  const EditorComponent = EDITOR_COMPONENTS[section.component];
 
-      case 'PageBannerSection':
-        return <PageBannerEditor section={section} hasData={hasData} onDataChange={onDataChange} />;
+  // If no editor is found for this component type, show fallback
+  if (!EditorComponent) {
+    return (
+      <div className="space-y-4">
+        <div className="text-center py-8 text-gray-400">
+          <p className="text-sm">No editable fields available for this section type</p>
+          <p className="text-xs mt-1">Data viewer is available above</p>
+        </div>
+      </div>
+    );
+  }
 
-      case 'AboutUsSection':
-        return <AboutUsEditor section={section} hasData={hasData} onDataChange={onDataChange} />;
-
-      case 'OurActionSection':
-        return <OurActionEditor section={section} hasData={hasData} onDataChange={onDataChange} />;
-
-      case 'WhereWeWorkSection':
-        return <WhereWeWorkEditor section={section} hasData={hasData} onDataChange={onDataChange} />;
-
-      case 'OurProgramsSection':
-        return <OurProgramsEditor section={section} hasData={hasData} onDataChange={onDataChange} />;
-
-      case 'StoriesSection':
-        return <StoriesEditor section={section} hasData={hasData} onDataChange={onDataChange} />;
-
-      case 'UpcomingEventsSection':
-        return <UpcomingEventsEditor section={section} hasData={hasData} onDataChange={onDataChange} />;
-
-      case 'JobsSection':
-        return <JobsEditor section={section} hasData={hasData} onDataChange={onDataChange} />;
-
-      case 'ProgramImpactSection':
-        return <ProgramImpactEditor section={section} hasData={hasData} onDataChange={onDataChange} />;
-
-      case 'HeroFigureSection':
-        return <HeroFigureEditor section={section} hasData={hasData} onDataChange={onDataChange} />;
-
-      case 'LegalSection':
-        return <LegalEditor section={section} hasData={hasData} onDataChange={onDataChange} />;
-
-      case 'CardsSection':
-        return <CardsEditor section={section} hasData={hasData} onDataChange={onDataChange} />;
-
-      case 'FAQSection':
-        return <FAQEditor section={section} hasData={hasData} onDataChange={onDataChange} />;
-
-      case 'ContentSection':
-        return <ContentEditor section={section} hasData={hasData} onDataChange={onDataChange} />;
-
-      case 'BlogSection':
-        return <BlogEditor section={section} hasData={hasData} onDataChange={onDataChange} />;
-
-      case 'ContactOfficeSection':
-        return <ContactOfficeEditor section={section} hasData={hasData} onDataChange={onDataChange} />;
-
-      case 'ContactReachSection':
-        return <ContactReachEditor section={section} hasData={hasData} onDataChange={onDataChange} />;
-
-      case 'FollowUSSection':
-        return <FollowUsEditor section={section} hasData={hasData} onDataChange={onDataChange} />;
-
-      case 'AddressSection': // Add this case
-        return <AddressEditor section={section} hasData={hasData} onDataChange={onDataChange} />;
-
-      // Add more cases for other components here
-      default:
-        return (
-          <div className="space-y-4">
-            <div>
-              <h3 className="text-sm font-semibold text-gray-700 mb-3">Section Data</h3>
-              <SectionDataViewer section={section} hasSectionData={hasData} />
-            </div>
-            <div className="text-center py-8 text-gray-400">
-              <p className="text-sm">No editable fields available for this section type</p>
-              <p className="text-xs mt-1">Data viewer is available above</p>
-            </div>
-          </div>
-        );
-    }
-  };
-
+  // ===== MAIN RENDER =====
   return (
     <div className="space-y-4">
-      <div>
-        <h3 className="text-sm font-semibold text-gray-700 mb-3">Section Data Viewer</h3>
-        <SectionDataViewer section={section} hasSectionData={hasData} />
-      </div>
-      {renderEditor()}
+      {/* Lazy Loaded Editor - wrapped in Suspense */}
+      <Suspense fallback={<EditorLoader />}>
+        <EditorComponent
+          section={section}
+          hasData={hasData}
+          onDataChange={onDataChange}
+        />
+      </Suspense>
     </div>
   );
 };
